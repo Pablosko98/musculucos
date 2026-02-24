@@ -1,0 +1,42 @@
+export const exercises = [
+  {
+    id: 'leg_press',
+    name: 'Leg Press',
+    description: 'A compound exercise targeting the quadriceps, hamstrings, and glutes.',
+    muscleGroups: ['quadriceps', 'hamstrings', 'glutes'],
+    equipment: 'leg press machine',
+    videoUrl: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
+  },
+  {
+    id: 'calf_raise',
+    name: 'Calf Raise',
+    description: 'An isolation exercise targeting the calf muscles.',
+    muscleGroups: ['calves'],
+    equipment: 'bodyweight or calf raise machine',
+    videoUrl: 'https://www.youtube.com/watch?v=YMmgqO8Jo-k',
+  },
+  {
+    id: 'leg_extension',
+    name: 'Leg Extension',
+    description: 'An isolation exercise targeting the quadriceps.',
+    muscleGroups: ['quadriceps'],
+    equipment: 'leg extension machine',
+    videoUrl: 'https://www.youtube.com/watch?v=YyvSfVjQeL0',
+  },
+  {
+    id: 'bench_press',
+    name: 'Bench Press',
+    description: '',
+    equipment: 'bench press',
+    muscleGroups: ['triceps', 'chest'],
+    videoUrl: '',
+  },
+  {
+    id: 'bicep_curl',
+    name: 'Bicep curl',
+    description: '',
+    equipment: 'dumbbell',
+    muscleGroups: ['triceps', 'chest'],
+    videoUrl: '',
+  },
+];
