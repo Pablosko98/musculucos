@@ -19,6 +19,7 @@
     "@rn-primitives/tabs": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "expo": "~54.0.29",
     "expo-constants": "~18.0.12",
     "expo-linking": "~8.0.10",

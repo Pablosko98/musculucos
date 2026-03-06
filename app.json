@@ -17,7 +17,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pablosko98.musculucos"
     },
     "android": {
       "edgeToEdgeEnabled": true,

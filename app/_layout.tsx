@@ -7,6 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import {
+  SafeAreaFrameContext,
+  SafeAreaProvider,
+  SafeAreaView,
+} from 'react-native-safe-area-context';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -15,15 +20,17 @@ export {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={NAV_THEME['dark']}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
+    <SafeAreaProvider>
+      <ThemeProvider value={NAV_THEME['dark']}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar />
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+          <PortalHost />
+        </GestureHandlerRootView>
         <PortalHost />
-      </GestureHandlerRootView>
-      <PortalHost />
-    </ThemeProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

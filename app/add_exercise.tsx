@@ -54,7 +54,7 @@ export default function AddExercise({ onAdd }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="rounded-full bg-orange-600 py-3" style={{ marginBottom: 20 }}>
+        <Button className="rounded-full bg-orange-600 py-3">
           <Text className="font-bold text-white">+ Add Exercise</Text>
         </Button>
       </DialogTrigger>

@@ -3,215 +3,236 @@ import { Dimensions, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import Carousel from 'react-native-reanimated-carousel';
-import { useState } from 'react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { useRef, useState, useEffect } from 'react';
 import { ScrollView } from 'react-native-gesture-handler';
-import { workouts } from '@/lib/workouts';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
-import { exercises } from '@/lib/exercises';
+import { addDays, format, startOfDay } from 'date-fns';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { ICarouselInstance } from 'react-native-reanimated-carousel';
+
+// Custom imports - Ensure these match your project structure
+import { WorkoutDAL, db, initDB, seedDatabase } from '@/lib/db';
 import AddExercise from '../add_exercise';
 import AddRoutine from '../add_routine';
-import { Input } from '@/components/ui/input';
 
 const { width, height } = Dimensions.get('window');
 
 export default function WorkoutTracker() {
-  const [workoutData, setWorkoutData] = useState(workouts);
+  useEffect(() => {
+    const setup = async () => {
+      try {
+        initDB();
+        // Wait for seeding to finish completely
+        await seedDatabase();
+        // Now fetch the range for the UI
+        await loadDateRange(today);
+      } catch (err) {
+        console.error('Setup error:', err);
+      }
+    };
+    setup();
+    // REMOVE the second useEffect further down in your code
+  }, []);
+  // 1. Storage: Map for O(1) lookups by date string "YYYY-MM-DD"
+  const [workoutMap, setWorkoutMap] = useState<Record<string, any>>({});
+  const fetchedRanges = useRef<Set<string>>(new Set());
+
+  const today = startOfDay(new Date());
+  const ITEM_COUNT = 2000;
+  const INITIAL_INDEX = ITEM_COUNT / 2;
+
+  const insets = useSafeAreaInsets();
+  const carouselRef = useRef<ICarouselInstance>(null);
+
+  // Calculate carousel height to fit within safe areas
+  const CAROUSEL_HEIGHT = height - insets.top - insets.bottom - 100;
+
+  // 2. Optimized Fetcher: Loads a range of dates around the center
+  const loadDateRange = async (centerDate: Date) => {
+    const range = 10; // Days to buffer in each direction
+    const startDate = format(addDays(centerDate, -range), 'yyyy-MM-dd');
+    const endDate = format(addDays(centerDate, range), 'yyyy-MM-dd');
+    const rangeKey = `${startDate}_${endDate}`;
+
+    if (fetchedRanges.current.has(rangeKey)) return;
+
+    try {
+      // Fetch only the IDs/Dates first to see what exists
+      const results: any[] = await db.getAllAsync(
+        'SELECT * FROM workouts WHERE date BETWEEN ? AND ?',
+        [startDate, endDate]
+      );
+
+      const detailedWorkouts: Record<string, any> = {};
+      console.log(results);
+      for (const row of results) {
+        // Fetch nested blocks and events for each found workout
+        detailedWorkouts[row.date] = await WorkoutDAL.getWorkoutByDate(row.date);
+      }
+      console.log(detailedWorkouts);
+
+      setWorkoutMap((prev) => ({ ...prev, ...detailedWorkouts }));
+      fetchedRanges.current.add(rangeKey);
+    } catch (error) {
+      console.error('Failed to fetch workout range:', error);
+    }
+  };
+
+  const handleGoToToday = () => {
+    carouselRef.current?.scrollTo({
+      index: INITIAL_INDEX,
+      animated: true,
+    });
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
+    <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
+      {/* Header Buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-evenly',
+          paddingVertical: 10,
+          zIndex: 50,
+        }}>
+        <Button style={{ backgroundColor: '#6b21a8', width: 140 }}>
+          <Text style={{ color: 'white' }}>Calendar</Text>
+        </Button>
+        <Button style={{ backgroundColor: '#166534', width: 140 }} onPress={handleGoToToday}>
+          <Text style={{ color: 'white' }}>Today</Text>
+        </Button>
+      </View>
+
       <Carousel
-        loop={true}
-        // Set width slightly smaller than screen to see side cards
+        ref={carouselRef}
         width={width}
-        height={height}
-        autoPlay={false}
-        data={[...new Array(14).keys()]}
+        height={CAROUSEL_HEIGHT}
+        data={[...new Array(ITEM_COUNT).keys()]}
+        defaultIndex={INITIAL_INDEX}
+        windowSize={11} // Keeps 5 cards on each side in memory
         mode="parallax"
         modeConfig={{
-          // How much the side cards shrink (0.9 = 90% of size)
-          parallaxScrollingScale: 0.9,
-          // How much of the side cards are visible
-          parallaxScrollingOffset: 50,
-          // Controls how far side cards are pushed away
-          parallaxAdjacentItemScale: 0.8,
+          parallaxScrollingScale: 0.94, // Large center card
+          parallaxScrollingOffset: 40, // Visible "peek" for next/prev days
         }}
-        onSnapToItem={(index) => console.log(index)}
-        renderItem={({ index }) => (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Card
-              style={{
-                backgroundColor: '#121212',
-                // Use a percentage of the slide container, not the screen width
-                height: height * 0.95,
-                width: '100%',
-                borderColor: '#333',
-                borderWidth: 1,
-              }}>
-              <CardHeader>
-                <CardTitle style={{ color: 'white' }}>Day {index + 1}</CardTitle>
-                <CardDescription style={{ color: 'gray' }}>
-                  {index % 7 === 0 ? 'Rest Day' : 'Workout Day'}
-                </CardDescription>
-              </CardHeader>
+        onSnapToItem={(index) => {
+          const newCenterDate = addDays(today, index - INITIAL_INDEX);
+          loadDateRange(newCenterDate);
+        }}
+        renderItem={({ index }) => {
+          const dateForCard = addDays(today, index - INITIAL_INDEX);
+          const dateString = format(dateForCard, 'yyyy-MM-dd');
 
-              <View className="flex-1 items-center justify-center p-4">
-                <View className="w-full flex-1 p-2">
-                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
-                    <Accordion type="multiple" className="w-full">
-                      {workoutData[0].blocks.map((block) => (
-                        <AccordionItem
-                          key={block.id}
-                          value={block.id}
-                          className="mb-3 rounded-xl border border-neutral-800 bg-neutral-900/50">
-                          <AccordionTrigger className="px-4 py-3">
-                            <View className="w-[90%] flex-row items-center justify-between">
-                              <View>
-                                <Text className="text-lg font-bold text-white">{block.name}</Text>
-                                <Text className="text-sm text-muted-foreground">
-                                  {block.sets} sets |{' '}
-                                  {block.events.reduce((total, event) => {
-                                    if (event.type === 'set') {
-                                      return total + (event?.weightKg || 0) * (event?.reps || 0);
-                                    }
-                                    return total;
-                                  }, 0)}{' '}
-                                  kg
-                                </Text>
+          // O(1) Lookup instead of .find()
+          const dailyWorkout = workoutMap[dateString];
+
+          return (
+            <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 10 }}>
+              <Card
+                style={{
+                  backgroundColor: '#121212',
+                  height: '100%',
+                  width: '100%',
+                  borderColor: '#262626',
+                  borderWidth: 1,
+                  borderRadius: 24,
+                  overflow: 'hidden',
+                }}>
+                <CardHeader>
+                  <CardTitle style={{ color: 'white', fontSize: 22 }}>
+                    {format(dateForCard, 'EEEE')}{' '}
+                    {index === INITIAL_INDEX
+                      ? '(Today)'
+                      : index === INITIAL_INDEX + 1
+                        ? '(Tomorrow)'
+                        : index === INITIAL_INDEX - 1
+                          ? '(Yesterday)'
+                          : ''}
+                  </CardTitle>
+                  <CardDescription style={{ color: '#a3a3a3' }}>
+                    {format(dateForCard, 'MMM do, yyyy')}
+                  </CardDescription>
+                  {dailyWorkout?.notes && (
+                    <Text style={{ color: '#737373', marginTop: 4, fontStyle: 'italic' }}>
+                      "{dailyWorkout.notes}"
+                    </Text>
+                  )}
+                </CardHeader>
+
+                <ScrollView className="flex-1 px-4">
+                  {dailyWorkout ? (
+                    dailyWorkout.blocks.map((block: any) => (
+                      <View key={block.id}>
+                        <Text
+                          style={{
+                            color: '#60a5fa',
+                            fontWeight: '700',
+                            fontSize: 16,
+                            marginBottom: 8,
+                          }}>
+                          {block.name}
+                        </Text>
+                        {block.events
+                          .filter((e: any) => e.type === 'set')
+                          .map((set: any, idx: number) => (
+                            <View
+                              key={idx}
+                              style={{
+                                flexDirection: 'row',
+                                marginBottom: 4,
+                                alignItems: 'center',
+                              }}>
+                              <View
+                                style={{
+                                  width: 70,
+                                  height: 24,
+                                  borderRadius: 12,
+                                  backgroundColor: '#262626',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  marginRight: 8,
+                                }}>
+                                <Text style={{ color: 'white', fontSize: 12 }}>{set.dateTime}</Text>
                               </View>
+                              <Text style={{ color: '#e5e5e5', fontSize: 15 }}>
+                                {set.weightKg}kg × {set.reps}
+                                <Text style={{ color: '#737373', fontSize: 13 }}>
+                                  {' '}
+                                  ({set.rep_type})
+                                </Text>
+                              </Text>
                             </View>
-                          </AccordionTrigger>
+                          ))}
+                      </View>
+                    ))
+                  ) : (
+                    <View
+                      style={{
+                        flex: 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: 100,
+                      }}>
+                      <Text style={{ color: '#404040', fontSize: 18, fontWeight: '600' }}>
+                        REST DAY
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
 
-                          <AccordionContent className="px-4 pb-4">
-                            <View className="border-t border-neutral-800 pt-2">
-                              {block.events.map((event, eventIdx) => {
-                                if (event.type === 'rest') {
-                                  return (
-                                    <View
-                                      key={eventIdx}
-                                      className="my-3 flex-row items-center justify-center">
-                                      <View className="h-[1px] flex-1 bg-neutral-800" />
-                                      <Text className="mx-4 text-xs font-bold uppercase tracking-tighter text-orange-500">
-                                        ⏱ {event.durationSeconds}s Rest
-                                      </Text>
-                                      <View className="h-[1px] flex-1 bg-neutral-800" />
-                                    </View>
-                                  );
-                                }
-
-                                // Logic for Exercise/Set events
-                                const isPartial = event.rep_type !== 'full';
-                                return (
-                                  <View
-                                    key={eventIdx}
-                                    className={`flex-row items-center px-2 py-2 ${
-                                      isPartial ? 'border-l-2 border-orange-500/50' : ''
-                                    }`}>
-                                    {/* <Text style={{ width: 60 }}>{event?.dateTime}</Text> */}
-                                    {/* Column 1: Exercise Label (Fixed Width) */}
-                                    <View style={{ width: 80, marginRight: 15 }}>
-                                      {!isPartial && (
-                                        <Text
-                                          numberOfLines={2} // Allows the text to break into a second line
-                                          ellipsizeMode="tail" // Adds '...' if it exceeds 2 lines
-                                          className="text-[10px] font-bold uppercase text-zinc-500"
-                                          style={{
-                                            lineHeight: 12, // Provides enough vertical space for two lines
-                                          }}>
-                                          {event?.exerciseId?.replace(/_/g, ' ')}
-                                        </Text>
-                                      )}
-                                    </View>
-                                    {/* Column 2: Weight (Fixed Width & Right Aligned) */}
-                                    <View style={{ flexDirection: 'row' }}>
-                                      <Input
-                                        style={{ width: 60 }}
-                                        className="text-base font-bold text-white"
-                                        keyboardType="numeric"
-                                        maxLength={4}
-                                        textAlign="center"
-                                        selectTextOnFocus>
-                                        {event.weightKg}
-                                      </Input>
-                                      <Text
-                                        className="ml-0.5 text-[10px] text-zinc-500"
-                                        style={{
-                                          textAlignVertical: 'center',
-                                          marginLeft: 5,
-                                          marginRight: 10,
-                                        }}>
-                                        kg
-                                      </Text>
-                                    </View>
-
-                                    {/* Column 3: Multiplication Sign (Visual separator) */}
-                                    <View
-                                      style={{ width: 5, marginRight: 5 }}
-                                      className="items-center">
-                                      <Text className="text-xs text-zinc-600">×</Text>
-                                    </View>
-
-                                    {/* Column 4: Reps & Type (Fixed Width) */}
-                                    <View style={{ width: 100 }} className="flex-row items-center">
-                                      <View
-                                        className={`flex-row items-center rounded px-2 py-1 ${isPartial ? 'bg-orange-500/20' : 'bg-blue-500/20'}`}
-                                        style={{ width: 120, minHeight: 40 }} // Increased min-height to accommodate two lines
-                                      >
-                                        {/* The Number */}
-                                        <Input
-                                          selectTextOnFocus
-                                          keyboardType="numeric"
-                                          maxLength={2}
-                                          style={{
-                                            width: 50,
-                                            textAlign: 'center',
-                                            marginRight: 4,
-                                          }}>
-                                          {event.reps}
-                                        </Input>
-
-                                        {/* The Label (will wrap "Top Half" into two lines) */}
-                                        <Text
-                                          className={`text-[10px] font-bold leading-3 ${isPartial ? 'text-orange-400' : 'text-blue-400'}`}
-                                          style={{
-                                            flex: 1, // Takes up remaining space
-                                            flexWrap: 'wrap', // Forces text to next line if it hits the edge
-                                            textAlign: 'center',
-                                          }}>
-                                          {isPartial ? event?.rep_type : 'REPS'}
-                                        </Text>
-                                      </View>
-                                    </View>
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </ScrollView>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-evenly',
+                    alignItems: 'center',
+                    alignContent: 'center',
+                  }}>
+                  <AddExercise onAdd={() => {}} />
+                  <AddRoutine onAdd={() => {}} />
                 </View>
-                <AddExercise onAdd={() => {}} />
-                <AddRoutine onAdd={() => {}} />
-              </View>
-            </Card>
-          </View>
-        )}
+              </Card>
+            </View>
+          );
+        }}
       />
     </View>
   );

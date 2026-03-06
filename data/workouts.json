@@ -1,0 +1,256 @@
+[
+  {
+    "id": "1",
+    "date": "2026-03-05",
+    "durationSeconds": 3600,
+    "notes": "Felt strong today, increased weight on leg press.",
+    "blocks": [
+      {
+        "id": "block1",
+        "order": 1,
+        "type": "superset",
+        "name": "Leg press + calf raise",
+        "exerciseIds": ["leg_press", "calf_raise"],
+        "sets": 2,
+        "dateTime": "10:00:00",
+        "events": [
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 1,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 10,
+            "rpe": 8,
+            "dateTime": "10:02:00"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 1,
+            "weightKg": 50,
+            "rep_type": "full",
+            "reps": 15,
+            "rpe": 8,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "rest",
+            "durationSeconds": 60
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 9,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "Top half",
+            "reps": 1,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 2,
+            "weightKg": 50,
+            "rep_type": "full",
+            "reps": 15,
+            "rpe": 9,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 2,
+            "weightKg": 50,
+            "rep_type": "Bottom half",
+            "reps": 2,
+            "rpe": 9,
+            "dateTime": "10:02:30"
+          }
+        ]
+      },
+      {
+        "id": "block2",
+        "order": 2,
+        "type": "single",
+        "name": "Leg extension",
+        "exerciseIds": ["leg_extension"],
+        "sets": 2,
+        "events": [
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 1,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 10,
+            "rpe": 8,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "rest",
+            "durationSeconds": 60
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 9,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "Top half",
+            "reps": 1,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "date": "2026-03-06",
+    "durationSeconds": 3600,
+    "notes": "Felt strong today, increased weight on leg press.",
+    "blocks": [
+      {
+        "id": "block1",
+        "order": 1,
+        "type": "superset",
+        "name": "Leg press + calf raise",
+        "exerciseIds": ["leg_press", "calf_raise"],
+        "sets": 2,
+        "dateTime": "10:00:00",
+        "events": [
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 1,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 10,
+            "rpe": 8,
+            "dateTime": "10:02:00"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 1,
+            "weightKg": 50,
+            "rep_type": "full",
+            "reps": 15,
+            "rpe": 8,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "rest",
+            "durationSeconds": 60
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 9,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_press",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "Top half",
+            "reps": 1,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 2,
+            "weightKg": 50,
+            "rep_type": "full",
+            "reps": 15,
+            "rpe": 9,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "calf_raise",
+            "setIndex": 2,
+            "weightKg": 50,
+            "rep_type": "Bottom half",
+            "reps": 2,
+            "rpe": 9,
+            "dateTime": "10:02:30"
+          }
+        ]
+      },
+      {
+        "id": "block2",
+        "order": 2,
+        "type": "single",
+        "name": "Leg extension",
+        "exerciseIds": ["leg_extension"],
+        "sets": 2,
+        "events": [
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 1,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 10,
+            "rpe": 8,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "rest",
+            "durationSeconds": 60
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "full",
+            "reps": 9,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          },
+          {
+            "type": "set",
+            "exerciseId": "leg_extension",
+            "setIndex": 2,
+            "weightKg": 100,
+            "rep_type": "Top half",
+            "reps": 1,
+            "rpe": 9.5,
+            "dateTime": "10:02:30"
+          }
+        ]
+      }
+    ]
+  }
+]
