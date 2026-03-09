@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import Carousel from 'react-native-reanimated-carousel';
 import { useRef, useState, useEffect } from 'react';
-import { ScrollView } from 'react-native-gesture-handler';
+import { Pressable, ScrollView } from 'react-native-gesture-handler';
 import { addDays, format, startOfDay } from 'date-fns';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ICarouselInstance } from 'react-native-reanimated-carousel';
@@ -13,6 +13,14 @@ import type { ICarouselInstance } from 'react-native-reanimated-carousel';
 import { WorkoutDAL, db, initDB, seedDatabase } from '@/lib/db';
 import AddExercise from '../add_exercise';
 import AddRoutine from '../add_routine';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Edit } from 'lucide-react-native';
+import ViewExerciseBlock from '../view_exercise_block';
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,12 +71,10 @@ export default function WorkoutTracker() {
       );
 
       const detailedWorkouts: Record<string, any> = {};
-      console.log(results);
       for (const row of results) {
         // Fetch nested blocks and events for each found workout
         detailedWorkouts[row.date] = await WorkoutDAL.getWorkoutByDate(row.date);
       }
-      console.log(detailedWorkouts);
 
       setWorkoutMap((prev) => ({ ...prev, ...detailedWorkouts }));
       fetchedRanges.current.add(rangeKey);
@@ -76,6 +82,34 @@ export default function WorkoutTracker() {
       console.error('Failed to fetch workout range:', error);
     }
   };
+
+  const saveEditedBlock = async (dateString: string, updatedBlock: any) => {
+  try {
+    const workout = workoutMap[dateString];
+    if (!workout) return;
+
+    const updatedWorkout = JSON.parse(JSON.stringify(workout));
+    const blockIndex = updatedWorkout.blocks.findIndex((b: any) => b.id === updatedBlock.id);
+
+    if (blockIndex !== -1) {
+      updatedWorkout.blocks[blockIndex] = updatedBlock;
+
+      // Persist all events in this block to DB
+      for (const event of updatedBlock.events) {
+        await WorkoutDAL.updateEvent(event.id, event);
+      }
+
+      setWorkoutMap((prev) => ({
+        ...prev,
+        [dateString]: updatedWorkout,
+      }));
+      
+      console.log(`Successfully updated block: ${updatedBlock.name}`);
+    }
+  } catch (error) {
+    console.error('Save failed:', error);
+  }
+};
 
   const handleGoToToday = () => {
     carouselRef.current?.scrollTo({
@@ -127,6 +161,9 @@ export default function WorkoutTracker() {
 
           return (
             <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 10 }}>
+              <Accordion type="single">
+                <AccordionItem value={''}></AccordionItem>
+              </Accordion>
               <Card
                 style={{
                   backgroundColor: '#121212',
@@ -161,48 +198,19 @@ export default function WorkoutTracker() {
                 <ScrollView className="flex-1 px-4">
                   {dailyWorkout ? (
                     dailyWorkout.blocks.map((block: any) => (
-                      <View key={block.id}>
-                        <Text
-                          style={{
-                            color: '#60a5fa',
-                            fontWeight: '700',
-                            fontSize: 16,
-                            marginBottom: 8,
-                          }}>
-                          {block.name}
-                        </Text>
-                        {block.events
-                          .filter((e: any) => e.type === 'set')
-                          .map((set: any, idx: number) => (
-                            <View
-                              key={idx}
-                              style={{
-                                flexDirection: 'row',
-                                marginBottom: 4,
-                                alignItems: 'center',
-                              }}>
-                              <View
-                                style={{
-                                  width: 70,
-                                  height: 24,
-                                  borderRadius: 12,
-                                  backgroundColor: '#262626',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  marginRight: 8,
-                                }}>
-                                <Text style={{ color: 'white', fontSize: 12 }}>{set.dateTime}</Text>
-                              </View>
-                              <Text style={{ color: '#e5e5e5', fontSize: 15 }}>
-                                {set.weightKg}kg × {set.reps}
-                                <Text style={{ color: '#737373', fontSize: 13 }}>
-                                  {' '}
-                                  ({set.rep_type})
-                                </Text>
-                              </Text>
+                      <Accordion type="single" key={block.id}>
+                        <AccordionItem value="">
+                          <AccordionTrigger>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text>{block.name}</Text>
+                              <Text> - {block.datetime}</Text>
                             </View>
-                          ))}
-                      </View>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <ViewExerciseBlock exerciseBlock={block} saveEditedBlock={saveEditedBlock} dateString={dateString} />
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
                     ))
                   ) : (
                     <View

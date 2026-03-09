@@ -121,7 +121,7 @@ export default function WorkoutTracker() {
                                     className={`flex-row items-center px-2 py-2 ${
                                       isPartial ? 'border-l-2 border-orange-500/50' : ''
                                     }`}>
-                                    {/* <Text style={{ width: 60 }}>{event?.dateTime}</Text> */}
+                                    {/* <Text style={{ width: 60 }}>{event?.datetime}</Text> */}
                                     {/* Column 1: Exercise Label (Fixed Width) */}
                                     <View style={{ width: 80, marginRight: 15 }}>
                                       {!isPartial && (

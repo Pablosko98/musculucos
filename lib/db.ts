@@ -26,7 +26,7 @@ export const initDB = () => {
       name TEXT,
       exerciseIds TEXT, -- Stored as stringified JSON
       sets INTEGER,
-      dateTime TEXT,
+      datetime TEXT,
       FOREIGN KEY (workoutId) REFERENCES workouts (id) ON DELETE CASCADE
     );
 
@@ -41,13 +41,33 @@ export const initDB = () => {
       reps INTEGER,
       rpe REAL,
       durationSeconds INTEGER, -- for rest events
-      dateTime TEXT,
+      datetime TEXT,
       FOREIGN KEY (blockId) REFERENCES blocks (id) ON DELETE CASCADE
     );
   `);
 };
 
 export const WorkoutDAL = {
+  async updateEvent(eventId: number, updates: any) {
+    try {
+      await db.runAsync(
+        `UPDATE events 
+         SET weightKg = ?, reps = ?, rpe = ?, durationSeconds = ?, type = ?
+         WHERE id = ?`,
+        [
+          updates.weightKg,
+          updates.reps,
+          updates.rpe,
+          updates.durationSeconds,
+          updates.type,
+          eventId
+        ]
+      );
+    } catch (error) {
+      console.error('DB Update Error:', error);
+      throw error;
+    }
+  },
   // Save a full workout object from your JSON format
   async saveFullWorkout(workout: any) {
     try {
@@ -60,7 +80,7 @@ export const WorkoutDAL = {
       for (const block of workout.blocks) {
         // 2. Insert Block
         await db.runAsync(
-          'INSERT OR REPLACE INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, dateTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
             block.id,
             workout.id,
@@ -69,7 +89,7 @@ export const WorkoutDAL = {
             block.name,
             JSON.stringify(block.exerciseIds),
             block.sets,
-            block.dateTime,
+            block.datetime,
           ]
         );
 
@@ -77,7 +97,7 @@ export const WorkoutDAL = {
         for (const event of block.events) {
           await db.runAsync(
             `INSERT INTO events 
-            (blockId, type, exerciseId, setIndex, weightKg, rep_type, reps, rpe, durationSeconds, dateTime) 
+            (blockId, type, exerciseId, setIndex, weightKg, rep_type, reps, rpe, durationSeconds, datetime) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               block.id,
@@ -89,7 +109,7 @@ export const WorkoutDAL = {
               event.reps,
               event.rpe,
               event.durationSeconds,
-              event.dateTime,
+              event.datetime,
             ]
           );
         }
@@ -142,4 +162,6 @@ export const seedDatabase = async () => {
   } catch (error) {
     console.error('Seeding failed:', error);
   }
+  
 };
+

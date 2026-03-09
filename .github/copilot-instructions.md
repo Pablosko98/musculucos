@@ -1,9 +1,11 @@
 # Musculucos AI Agent Instructions
 
 ## Project Overview
+
 **Musculucos** is a React Native workout tracking and routine-building mobile app built with Expo, Expo Router, and Nativewind (Tailwind CSS). It's a cross-platform app running on iOS, Android, and Web.
 
 ### Tech Stack
+
 - **Framework**: Expo with React Router for navigation
 - **Styling**: Nativewind (Tailwind CSS for React Native) + React Native Reusables
 - **State Management**: React hooks (useState) - no external store (Redux/Context) currently
@@ -14,6 +16,7 @@
 ## Architecture & Key Patterns
 
 ### File Structure
+
 - `lib/` - Domain logic and data:
   - `workouts.ts` - Workout data with complex nested structure (blocks, events)
   - `exercises.ts` - Exercise definitions (name, muscleGroups, equipment, videoUrl)
@@ -29,14 +32,17 @@
 ### Data Models
 
 **Workout** (from [lib/workouts.ts](lib/workouts.ts)):
-- Top level: `dateTime`, `durationSeconds`, `notes`, `blocks[]`
+
+- Top level: `datetime`, `durationSeconds`, `notes`, `blocks[]`
 - Blocks have `type` ('superset' or 'single'), `exerciseIds[]`, `sets` count
 - Events array captures actual performance: `type` ('set'|'rest'), `exerciseId`, `setIndex`, `weightKg`, `reps`, `rpe`, `rep_type` ('full'|'top_half'|'bottom_half')
 
 **Exercise** (from [lib/exercises.ts](lib/exercises.ts)):
+
 - Properties: `id`, `name`, `description`, `muscleGroups[]`, `equipment`, `videoUrl`
 
 ### UI Composition Pattern
+
 - Main screens import domain data from `lib/` directly
 - Use React Native Reusables UI primitives wrapped with Tailwind styling
 - Dialog components for modals (AddRoutine, AddExercise partially implemented)
@@ -46,6 +52,7 @@
 ## Development Workflow
 
 ### Running the App
+
 ```bash
 npm run dev                    # Start Expo dev server
 npm run android               # Run on Android emulator/device
@@ -54,13 +61,17 @@ npm run web                   # Run in browser
 ```
 
 ### Adding UI Components
+
 Components use React Native Reusables library. To add new primitives:
+
 ```bash
 npx react-native-reusables/cli@latest add [component-name]
 ```
+
 Example: `npx react-native-reusables/cli@latest add select` (used in tracker view)
 
 ### Build & Deploy
+
 - Uses Expo Application Services (EAS) for builds and deployment
 - New Architecture and Edge-to-Edge enabled in Android
 
@@ -72,7 +83,7 @@ Example: `npx react-native-reusables/cli@latest add select` (used in tracker vie
 
 3. **Typing**: Strict TypeScript enabled. Path alias `@/*` maps to root. Use `@/lib/` and `@/components/` imports.
 
-4. **Theme System**: 
+4. **Theme System**:
    - Import `NAV_THEME` from `@/lib/theme` for navigation
    - Custom colors available in theme.ts (e.g., `chart1`, `chart2` for data viz)
    - Currently defaults to dark theme in root layout
@@ -92,12 +103,14 @@ Example: `npx react-native-reusables/cli@latest add select` (used in tracker vie
 - **Handle navigation**: Use `useRouter()` from Expo Router (`expo-router`)
 
 ## Known Incomplete Areas
+
 - SQLite integration configured but not wired to UI
 - AddExercise and AddRoutine dialogs return empty/placeholder implementations
 - Workout builder (tabs/workout_builder.tsx) needs population
 - No state persistence between app sessions yet
 
 ## Debugging Notes
+
 - App runs via Expo with metro bundler (metro.config.js configured)
 - Android builds: device available at `192.168.1.160:44139` (from terminal context)
 - Use `npm run clean` to reset node_modules and .expo cache if build fails

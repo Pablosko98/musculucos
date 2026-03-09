@@ -12,7 +12,7 @@
         "name": "Leg press + calf raise",
         "exerciseIds": ["leg_press", "calf_raise"],
         "sets": 2,
-        "dateTime": "10:00:00",
+        "datetime": "10:00:00",
         "events": [
           {
             "type": "set",
@@ -22,7 +22,7 @@
             "rep_type": "full",
             "reps": 10,
             "rpe": 8,
-            "dateTime": "10:02:00"
+            "datetime": "10:02:00"
           },
           {
             "type": "set",
@@ -32,7 +32,7 @@
             "rep_type": "full",
             "reps": 15,
             "rpe": 8,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "rest",
@@ -46,7 +46,7 @@
             "rep_type": "full",
             "reps": 9,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -56,7 +56,7 @@
             "rep_type": "Top half",
             "reps": 1,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -66,7 +66,7 @@
             "rep_type": "full",
             "reps": 15,
             "rpe": 9,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -76,7 +76,7 @@
             "rep_type": "Bottom half",
             "reps": 2,
             "rpe": 9,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           }
         ]
       },
@@ -96,7 +96,7 @@
             "rep_type": "full",
             "reps": 10,
             "rpe": 8,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "rest",
@@ -110,7 +110,7 @@
             "rep_type": "full",
             "reps": 9,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -120,7 +120,7 @@
             "rep_type": "Top half",
             "reps": 1,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           }
         ]
       }
@@ -139,7 +139,7 @@
         "name": "Leg press + calf raise",
         "exerciseIds": ["leg_press", "calf_raise"],
         "sets": 2,
-        "dateTime": "10:00:00",
+        "datetime": "10:00:00",
         "events": [
           {
             "type": "set",
@@ -149,7 +149,7 @@
             "rep_type": "full",
             "reps": 10,
             "rpe": 8,
-            "dateTime": "10:02:00"
+            "datetime": "10:02:00"
           },
           {
             "type": "set",
@@ -159,7 +159,7 @@
             "rep_type": "full",
             "reps": 15,
             "rpe": 8,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "rest",
@@ -173,7 +173,7 @@
             "rep_type": "full",
             "reps": 9,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -183,7 +183,7 @@
             "rep_type": "Top half",
             "reps": 1,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -193,7 +193,7 @@
             "rep_type": "full",
             "reps": 15,
             "rpe": 9,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -203,7 +203,7 @@
             "rep_type": "Bottom half",
             "reps": 2,
             "rpe": 9,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           }
         ]
       },
@@ -223,7 +223,7 @@
             "rep_type": "full",
             "reps": 10,
             "rpe": 8,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "rest",
@@ -237,7 +237,7 @@
             "rep_type": "full",
             "reps": 9,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           },
           {
             "type": "set",
@@ -247,7 +247,7 @@
             "rep_type": "Top half",
             "reps": 1,
             "rpe": 9.5,
-            "dateTime": "10:02:30"
+            "datetime": "10:02:30"
           }
         ]
       }
