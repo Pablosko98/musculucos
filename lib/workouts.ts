@@ -2,7 +2,7 @@
 export const workouts = [
   {
     id: '124141234',
-    date: '2026-03-09',
+    date: '2026-03-12',
     durationSeconds: 3600,
     notes: 'Felt strong today, increased weight on leg press.',
     blocks: [
@@ -134,7 +134,7 @@ export const workouts = [
   },
   {
     id: '21241241234',
-    date: '2026-03-08',
+    date: '2026-03-',
     durationSeconds: 3600,
     notes: 'Ok workout',
     blocks: [

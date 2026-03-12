@@ -198,19 +198,8 @@ export default function WorkoutTracker() {
                 <ScrollView className="flex-1 px-4">
                   {dailyWorkout ? (
                     dailyWorkout.blocks.map((block: any) => (
-                      <Accordion type="single" key={block.id}>
-                        <AccordionItem value="">
-                          <AccordionTrigger>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text>{block.name}</Text>
-                              <Text> - {block.datetime}</Text>
-                            </View>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <ViewExerciseBlock exerciseBlock={block} saveEditedBlock={saveEditedBlock} dateString={dateString} />
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
+                    <ViewExerciseBlock key={block.id} exerciseBlock={block} saveEditedBlock={saveEditedBlock} dateString={dateString} />
+
                     ))
                   ) : (
                     <View
