@@ -5,7 +5,7 @@ export const exercises = [
     description: 'A compound exercise targeting the quadriceps, hamstrings, and glutes.',
     muscleGroups: ['quadriceps', 'hamstrings', 'glutes'],
     equipment: 'leg press machine',
-    videoUrl: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
+    videoUrl: 'https://www.youtube.com/shorts/EotSw18oR9w',
   },
   {
     id: 'calf_raise',
@@ -13,7 +13,7 @@ export const exercises = [
     description: 'An isolation exercise targeting the calf muscles.',
     muscleGroups: ['calves'],
     equipment: 'bodyweight or calf raise machine',
-    videoUrl: 'https://www.youtube.com/watch?v=YMmgqO8Jo-k',
+    videoUrl: 'https://www.youtube.com/shorts/wdOkFomQNp8',
   },
   {
     id: 'leg_extension',
@@ -21,7 +21,7 @@ export const exercises = [
     description: 'An isolation exercise targeting the quadriceps.',
     muscleGroups: ['quadriceps'],
     equipment: 'leg extension machine',
-    videoUrl: 'https://www.youtube.com/watch?v=YyvSfVjQeL0',
+    videoUrl: 'https://www.youtube.com/shorts/uM86QE59Tgc',
   },
   {
     id: 'bench_press',
@@ -29,7 +29,7 @@ export const exercises = [
     description: '',
     equipment: 'bench press',
     muscleGroups: ['triceps', 'chest'],
-    videoUrl: '',
+    videoUrl: 'https://www.youtube.com/shorts/5NStATS0zrw',
   },
   {
     id: 'bicep_curl',
@@ -37,6 +37,6 @@ export const exercises = [
     description: '',
     equipment: 'dumbbell',
     muscleGroups: ['triceps', 'chest'],
-    videoUrl: '',
+    videoUrl: 'https://www.youtube.com/shorts/MKWBV29S6c0',
   },
 ];

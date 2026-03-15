@@ -26,7 +26,7 @@ interface exercise {
 export default function AddExercise({ onAdd }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSupersetMode, setIsSupersetMode] = useState(false);
-  const [staged, setStaged] = useState([]);
+  const [staged, setStaged] = useState<exercise[]>([]);
   const [open, setOpen] = useState(false);
 
   const filtered = useMemo(
@@ -34,14 +34,36 @@ export default function AddExercise({ onAdd }) {
     [searchQuery]
   );
 
-  const handleSelect = (exercise: exercise) => {
+  const displayedExercises = useMemo(() => {
+    if (!isSupersetMode) {
+      return filtered;
+    }
+    const stagedIds = staged.map((s) => s.id);
+    const unstagedFiltered = filtered.filter((ex) => !stagedIds.includes(ex.id));
+    return [...staged, ...unstagedFiltered];
+  }, [staged, filtered, isSupersetMode]);
+
+  const handleSelect = async (exercise: exercise) => {
     if (isSupersetMode) {
-      setStaged([...staged, exercise]);
+      const alreadyStaged = staged.find((s) => s.id === exercise.id);
+      if (alreadyStaged) {
+        setStaged(staged.filter((s) => s.id !== exercise.id));
+      } else {
+        setStaged([...staged, exercise]);
+      }
     } else {
       // 99% Use Case: Add one and GTFO
-      onAdd([exercise]);
+      await onAdd([exercise]);
       resetAndClose();
     }
+  };
+
+  const handleSupersetToggle = () => {
+    const newMode = !isSupersetMode;
+    if (!newMode) {
+      setStaged([]);
+    }
+    setIsSupersetMode(newMode);
   };
 
   const resetAndClose = () => {
@@ -65,7 +87,7 @@ export default function AddExercise({ onAdd }) {
           <DialogTitle className="text-white">Add Movement</DialogTitle>
           <TouchableOpacity
             style={{ marginLeft: 10 }}
-            onPress={() => setIsSupersetMode(!isSupersetMode)}
+            onPress={handleSupersetToggle}
             className={`flex-row items-center rounded-full px-3 py-1 ${isSupersetMode ? 'bg-orange-500' : 'bg-neutral-800'}`}>
             <Link size={14} color="white" />
             <Text className="ml-1 text-xs font-bold text-white">
@@ -91,41 +113,37 @@ export default function AddExercise({ onAdd }) {
           )}
         </View>
 
-        {/* Selected Chain (Only shows if building superset) */}
-        {staged.length > 0 && (
-          <View className="flex-row flex-wrap gap-2 border-b border-orange-500/20 bg-orange-500/10 px-4 py-2">
-            {staged.map((s, i) => (
-              <Text key={i} className="text-xs font-bold text-orange-400">
-                {s.name}
-                {i < staged.length - 1 ? ' + ' : ''}
-              </Text>
-            ))}
-          </View>
-        )}
-
         <ScrollView className="flex-1">
-          {filtered.map((ex) => (
-            <TouchableOpacity
-              key={ex.id}
-              onPress={() => handleSelect(ex)}
-              className="flex-row items-center justify-between border-b border-neutral-900 px-5 py-4 active:bg-neutral-800">
-              <View>
-                <Text className="text-lg font-medium text-white">{ex.name}</Text>
-                <Text className="text-xs uppercase tracking-widest text-neutral-500">
-                  {ex.muscleGroup}
-                </Text>
-              </View>
-              <ChevronRight size={20} color="#3f3f46" />
-            </TouchableOpacity>
-          ))}
+          {displayedExercises.map((ex) => {
+            const isStaged = staged.some((s) => s.id === ex.id);
+            return (
+              <TouchableOpacity
+                key={ex.id}
+                onPress={() => handleSelect(ex)}
+                className={`flex-row items-center justify-between border-b border-neutral-900 px-5 py-4 active:bg-neutral-800 ${
+                  isStaged ? 'bg-orange-500/10' : ''
+                }`}>
+                <View>
+                  <Text
+                    className={`text-lg font-medium ${isStaged ? 'text-orange-400' : 'text-white'}`}>
+                    {ex.name}
+                  </Text>
+                  <Text className="text-xs uppercase tracking-widest text-neutral-500">
+                    {ex.muscleGroup}
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#3f3f46" />
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {isSupersetMode && staged.length > 0 && (
           <View className="border-t border-neutral-800 p-4">
             <Button
               className="w-full bg-orange-600"
-              onPress={() => {
-                onAdd(staged);
+              onPress={async () => {
+                await onAdd(staged);
                 resetAndClose();
               }}>
               <Text className="font-bold text-white">Finish Superset ({staged.length})</Text>

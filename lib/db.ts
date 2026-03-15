@@ -4,10 +4,11 @@ import { workouts } from './workouts';
 export const db = SQLite.openDatabaseSync('workouts.db');
 
 export const initDB = () => {
-  // UNCOMMENT THESE LINES ONCE TO WIPE THE DB, THEN COMMENT THEM OUT AGAIN
+  // Toggle these to wipe the DB during development
   db.execSync('DROP TABLE IF EXISTS events;');
   db.execSync('DROP TABLE IF EXISTS blocks;');
   db.execSync('DROP TABLE IF EXISTS workouts;');
+
   db.execSync(`
     PRAGMA foreign_keys = ON;
     
@@ -24,7 +25,7 @@ export const initDB = () => {
       [order] INTEGER,
       type TEXT,
       name TEXT,
-      exerciseIds TEXT, -- Stored as stringified JSON
+      exerciseIds TEXT, 
       sets INTEGER,
       datetime TEXT,
       FOREIGN KEY (workoutId) REFERENCES workouts (id) ON DELETE CASCADE
@@ -33,14 +34,14 @@ export const initDB = () => {
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       blockId TEXT NOT NULL,
-      type TEXT, -- 'set' or 'rest'
+      type TEXT, 
       exerciseId TEXT,
-      setIndex INTEGER,
+      parentEventId TEXT, -- Used to group subSets together
       weightKg REAL,
       rep_type TEXT,
       reps INTEGER,
       rpe REAL,
-      durationSeconds INTEGER, -- for rest events
+      durationSeconds INTEGER, 
       datetime TEXT,
       FOREIGN KEY (blockId) REFERENCES blocks (id) ON DELETE CASCADE
     );
@@ -54,31 +55,22 @@ export const WorkoutDAL = {
         `UPDATE events 
          SET weightKg = ?, reps = ?, rpe = ?, durationSeconds = ?, type = ?
          WHERE id = ?`,
-        [
-          updates.weightKg,
-          updates.reps,
-          updates.rpe,
-          updates.durationSeconds,
-          updates.type,
-          eventId
-        ]
+        [updates.weightKg, updates.reps, updates.rpe, updates.durationSeconds, updates.type, eventId]
       );
     } catch (error) {
       console.error('DB Update Error:', error);
       throw error;
     }
   },
-  // Save a full workout object from your JSON format
+
   async saveFullWorkout(workout: any) {
     try {
-      // 1. Insert Workout
       await db.runAsync(
         'INSERT OR REPLACE INTO workouts (id, date, durationSeconds, notes) VALUES (?, ?, ?, ?)',
         [workout.id, workout.date, workout.durationSeconds, workout.notes]
       );
 
       for (const block of workout.blocks) {
-        // 2. Insert Block
         await db.runAsync(
           'INSERT OR REPLACE INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
@@ -93,25 +85,26 @@ export const WorkoutDAL = {
           ]
         );
 
-        // 3. Insert Events for this block
         for (const event of block.events) {
-          await db.runAsync(
-            `INSERT INTO events 
-            (blockId, type, exerciseId, setIndex, weightKg, rep_type, reps, rpe, durationSeconds, datetime) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              block.id,
-              event.type,
-              event.exerciseId,
-              event.setIndex,
-              event.weightKg,
-              event.rep_type,
-              event.reps,
-              event.rpe,
-              event.durationSeconds,
-              event.datetime,
-            ]
-          );
+          if (event.type === 'set' && event.subSets) {
+            // Create a unique ID for this specific "Set Group" (Superset)
+            const parentEventId = `group_${block.id}_${event.datetime}`;
+            
+            for (const sub of event.subSets) {
+              await db.runAsync(
+                `INSERT INTO events 
+                (blockId, type, exerciseId, parentEventId, weightKg, rep_type, reps, rpe, datetime) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [block.id, 'set', sub.exerciseId, parentEventId, sub.weightKg, sub.rep_type, sub.reps, sub.rpe, sub.datetime]
+              );
+            }
+          } else {
+            // Handle Rest events
+            await db.runAsync(
+              `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
+              [block.id, 'rest', event.durationSeconds, event.datetime]
+            );
+          }
         }
       }
     } catch (error) {
@@ -119,29 +112,50 @@ export const WorkoutDAL = {
     }
   },
 
-  // Fetch a full workout for a specific date and reconstruct the JSON shape
   async getWorkoutByDate(date: string) {
     const workout: any = await db.getFirstAsync('SELECT * FROM workouts WHERE date = ?', [date]);
     if (!workout) return null;
 
-    // 1. Fetch all blocks for this workout
     const blocks: any[] = await db.getAllAsync(
       'SELECT * FROM blocks WHERE workoutId = ? ORDER BY [order] ASC',
       [workout.id]
     );
 
-    // 2. Use Promise.all to fetch events for EVERY block simultaneously
     const blocksWithEvents = await Promise.all(
       blocks.map(async (block) => {
-        const events = await db.getAllAsync(
+        const rows: any[] = await db.getAllAsync(
           'SELECT * FROM events WHERE blockId = ? ORDER BY id ASC',
           [block.id]
         );
 
+        // Group the flat rows back into the nested structure the UI expects
+        const formattedEvents: any[] = [];
+        const groupMap: Record<string, any> = {};
+
+        rows.forEach((row) => {
+          if (row.type === 'set' && row.parentEventId) {
+            if (!groupMap[row.parentEventId]) {
+              groupMap[row.parentEventId] = {
+                id: row.parentEventId,
+                type: 'set',
+                datetime: row.datetime,
+                subSets: [],
+              };
+              formattedEvents.push(groupMap[row.parentEventId]);
+            }
+            groupMap[row.parentEventId].subSets.push({
+              ...row,
+              id: row.id.toString(), // Ensure subSet has a unique string ID for React keys
+            });
+          } else if (row.type === 'rest') {
+            formattedEvents.push({ ...row, id: row.id.toString() });
+          }
+        });
+
         return {
           ...block,
           exerciseIds: block.exerciseIds ? JSON.parse(block.exerciseIds) : [],
-          events: events || [],
+          events: formattedEvents,
         };
       })
     );
@@ -152,16 +166,18 @@ export const WorkoutDAL = {
 
 export const seedDatabase = async () => {
   try {
-    console.log('Seeding test data...');
-    const testData = workouts;
+    // const existing = await db.getFirstAsync('SELECT id FROM workouts LIMIT 1');
+    // if (existing) {
+    //     console.log('Database already seeded.');
+    //     return;
+    // }
 
-    for (const workout of testData) {
+    console.log('Seeding test data...');
+    for (const workout of workouts) {
       await WorkoutDAL.saveFullWorkout(workout);
     }
     console.log('Seeding complete!');
   } catch (error) {
     console.error('Seeding failed:', error);
   }
-  
 };
-
