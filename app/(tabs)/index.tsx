@@ -109,6 +109,7 @@ export default function WorkoutTracker() {
           await WorkoutDAL.updateEvent(event.id, event);
         }
         setWorkoutMap((prev) => ({ ...prev, [dateString]: updatedWorkout }));
+        await WorkoutDAL.saveFullWorkout(updatedWorkout);
       }
     } catch (error) {
       console.error('Save failed:', error);
@@ -144,7 +145,6 @@ export default function WorkoutTracker() {
     };
 
     setWorkoutMap((prev) => ({ ...prev, [dateString]: updatedWorkout }));
-    
     await WorkoutDAL.saveFullWorkout(updatedWorkout);
 
     const finalWorkoutState = await WorkoutDAL.getWorkoutByDate(dateString);
@@ -167,7 +167,18 @@ export default function WorkoutTracker() {
   };
 
   const handleGoToToday = () => {
-    carouselRef.current?.scrollTo({ index: INITIAL_INDEX, animated: true });
+    const currentIndex = carouselRef.current?.getCurrentIndex() || 0;
+    
+    // Calculate the distance. 
+    // If currentIndex is 1005 and INITIAL_INDEX is 1000, shift is -5.
+    const shift = INITIAL_INDEX - currentIndex;
+
+    if (shift === 0) return; // Already there
+
+    carouselRef.current?.scrollTo({
+      count: shift, // Forces the direction based on the math
+      animated: true,
+    });
   };
 
   return (

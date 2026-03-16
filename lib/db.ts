@@ -5,9 +5,9 @@ export const db = SQLite.openDatabaseSync('workouts.db');
 
 export const initDB = () => {
   // Toggle these to wipe the DB during development
-  db.execSync('DROP TABLE IF EXISTS events;');
-  db.execSync('DROP TABLE IF EXISTS blocks;');
-  db.execSync('DROP TABLE IF EXISTS workouts;');
+  // db.execSync('DROP TABLE IF EXISTS events;');
+  // db.execSync('DROP TABLE IF EXISTS blocks;');
+  // db.execSync('DROP TABLE IF EXISTS workouts;');
 
   db.execSync(`
     PRAGMA foreign_keys = ON;

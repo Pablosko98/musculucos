@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   TextInput, View, KeyboardAvoidingView, 
-  Platform, Dimensions, Pressable, ScrollView, Alert
+  Platform, Dimensions, Pressable, ScrollView, Alert, Linking
 } from 'react-native';
 import DraggableFlatList, { 
   RenderItemParams, 
@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { produce } from 'immer';
 import { Activity, Trash2, Zap, ChevronDown, ChevronUp, Plus, Minus, Youtube } from 'lucide-react-native';
-import { Linking } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEIGHT_STEP = 2.5;
@@ -35,19 +34,7 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   
-  const [localBlock, setLocalBlock] = useState(() => ({
-    ...exerciseBlock,
-    events: (exerciseBlock?.events || []).map((e: any, index: number) => ({
-        ...e,
-        id: e.id || `event-${Date.now()}-${index}`,
-        subSets: (e.subSets || []).map((s: any, sIdx: number) => ({ 
-            ...s, 
-            id: s.id || `sub-${Date.now()}-${sIdx}` 
-        }))
-    }))
-  }));
-  
-  // Track by ID instead of Index to prevent deletion/edit bugs during drag & drop
+  const [localBlock, setLocalBlock] = useState(exerciseBlock);
   const [editing, setEditing] = useState<{type: 'set' | 'rest', eventId: string, subSetId?: string} | null>(null);
   const [activeExerciseId, setActiveExerciseId] = useState(exerciseBlock?.exerciseIds?.[0] || '');
   const [inputWeight, setInputWeight] = useState('60');
@@ -57,52 +44,25 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
   const [repType, setRepType] = useState('full');
   const [currentDefaultRest, setCurrentDefaultRest] = useState(DEFAULT_RESTS[activeExerciseId] || DEFAULT_RESTS['default']);
 
+  // Update local state when parent props change (e.g. after a DB fetch)
+  useEffect(() => {
+    if (!editing) setLocalBlock(exerciseBlock);
+  }, [exerciseBlock, editing]);
+
+  const handleSync = (updatedBlock: any) => {
+    saveEditedBlock(dateString, updatedBlock);
+  };
+
   const handleChangeActiveExercise = (id: string) => {
     setActiveExerciseId(id);
     setCurrentDefaultRest(DEFAULT_RESTS[id] || DEFAULT_RESTS['default']);
-    
-    const allMatchingSubsets = localBlock.events
+    const allMatching = localBlock.events
       .filter((e: any) => e.type === 'set')
       .flatMap((e: any) => e.subSets)
       .filter((s: any) => s.exerciseId === id);
-      
-    const lastWeight = allMatchingSubsets.length > 0 
-      ? allMatchingSubsets[allMatchingSubsets.length - 1].weightKg.toString()
-      : '60';
-
+    const lastWeight = allMatching.length > 0 ? allMatching[allMatching.length - 1].weightKg.toString() : '60';
     setInputWeight(lastWeight);
-  }
-
-  // Parent Sync
-  useEffect(() => {
-    if (saveEditedBlock) {
-      saveEditedBlock(dateString, localBlock);
-    }
-  }, [localBlock]);
-
-  // Internal Input Sync using ID lookup
-  useEffect(() => {
-    if (editing) {
-      setLocalBlock(produce(draft => {
-        const { type, eventId, subSetId } = editing;
-        const event = draft.events.find((e: any) => e.id === eventId);
-        if (!event) return;
-
-        if (type === 'set' && subSetId) {
-          const sub = event.subSets.find((s: any) => s.id === subSetId);
-          if (sub) {
-            sub.weightKg = parseFloat(inputWeight) || 0;
-            sub.reps = parseInt(inputReps) || 0;
-            sub.rpe = inputRPE;
-            sub.rep_type = repType;
-            sub.exerciseId = activeExerciseId;
-          }
-        } else if (type === 'rest') {
-          event.durationSeconds = parseInt(inputRest) || currentDefaultRest;
-        }
-      }));
-    }
-  }, [inputWeight, inputReps, inputRPE, repType, activeExerciseId, inputRest]);
+  };
 
   const handleAddNewSet = () => {
     setShowAdvanced(false);
@@ -119,19 +79,18 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
         exercise: exerciseMap.get(activeExerciseId)
     };
 
-    setLocalBlock(produce(draft => {
+    const nextBlock = produce(localBlock, (draft: any) => {
         const lastEvent = draft.events[draft.events.length - 1];
         if (lastEvent?.type === 'set') {
           lastEvent.subSets.push(newSub);
         } else {
-          draft.events.push({ 
-            id: `event-set-${Date.now()}`, 
-            type: 'set', 
-            subSets: [newSub], 
-            datetime: now 
-          });
+          draft.events.push({ id: `event-set-${Date.now()}`, type: 'set', subSets: [newSub], datetime: now });
         }
-    }));
+    });
+
+    setLocalBlock(nextBlock);
+    handleSync(nextBlock);
+
     if(activeExerciseId === exerciseBlock?.exerciseIds?.[0] && exerciseBlock?.exerciseIds?.[1]){
       handleChangeActiveExercise(exerciseBlock?.exerciseIds?.[1])
     } else {
@@ -142,12 +101,10 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
   const deleteCurrent = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!editing) return;
-
-    setLocalBlock(produce(draft => {
+    const nextBlock = produce(localBlock, (draft: any) => {
       const { type, eventId, subSetId } = editing;
       const eIdx = draft.events.findIndex((e: any) => e.id === eventId);
       if (eIdx === -1) return;
-
       if (type === 'set' && subSetId) {
         const sIdx = draft.events[eIdx].subSets.findIndex((s: any) => s.id === subSetId);
         if (sIdx !== -1) {
@@ -157,116 +114,85 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
       } else {
         draft.events.splice(eIdx, 1);
       }
-    }));
+    });
+    setLocalBlock(nextBlock);
+    handleSync(nextBlock);
     setEditing(null);
   };
 
   const handleAddRest = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const dur = inputRest ? parseInt(inputRest) : currentDefaultRest;
-    setLocalBlock(produce(draft => {
+    const nextBlock = produce(localBlock, (draft: any) => {
       draft.events.push({ 
         id: `rest-${Date.now()}`,
         type: 'rest', 
         durationSeconds: dur, 
         datetime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) 
       });
-    }));
+    });
+    setLocalBlock(nextBlock);
+    handleSync(nextBlock);
     setInputRest('');
   };
 
-  const renderEvent = useCallback(({ item, drag, isActive }: RenderItemParams<any>) => {
-    return (
-      <ScaleDecorator>
-        <Pressable 
-          onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); drag(); }} 
-          disabled={isActive} 
-          className={`mb-4 ${isActive ? 'opacity-50' : ''}`}
-        >
-          {item.type === 'set' ? (
-            <View className="p-4 rounded-[32px] bg-zinc-900 border border-zinc-800">
-              <View className="flex-row items-center justify-between mb-3 px-1">
-                  <Text className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Training Set</Text>
-                  <Text className="text-[10px] font-bold text-zinc-700">{item.datetime}</Text>
-              </View>
-              <View style={{flexDirection: 'row', overflow: 'scroll', flexWrap: 'wrap', flex: 1, gap: 2}}>
-                {item.subSets?.map((sub: any) => {
-                  const isEditing = editing?.subSetId === sub.id;
-                  const exerciseMeta = sub.exercise || exerciseMap.get(sub.exerciseId);
-                  
-                  return (
-                    <Pressable 
-                      key={sub.id}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        if (isEditing) { setEditing(null); return; }
-                        setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
-                        handleChangeActiveExercise(sub.exerciseId);
-                        setInputWeight(sub.weightKg.toString());
-                        setInputReps(sub.reps.toString());
-                        setInputRPE(sub.rpe || 8);
-                        setRepType(sub.rep_type || 'full');
-                      }}
-                      
-                      style={{ flex: 1, minWidth: 150 }}
-                      className={`px-4 py-3 rounded-2xl border ${isEditing ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-950 border-zinc-800'}`}
-                    >
-                      <View className="flex-row justify-between items-center mb-1 gap-4">
-                        <Text className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                            {exerciseMeta?.name || sub.exerciseId}
-                        </Text>
-                        <Text className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>@{sub.rpe}</Text>
-                      </View>
-                      <Text className={`font-black text-lg ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
-                        {sub.weightKg}<Text className="text-zinc-500 text-xs">kg</Text> × {sub.reps}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+  const renderEvent = useCallback(({ item, drag, isActive }: RenderItemParams<any>) => (
+    <ScaleDecorator>
+      <Pressable onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); drag(); }} disabled={isActive} className={`mb-4 ${isActive ? 'opacity-50' : ''}`}>
+        {item.type === 'set' ? (
+          <View className="p-4 rounded-[32px] bg-zinc-900 border border-zinc-800">
+            <View className="flex-row items-center justify-between mb-3 px-1">
+                <Text className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Training Set</Text>
+                <Text className="text-[10px] font-bold text-zinc-700">{item.datetime}</Text>
             </View>
-          ) : (
-            <Pressable 
-              onPress={() => { 
-                  Haptics.selectionAsync();
-                  if (editing?.eventId === item.id) { setEditing(null); return; }
-                  setEditing({ type: 'rest', eventId: item.id }); 
-                  setInputRest(item.durationSeconds.toString()); 
-              }}
-              className={`p-3 rounded-2xl border flex-row justify-center items-center gap-2 ${editing?.eventId === item.id ? 'bg-purple-600 border-purple-500' : 'bg-purple-900/10 border-purple-500/20'}`}
-            >
-              <Zap size={12} color={editing?.eventId === item.id ? 'white' : '#a855f7'} />
-              <Text className={`font-black text-xs uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>{item.durationSeconds}s Rest</Text>
-            </Pressable>
-          )}
-        </Pressable>
-      </ScaleDecorator>
-    );
-  }, [editing, exerciseMap]);
+            <View style={{flexDirection: 'row', overflow: 'scroll', flexWrap: 'wrap', flex: 1, gap: 2}}>
+              {item.subSets?.map((sub: any) => {
+                const isEditing = editing?.subSetId === sub.id;
+                const exerciseMeta = sub.exercise || exerciseMap.get(sub.exerciseId);
+                return (
+                  <Pressable 
+                    key={sub.id}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      if (isEditing) { setEditing(null); return; }
+                      setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
+                      handleChangeActiveExercise(sub.exerciseId);
+                      setInputWeight(sub.weightKg.toString());
+                      setInputReps(sub.reps.toString());
+                      setInputRPE(sub.rpe || 8);
+                      setRepType(sub.rep_type || 'full');
+                    }}
+                    style={{ flex: 1, minWidth: 150 }}
+                    className={`px-4 py-3 rounded-2xl border ${isEditing ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-950 border-zinc-800'}`}
+                  >
+                    <View className="flex-row justify-between items-center mb-1 gap-4">
+                      <Text className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>{exerciseMeta?.name || sub.exerciseId}</Text>
+                      <Text className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>@{sub.rpe}</Text>
+                    </View>
+                    <Text className={`font-black text-lg ${isEditing ? 'text-black' : 'text-zinc-100'}`}>{sub.weightKg}<Text className="text-zinc-500 text-xs">kg</Text> × {sub.reps}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <Pressable onPress={() => { Haptics.selectionAsync(); setEditing({ type: 'rest', eventId: item.id }); setInputRest(item.durationSeconds.toString()); }} className={`p-3 rounded-2xl border flex-row justify-center items-center gap-2 ${editing?.eventId === item.id ? 'bg-purple-600 border-purple-500' : 'bg-purple-900/10 border-purple-500/20'}`}>
+            <Zap size={12} color={editing?.eventId === item.id ? 'white' : '#a855f7'} />
+            <Text className={`font-black text-xs uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>{item.durationSeconds}s Rest</Text>
+          </Pressable>
+        )}
+      </Pressable>
+    </ScaleDecorator>
+  ), [editing, exerciseMap]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Pressable className="p-5 bg-zinc-900 border border-zinc-800 rounded-[32px] mb-3 flex-row justify-between items-center" onLongPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                        if (onDeleteBlock) {
-                          Alert.alert(
-                            "Delete Exercise Block",
-                            "Are you sure you want to delete this entire exercise block? This action cannot be undone.",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                { 
-                                    text: "Delete", 
-                                    style: "destructive", 
-                                    onPress: () => onDeleteBlock(exerciseBlock.id) 
-                                }
-                            ]
-                          );
-                        }
-                      }}>
-            <View>
-                <Text className="text-white font-black text-xl leading-tight">{localBlock.name}</Text>
-            </View>
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            Alert.alert("Delete", "Delete block?", [{ text: "Cancel" }, { text: "Delete", style: "destructive", onPress: () => onDeleteBlock(exerciseBlock.id) }]);
+          }}>
+            <Text className="text-white font-black text-xl leading-tight">{localBlock.name}</Text>
             <Activity size={20} color="#22c55e" />
         </Pressable>
       </DialogTrigger>
@@ -274,19 +200,13 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
       <DialogContent className="bg-zinc-950 border-zinc-800 p-0" style={{ width: SCREEN_WIDTH, height: '97%', marginTop: 'auto' }}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            
             <View className="px-6 pt-6 pb-2 flex-row justify-between items-center">
                 <View>
                     <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Active Exercise</Text>
-                    <Text className="text-white text-2xl font-black">
-                        {exerciseMap.get(activeExerciseId)?.name || 'Exercise'}
-                    </Text>
+                    <Text className="text-white text-2xl font-black">{exerciseMap.get(activeExerciseId)?.name || 'Exercise'}</Text>
                 </View>
                 {exerciseMap.get(activeExerciseId)?.videoUrl && (
-                    <Pressable 
-                        onPress={() => Linking.openURL(exerciseMap.get(activeExerciseId).videoUrl)}
-                        className="w-12 h-12 bg-red-600/10 border border-red-600/20 rounded-2xl items-center justify-center"
-                    >
+                    <Pressable onPress={() => Linking.openURL(exerciseMap.get(activeExerciseId).videoUrl)} className="w-12 h-12 bg-red-600/10 border border-red-600/20 rounded-2xl items-center justify-center">
                         <Youtube color="#dc2626" size={24} />
                     </Pressable>
                 )}
@@ -294,7 +214,11 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
 
             <DraggableFlatList
               data={localBlock.events}
-              onDragEnd={({ data }) => setLocalBlock(prev => ({ ...prev, events: data }))}
+              onDragEnd={({ data }) => {
+                const next = { ...localBlock, events: data };
+                setLocalBlock(next);
+                handleSync(next);
+              }}
               keyExtractor={(item) => item.id}
               renderItem={renderEvent}
               containerStyle={{ flex: 1 }}
@@ -305,72 +229,63 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
               <View className="flex-row items-center justify-between mb-4 px-1">
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
                       {localBlock.exerciseIds.map((id: string) => (
-                          !editing &&<Pressable key={id} onPress={() => { Haptics.selectionAsync(); handleChangeActiveExercise(id);}} className={`mr-2 px-4 py-2 rounded-full border ${activeExerciseId === id ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-950 border-zinc-800'}`}>
-                              <Text className={`text-[10px] font-black uppercase ${activeExerciseId === id ? 'text-black' : 'text-zinc-500'}`}>
-                                  {exerciseMap.get(id)?.name || id}
-                              </Text>
+                          !editing && <Pressable key={id} onPress={() => { Haptics.selectionAsync(); handleChangeActiveExercise(id);}} className={`mr-2 px-4 py-2 rounded-full border ${activeExerciseId === id ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-950 border-zinc-800'}`}>
+                              <Text className={`text-[10px] font-black uppercase ${activeExerciseId === id ? 'text-black' : 'text-zinc-500'}`}>{exerciseMap.get(id)?.name || id}</Text>
                           </Pressable>
                       ))}
                   </ScrollView>
                   {!editing && (
-                      <Pressable onLongPress={() => {window.alert("Change rest value")}} onPress={handleAddRest} className="ml-2 h-9 px-4 bg-purple-600/10 border border-purple-500/30 rounded-full flex-row items-center gap-2">
+                      <Pressable onPress={handleAddRest} className="ml-2 h-9 px-4 bg-purple-600/10 border border-purple-500/30 rounded-full flex-row items-center gap-2">
                           <Zap size={14} color="#a855f7" />
-                          {console.log(currentDefaultRest)}
-                          <Text style={{width: 50}} className="text-purple-400 font-black text-xs w-6 text-center" >{currentDefaultRest}</Text>
+                          <Text className="text-purple-400 font-black text-xs">{currentDefaultRest}s</Text>
                       </Pressable>
                   )}
               </View>
 
               <View className="flex-row gap-3 mb-4">
                 <View className="flex-1 bg-zinc-950 rounded-[28px] border border-zinc-800 p-2 flex-row items-center">
-                  <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInputWeight((prev) => (Math.max(0, parseFloat(prev)-WEIGHT_STEP)).toString()); }} className="w-12 h-12 bg-zinc-900 rounded-2xl items-center justify-center"><Minus size={18} color="#71717a" /></Pressable>
+                  <Pressable onPress={() => setInputWeight((prev) => (Math.max(0, parseFloat(prev)-WEIGHT_STEP)).toString())} className="w-12 h-12 bg-zinc-900 rounded-2xl items-center justify-center"><Minus size={18} color="#71717a" /></Pressable>
                   <View className="flex-1 items-center">
                       <Text className="text-[8px] font-black text-zinc-600 uppercase">Weight</Text>
-                      <TextInput keyboardType="decimal-pad" selectTextOnFocus={true} value={inputWeight} onChangeText={setInputWeight} className="text-white font-black text-2xl text-center" />
+                      <TextInput keyboardType="decimal-pad" selectTextOnFocus value={inputWeight} onChangeText={setInputWeight} className="text-white font-black text-2xl text-center" />
                   </View>
-                  <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInputWeight((prev) => (parseFloat(prev)+WEIGHT_STEP).toString()); }} className="w-12 h-12 bg-zinc-900 rounded-2xl items-center justify-center"><Plus size={18} color="#71717a" /></Pressable>
+                  <Pressable onPress={() => setInputWeight((prev) => (parseFloat(prev)+WEIGHT_STEP).toString())} className="w-12 h-12 bg-zinc-900 rounded-2xl items-center justify-center"><Plus size={18} color="#71717a" /></Pressable>
                 </View>
 
                 <View className="w-36 bg-zinc-950 rounded-[28px] border border-zinc-800 p-2 flex-row items-center">
-                  <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInputReps((prev) => (Math.max(0, parseInt(prev)-1)).toString()); }} className="w-10 h-10 bg-zinc-900 rounded-xl items-center justify-center"><Minus size={16} color="#71717a" /></Pressable>
+                  <Pressable onPress={() => setInputReps((prev) => (Math.max(0, parseInt(prev)-1)).toString())} className="w-10 h-10 bg-zinc-900 rounded-xl items-center justify-center"><Minus size={16} color="#71717a" /></Pressable>
                   <View className="flex-1 items-center">
                       <Text className="text-[8px] font-black text-zinc-600 uppercase">Reps</Text>
-                      <TextInput keyboardType="number-pad" selectTextOnFocus={true} value={inputReps} onChangeText={setInputReps} className="text-white font-black text-2xl text-center" />
+                      <TextInput keyboardType="number-pad" selectTextOnFocus value={inputReps} onChangeText={setInputReps} className="text-white font-black text-2xl text-center" />
                   </View>
-                  <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInputReps((prev) => (parseInt(prev)+1).toString()); }} className="w-10 h-10 bg-zinc-900 rounded-xl items-center justify-center"><Plus size={16} color="#71717a" /></Pressable>
+                  <Pressable onPress={() => setInputReps((prev) => (parseInt(prev)+1).toString())} className="w-10 h-10 bg-zinc-900 rounded-xl items-center justify-center"><Plus size={16} color="#71717a" /></Pressable>
                 </View>
               </View>
 
               <View className="flex-row gap-2">
-                  <Button onPress={() => { Haptics.selectionAsync(); setShowAdvanced(!showAdvanced); }} variant="outline" className="flex-1 h-16 rounded-[24px] border-zinc-800 flex-row gap-2">
+                  <Button onPress={() => setShowAdvanced(!showAdvanced)} variant="outline" className="flex-1 h-16 rounded-[24px] border-zinc-800 flex-row gap-2">
                       <Text className="text-zinc-500 font-black text-[10px] uppercase">RPE / Type</Text>
                       {showAdvanced ? <ChevronUp size={14} color="#52525b" /> : <ChevronDown size={14} color="#52525b" />}
                   </Button>
                   {editing ? (
-                      <Button variant="destructive" className="w-20 h-16 rounded-[24px] bg-red-500" onPress={deleteCurrent}>
-                          <Trash2 color="white" size={24} />
-                      </Button>
+                      <Button variant="destructive" className="w-20 h-16 rounded-[24px]" onPress={deleteCurrent}><Trash2 color="white" /></Button>
                   ) : (
-                      <Button className="w-20 h-16 rounded-[24px] bg-green-600" onPress={handleAddNewSet}>
-                          <Plus color="white" size={28} strokeWidth={4} />
-                      </Button>
+                      <Button className="w-20 h-16 rounded-[24px] bg-green-600" onPress={handleAddNewSet}><Plus color="white" strokeWidth={4} /></Button>
                   )}
               </View>
 
               {showAdvanced && (
                 <View className="mt-4 p-4 bg-zinc-950 rounded-[32px] border border-zinc-800">
-                  <Text className="text-[9px] font-black text-zinc-600 uppercase mb-3 ml-1">RPE</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-5">
+                  <ScrollView horizontal className="flex-row mb-5">
                     {RPE_VALUES.map(v => (
-                      <Pressable key={v} onPress={() => { Haptics.selectionAsync(); setInputRPE(v); }} className={`mr-2 w-12 h-11 rounded-xl items-center justify-center border ${inputRPE === v ? 'bg-green-500 border-green-400' : 'bg-zinc-900 border-zinc-800'}`}>
+                      <Pressable key={v} onPress={() => setInputRPE(v)} className={`mr-2 w-12 h-11 rounded-xl items-center justify-center border ${inputRPE === v ? 'bg-green-500 border-green-400' : 'bg-zinc-900 border-zinc-800'}`}>
                         <Text className={`text-xs font-black ${inputRPE === v ? 'text-white' : 'text-zinc-500'}`}>{v}</Text>
                       </Pressable>
                     ))}
                   </ScrollView>
-                  <Text className="text-[9px] font-black text-zinc-600 uppercase mb-3 ml-1">Type</Text>
                   <View className="flex-row flex-wrap gap-2">
                     {REP_TYPES.map(t => (
-                      <Pressable key={t} onPress={() => { Haptics.selectionAsync(); setRepType(t); }} className={`px-4 py-2 rounded-xl border ${repType === t ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-900 border-zinc-800'}`}>
+                      <Pressable key={t} onPress={() => setRepType(t)} className={`px-4 py-2 rounded-xl border ${repType === t ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-900 border-zinc-800'}`}>
                         <Text className={`text-[10px] font-black uppercase ${repType === t ? 'text-black' : 'text-zinc-500'}`}>{t}</Text>
                       </Pressable>
                     ))}
