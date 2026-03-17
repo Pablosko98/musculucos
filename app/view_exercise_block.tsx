@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   TextInput, View, KeyboardAvoidingView, 
-  Platform, Dimensions, Pressable, ScrollView, Alert, Linking
+  Platform, Dimensions, Pressable, ScrollView, Alert, Linking,
+  Keyboard
 } from 'react-native';
 import DraggableFlatList, { 
   RenderItemParams, 
@@ -13,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { produce } from 'immer';
-import { Activity, Trash2, Zap, ChevronDown, ChevronUp, Plus, Minus, Youtube } from 'lucide-react-native';
+import { Activity, Trash2, Zap, ChevronDown, ChevronUp, Plus, Minus, Youtube, Clock } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEIGHT_STEP = 2.5;
@@ -24,7 +25,7 @@ const DEFAULT_RESTS: Record<string, number> = {
   'leg_press': 180, 'bench_press': 120, 'default': 60
 };
 
-export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, dateString, exerciseList = [], onDeleteBlock }: any) {
+function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, dateString, exerciseList = [], onDeleteBlock }: any) {
   if (!exerciseBlock) return null;
 
   const exerciseMap = useMemo(() => {
@@ -44,13 +45,34 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
   const [repType, setRepType] = useState('full');
   const [currentDefaultRest, setCurrentDefaultRest] = useState(DEFAULT_RESTS[activeExerciseId] || DEFAULT_RESTS['default']);
 
-  // Update local state when parent props change (e.g. after a DB fetch)
+  // 1. Sync local state with parent when NOT editing
   useEffect(() => {
     if (!editing) setLocalBlock(exerciseBlock);
   }, [exerciseBlock, editing]);
 
-  const handleSync = (updatedBlock: any) => {
-    saveEditedBlock(dateString, updatedBlock);
+  // 2. LIVE SYNC: Updates localBlock as you type
+  useEffect(() => {
+    if (editing?.type === 'set' && editing.subSetId) {
+      const nextBlock = produce(localBlock, (draft: any) => {
+        const event = draft.events.find((e: any) => e.id === editing.eventId);
+        if (event) {
+          const sub = event.subSets.find((s: any) => s.id === editing.subSetId);
+          if (sub) {
+            sub.weightKg = parseFloat(inputWeight) || 0;
+            sub.reps = parseInt(inputReps) || 0;
+            sub.rpe = inputRPE;
+            sub.rep_type = repType;
+          }
+        }
+      });
+      setLocalBlock(nextBlock);
+    }
+  }, [inputWeight, inputReps, inputRPE, repType]);
+
+  const handleFinishEditing = () => {
+    saveEditedBlock(dateString, localBlock);
+    setEditing(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleChangeActiveExercise = (id: string) => {
@@ -65,9 +87,16 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
   };
 
   const handleAddNewSet = () => {
-    setShowAdvanced(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    setShowAdvanced(false);
+    Keyboard.dismiss();
+
+
+    const now = new Date().toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
     const newSub = { 
         id: `sub-${Date.now()}`,
         exerciseId: activeExerciseId, 
@@ -84,27 +113,36 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
         if (lastEvent?.type === 'set') {
           lastEvent.subSets.push(newSub);
         } else {
-          draft.events.push({ id: `event-set-${Date.now()}`, type: 'set', subSets: [newSub], datetime: now });
+          draft.events.push({ 
+            id: `event-set-${Date.now()}`, 
+            type: 'set', 
+            subSets: [newSub], 
+            datetime: now 
+          });
         }
     });
 
     setLocalBlock(nextBlock);
-    handleSync(nextBlock);
+    saveEditedBlock(dateString, nextBlock);
 
     if(activeExerciseId === exerciseBlock?.exerciseIds?.[0] && exerciseBlock?.exerciseIds?.[1]){
-      handleChangeActiveExercise(exerciseBlock?.exerciseIds?.[1])
+      handleChangeActiveExercise(exerciseBlock?.exerciseIds?.[1]);
     } else {
-      handleChangeActiveExercise(exerciseBlock?.exerciseIds?.[0])
+      handleChangeActiveExercise(exerciseBlock?.exerciseIds?.[0]);
     }
   };
 
   const deleteCurrent = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!editing) return;
+    setShowAdvanced(false);
+    Keyboard.dismiss();
+
     const nextBlock = produce(localBlock, (draft: any) => {
       const { type, eventId, subSetId } = editing;
       const eIdx = draft.events.findIndex((e: any) => e.id === eventId);
       if (eIdx === -1) return;
+
       if (type === 'set' && subSetId) {
         const sIdx = draft.events[eIdx].subSets.findIndex((s: any) => s.id === subSetId);
         if (sIdx !== -1) {
@@ -115,14 +153,16 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
         draft.events.splice(eIdx, 1);
       }
     });
+
     setLocalBlock(nextBlock);
-    handleSync(nextBlock);
+    saveEditedBlock(dateString, nextBlock);
     setEditing(null);
   };
 
   const handleAddRest = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const dur = inputRest ? parseInt(inputRest) : currentDefaultRest;
+    
     const nextBlock = produce(localBlock, (draft: any) => {
       draft.events.push({ 
         id: `rest-${Date.now()}`,
@@ -131,30 +171,40 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
         datetime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) 
       });
     });
+
     setLocalBlock(nextBlock);
-    handleSync(nextBlock);
+    saveEditedBlock(dateString, nextBlock);
     setInputRest('');
   };
 
   const renderEvent = useCallback(({ item, drag, isActive }: RenderItemParams<any>) => (
     <ScaleDecorator>
-      <Pressable onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); drag(); }} disabled={isActive} className={`mb-4 ${isActive ? 'opacity-50' : ''}`}>
+      <Pressable 
+        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); drag(); }} 
+        disabled={isActive} 
+        className={`mb-4 ${isActive ? 'opacity-50' : ''}`}
+      >
         {item.type === 'set' ? (
           <View className="p-4 rounded-[32px] bg-zinc-900 border border-zinc-800">
             <View className="flex-row items-center justify-between mb-3 px-1">
                 <Text className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Training Set</Text>
                 <Text className="text-[10px] font-bold text-zinc-700">{item.datetime}</Text>
             </View>
-            <View style={{flexDirection: 'row', overflow: 'scroll', flexWrap: 'wrap', flex: 1, gap: 2}}>
-              {item.subSets?.map((sub: any) => {
+            <View style={{flexDirection: 'row', flexWrap: 'wrap', flex: 1, gap: 4}}>
+              {item.subSets?.map((sub: any, index: number) => {
                 const isEditing = editing?.subSetId === sub.id;
                 const exerciseMeta = sub.exercise || exerciseMap.get(sub.exerciseId);
+                
+                const displayWeight = isEditing ? inputWeight : sub.weightKg;
+                const displayReps = isEditing ? inputReps : sub.reps;
+                const displayRPE = isEditing ? inputRPE : sub.rpe;
+
                 return (
                   <Pressable 
                     key={sub.id}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      if (isEditing) { setEditing(null); return; }
+                      if (isEditing) { handleFinishEditing(); return; }
                       setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
                       handleChangeActiveExercise(sub.exerciseId);
                       setInputWeight(sub.weightKg.toString());
@@ -162,31 +212,43 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
                       setInputRPE(sub.rpe || 8);
                       setRepType(sub.rep_type || 'full');
                     }}
-                    style={{ flex: 1, minWidth: 150 }}
+                    style={{ flex: 1, minWidth: 140 }}
                     className={`px-4 py-3 rounded-2xl border ${isEditing ? 'bg-zinc-100 border-zinc-100' : 'bg-zinc-950 border-zinc-800'}`}
                   >
                     <View className="flex-row justify-between items-center mb-1 gap-4">
-                      <Text className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>{exerciseMeta?.name || sub.exerciseId}</Text>
-                      <Text className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>@{sub.rpe}</Text>
+                      <Text numberOfLines={1} className={`text-[9px] font-black uppercase flex-1 ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>{exerciseMeta?.name || sub.exerciseId}</Text>
+                      <Text className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>| {sub.rep_type} </Text>
+                      <Text className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>@{displayRPE}</Text>
                     </View>
-                    <Text className={`font-black text-lg ${isEditing ? 'text-black' : 'text-zinc-100'}`}>{sub.weightKg}<Text className="text-zinc-500 text-xs">kg</Text> × {sub.reps}</Text>
+                    <Text className={`font-black text-lg ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
+                      <Text className={`text-green-500`}>{index + 1}.   </Text>
+                      {displayWeight}<Text className="text-zinc-500 text-xs">kg</Text> × {displayReps}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
           </View>
         ) : (
-          <Pressable onPress={() => { Haptics.selectionAsync(); setEditing({ type: 'rest', eventId: item.id }); setInputRest(item.durationSeconds.toString()); }} className={`p-3 rounded-2xl border flex-row justify-center items-center gap-2 ${editing?.eventId === item.id ? 'bg-purple-600 border-purple-500' : 'bg-purple-900/10 border-purple-500/20'}`}>
+          <Pressable 
+            onPress={() => { 
+                Haptics.selectionAsync(); 
+                if(editing){handleFinishEditing(); return;}
+                setEditing({ type: 'rest', eventId: item.id }); 
+                setInputRest(item.durationSeconds.toString()); 
+            }} 
+            className={`p-3 rounded-2xl border flex-row justify-center items-center gap-2 ${editing?.eventId === item.id ? 'bg-purple-600 border-purple-500' : 'bg-purple-900/10 border-purple-500/20'}`}
+          >
             <Zap size={12} color={editing?.eventId === item.id ? 'white' : '#a855f7'} />
             <Text className={`font-black text-xs uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>{item.durationSeconds}s Rest</Text>
           </Pressable>
         )}
       </Pressable>
     </ScaleDecorator>
-  ), [editing, exerciseMap]);
+  ), [editing, exerciseMap, inputWeight, inputReps, inputRPE, repType, localBlock]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => { if(!val && editing) handleFinishEditing(); setOpen(val); }}>
       <DialogTrigger asChild>
         <Pressable className="p-5 bg-zinc-900 border border-zinc-800 rounded-[32px] mb-3 flex-row justify-between items-center" onLongPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -200,13 +262,13 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
       <DialogContent className="bg-zinc-950 border-zinc-800 p-0" style={{ width: SCREEN_WIDTH, height: '97%', marginTop: 'auto' }}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <View className="px-6 pt-6 pb-2 flex-row justify-between items-center">
-                <View>
+            <View className="px-6 pt-6 pb-2 flex-row">
+                <View className="flex-1">
                     <Text className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Active Exercise</Text>
                     <Text className="text-white text-2xl font-black">{exerciseMap.get(activeExerciseId)?.name || 'Exercise'}</Text>
                 </View>
                 {exerciseMap.get(activeExerciseId)?.videoUrl && (
-                    <Pressable onPress={() => Linking.openURL(exerciseMap.get(activeExerciseId).videoUrl)} className="w-12 h-12 bg-red-600/10 border border-red-600/20 rounded-2xl items-center justify-center">
+                    <Pressable onPress={() => Linking.openURL(exerciseMap.get(activeExerciseId).videoUrl)} className="w-12 h-12 ml-5 bg-red-600/10 border border-red-600/20 rounded-2xl items-center justify-center">
                         <Youtube color="#dc2626" size={24} />
                     </Pressable>
                 )}
@@ -217,7 +279,7 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
               onDragEnd={({ data }) => {
                 const next = { ...localBlock, events: data };
                 setLocalBlock(next);
-                handleSync(next);
+                saveEditedBlock(dateString, next);
               }}
               keyExtractor={(item) => item.id}
               renderItem={renderEvent}
@@ -234,12 +296,6 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
                           </Pressable>
                       ))}
                   </ScrollView>
-                  {!editing && (
-                      <Pressable onPress={handleAddRest} className="ml-2 h-9 px-4 bg-purple-600/10 border border-purple-500/30 rounded-full flex-row items-center gap-2">
-                          <Zap size={14} color="#a855f7" />
-                          <Text className="text-purple-400 font-black text-xs">{currentDefaultRest}s</Text>
-                      </Pressable>
-                  )}
               </View>
 
               <View className="flex-row gap-3 mb-4">
@@ -267,6 +323,12 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
                       <Text className="text-zinc-500 font-black text-[10px] uppercase">RPE / Type</Text>
                       {showAdvanced ? <ChevronUp size={14} color="#52525b" /> : <ChevronDown size={14} color="#52525b" />}
                   </Button>
+                  {!editing && (
+                      <Pressable onPress={handleAddRest} className="ml-2 px-4 bg-purple-600/10 border border-purple-500/30 rounded-full flex-row items-center gap-2">
+                          <Clock size={14} color="#a855f7" />
+                          <Text className="text-purple-400 font-black text-xs">{currentDefaultRest}s</Text>
+                      </Pressable>
+                  )}
                   {editing ? (
                       <Button variant="destructive" className="w-20 h-16 rounded-[24px]" onPress={deleteCurrent}><Trash2 color="white" /></Button>
                   ) : (
@@ -299,3 +361,11 @@ export default function ViewExerciseBlock({ exerciseBlock, saveEditedBlock, date
     </Dialog>
   );
 }
+
+export default React.memo(ViewExerciseBlock, (prev, next) => {
+  return (
+    prev.exerciseBlock === next.exerciseBlock &&
+    prev.dateString === next.dateString &&
+    prev.exerciseList.length === next.exerciseList.length
+  );
+});

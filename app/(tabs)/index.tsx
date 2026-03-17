@@ -96,25 +96,38 @@ export default function WorkoutTracker() {
   };
 
   const saveEditedBlock = async (dateString: string, updatedBlock: any) => {
-    try {
-      const workout = workoutMap[dateString];
-      if (!workout) return;
+  const workout = workoutMap[dateString];
+  if (!workout) return;
 
-      const updatedWorkout = JSON.parse(JSON.stringify(workout));
-      const blockIndex = updatedWorkout.blocks.findIndex((b: any) => b.id === updatedBlock.id);
+  // 1. Update local state immediately for responsiveness
+  const updatedWorkout = { ...workout };
+  const blockIndex = updatedWorkout.blocks.findIndex((b: any) => b.id === updatedBlock.id);
+  const oldBlock = workout.blocks[blockIndex];
+  
+  updatedWorkout.blocks[blockIndex] = updatedBlock;
+  setWorkoutMap((prev) => ({ ...prev, [dateString]: updatedWorkout }));
 
-      if (blockIndex !== -1) {
-        updatedWorkout.blocks[blockIndex] = updatedBlock;
-        for (const event of updatedBlock.events) {
-          await WorkoutDAL.updateEvent(event.id, event);
-        }
-        setWorkoutMap((prev) => ({ ...prev, [dateString]: updatedWorkout }));
-        await WorkoutDAL.saveFullWorkout(updatedWorkout);
-      }
-    } catch (error) {
-      console.error('Save failed:', error);
+  // 2. Determine the Delta (What changed?)
+  const isAddition = updatedBlock.events.length > oldBlock.events.length;
+  const isDeletion = updatedBlock.events.length < oldBlock.events.length;
+
+  try {
+    if (isAddition) {
+      // Just save the new event
+      const newEvent = updatedBlock.events[updatedBlock.events.length - 1];
+      await WorkoutDAL.addEvent(updatedBlock.id, newEvent);
+    } else if (isDeletion) {
+      // This is a bit more complex, for now, full save on delete is safer 
+      // but we do it in the background
+      await WorkoutDAL.saveFullWorkout(updatedWorkout);
+    } else {
+      // Re-order or Edit: Full save (usually infrequent compared to adding sets)
+      await WorkoutDAL.saveFullWorkout(updatedWorkout);
     }
-  };
+  } catch (error) {
+    console.error('Background save failed:', error);
+  }
+};
 
   const handleAddExercise = async (dateString: string, selectedExercises: any[]) => {
     if (!selectedExercises || selectedExercises.length === 0) return;

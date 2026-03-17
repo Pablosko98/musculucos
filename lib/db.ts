@@ -47,7 +47,7 @@ export const initDB = () => {
     );
   `);
 };
-
+let saveQueue = Promise.resolve();
 export const WorkoutDAL = {
   async updateEvent(eventId: number, updates: any) {
     try {
@@ -64,53 +64,66 @@ export const WorkoutDAL = {
   },
 
   async saveFullWorkout(workout: any) {
-    try {
-      await db.runAsync(
-        'INSERT OR REPLACE INTO workouts (id, date, durationSeconds, notes) VALUES (?, ?, ?, ?)',
-        [workout.id, workout.date, workout.durationSeconds, workout.notes]
-      );
+    // We chain every call onto the saveQueue to ensure sequential execution
+    saveQueue = saveQueue.then(async () => {
+      try {
+        await db.withTransactionAsync(async () => {
+          // 1. Update/Insert the main workout
+          await db.runAsync(
+            'INSERT OR REPLACE INTO workouts (id, date, durationSeconds, notes) VALUES (?, ?, ?, ?)',
+            [workout.id, workout.date, workout.durationSeconds || 0, workout.notes || '']
+          );
 
-      for (const block of workout.blocks) {
-        await db.runAsync(
-          'INSERT OR REPLACE INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            block.id,
-            workout.id,
-            block.order,
-            block.type,
-            block.name,
-            JSON.stringify(block.exerciseIds),
-            block.sets,
-            block.datetime,
-          ]
-        );
+          // 2. Clear existing blocks. 
+          // Because of "ON DELETE CASCADE" in your initDB, 
+          // this automatically deletes all associated events!
+          await db.runAsync('DELETE FROM blocks WHERE workoutId = ?', [workout.id]);
 
-        for (const event of block.events) {
-          if (event.type === 'set' && event.subSets) {
-            // Create a unique ID for this specific "Set Group" (Superset)
-            const parentEventId = `group_${block.id}_${event.datetime}`;
-            
-            for (const sub of event.subSets) {
-              await db.runAsync(
-                `INSERT INTO events 
-                (blockId, type, exerciseId, parentEventId, weightKg, rep_type, reps, rpe, datetime) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [block.id, 'set', sub.exerciseId, parentEventId, sub.weightKg, sub.rep_type, sub.reps, sub.rpe, sub.datetime]
-              );
-            }
-          } else {
-            // Handle Rest events
+          // 3. Loop through blocks and insert
+          for (const block of workout.blocks) {
             await db.runAsync(
-              `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
-              [block.id, 'rest', event.durationSeconds, event.datetime]
+              'INSERT INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+              [
+                block.id,
+                workout.id,
+                block.order,
+                block.type,
+                block.name,
+                JSON.stringify(block.exerciseIds),
+                block.sets,
+                block.datetime,
+              ]
             );
+
+            // 4. Insert the Events
+            for (const event of block.events) {
+              if (event.type === 'set' && event.subSets) {
+                const parentEventId = `group_${block.id}_${event.datetime}`;
+                for (const sub of event.subSets) {
+                  await db.runAsync(
+                    `INSERT INTO events (blockId, type, exerciseId, parentEventId, weightKg, rep_type, reps, rpe, datetime) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [block.id, 'set', sub.exerciseId, parentEventId, sub.weightKg, sub.rep_type, sub.reps, sub.rpe, sub.datetime]
+                  );
+                }
+              } else {
+                await db.runAsync(
+                  `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
+                  [block.id, 'rest', event.durationSeconds, event.datetime]
+                );
+              }
+            }
           }
-        }
+        });
+      } catch (error) {
+        console.error('Transaction failed in queue:', error);
+        // We don't re-throw here unless you want the UI to crash; 
+        // the queue will continue to the next item regardless.
       }
-    } catch (error) {
-      console.error('DB Save Error:', error);
-    }
-  },
+    });
+
+    return saveQueue;
+},
 
   async getWorkoutByDate(date: string) {
     const workout: any = await db.getFirstAsync('SELECT * FROM workouts WHERE date = ?', [date]);
@@ -162,6 +175,35 @@ export const WorkoutDAL = {
 
     return { ...workout, blocks: blocksWithEvents };
   },
+
+  // Add this helper to insert a single event without rebuilding the world
+async addEvent(blockId: string, event: any) {
+    try {
+      if (event.type === 'set') {
+        const parentEventId = event.id; // Use the ID generated in UI
+        for (const sub of event.subSets) {
+          await db.runAsync(
+            `INSERT INTO events (blockId, type, exerciseId, parentEventId, weightKg, rep_type, reps, rpe, datetime) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [blockId, 'set', sub.exerciseId, parentEventId, sub.weightKg, sub.rep_type, sub.reps, sub.rpe, sub.datetime]
+          );
+        }
+      } else {
+        await db.runAsync(
+          `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
+          [blockId, 'rest', event.durationSeconds, event.datetime]
+        );
+      }
+    } catch (e) {
+      console.error("Atomic insert failed", e);
+    }
+  },
+
+  // Optimized: Just removes one event or subset
+  async deleteEventAtomic(eventId: string) {
+    // This deletes the rest event OR all sub-sets sharing a parentEventId
+    await db.runAsync('DELETE FROM events WHERE id = ? OR parentEventId = ?', [eventId, eventId]);
+  }
 };
 
 export const seedDatabase = async () => {

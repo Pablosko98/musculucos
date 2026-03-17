@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Dimensions, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { Dimensions, View, ScrollView, TouchableOpacity, TextInput, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -136,6 +137,9 @@ export default function AddExercise({ onAdd }) {
               </TouchableOpacity>
             );
           })}
+          <TouchableOpacity className={`flex-row items-center justify-between border-b border-neutral-900 px-5 py-4 active:bg-neutral-800`}>
+            <Text>+ Add new exercise</Text>
+          </TouchableOpacity>
         </ScrollView>
 
         {isSupersetMode && staged.length > 0 && (
