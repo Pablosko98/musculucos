@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { Search, Star, X } from 'lucide-react-native';
+import { useFocusEffect, router } from 'expo-router';
+import { Search, Star, X, Plus, Pencil } from 'lucide-react-native';
 import { Exercise, MUSCLE_GROUP_MAP, HEAD_LABELS } from '@/lib/exercises';
 import { ExerciseDAL } from '@/lib/db';
 import type { ExerciseStat } from '@/lib/db';
@@ -53,6 +53,16 @@ function fmt(s: string) {
 }
 function fmtEquipment(eq: string): string {
   return EQUIPMENT_LABELS[eq] ?? fmt(eq);
+}
+function variantLabel(ex: Exercise): string {
+  if (ex.equipmentVariant) {
+    return `${fmt(ex.equipmentVariant)} ${fmtEquipment(ex.equipment)}`.trim();
+  }
+  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
+  if (suffix) {
+    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return fmtEquipment(ex.equipment);
 }
 function fmtMuscle(muscle: string): string {
   return MUSCLE_GROUP_MAP[muscle]?.groupLabel ?? fmt(muscle);
@@ -132,9 +142,11 @@ function FilterChip({
 function ExerciseGroupCard({
   group,
   stats,
+  onEditVariant,
 }: {
   group: ExerciseGroup;
   stats: Record<string, ExerciseStat>;
+  onEditVariant?: (exerciseId: string) => void;
 }) {
   return (
     <View
@@ -176,63 +188,79 @@ function ExerciseGroupCard({
         const stat = stats[variant.id];
         const trained = stat && stat.workoutCount > 0;
         const colors = EQUIPMENT_COLORS[variant.equipment] ?? { bg: '#27272a', text: '#a1a1aa' };
+        const isCustom = !!variant.isCustom;
+        const canEdit = !!onEditVariant;
+
+        const rowContent = (
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            {/* Equipment pill */}
+            <View
+              style={{
+                paddingHorizontal: 9,
+                paddingVertical: 4,
+                borderRadius: 7,
+                backgroundColor: colors.bg,
+                minWidth: 84,
+                alignItems: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500' }}>
+                {variantLabel(variant)}
+              </Text>
+            </View>
+
+            {/* Stats */}
+            <View style={{ flex: 1 }}>
+              {trained ? (
+                <>
+                  <Text style={{ color: '#f4f4f5', fontSize: 14, fontWeight: '500' }}>
+                    {formatBest(stat, variant.equipment)}
+                  </Text>
+                  <Text style={{ color: '#52525b', fontSize: 12, marginTop: 2 }}>
+                    {stat.workoutCount} {stat.workoutCount === 1 ? 'session' : 'sessions'}
+                    {'  ·  '}
+                    {relativeTime(stat.lastTrainedAt)}
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ color: '#3f3f46', fontSize: 13, fontStyle: 'italic' }}>
+                  Not started
+                </Text>
+              )}
+            </View>
+
+            {/* Edit icon (custom only) or favourite indicator */}
+            {canEdit ? (
+              <Pencil size={15} color="#52525b" />
+            ) : !!variant.isFavourite ? (
+              <Star size={15} color="#f59e0b" fill="#f59e0b" />
+            ) : null}
+          </View>
+        );
 
         return (
           <React.Fragment key={variant.id}>
             {i > 0 && (
               <View style={{ height: 1, backgroundColor: '#27272a', marginHorizontal: 16 }} />
             )}
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              {/* Equipment pill */}
-              <View
-                style={{
-                  paddingHorizontal: 9,
-                  paddingVertical: 4,
-                  borderRadius: 7,
-                  backgroundColor: colors.bg,
-                  minWidth: 84,
-                  alignItems: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500' }}>
-                  {fmtEquipment(variant.equipment)}
-                </Text>
-              </View>
-
-              {/* Stats */}
-              <View style={{ flex: 1 }}>
-                {trained ? (
-                  <>
-                    <Text style={{ color: '#f4f4f5', fontSize: 14, fontWeight: '500' }}>
-                      {formatBest(stat, variant.equipment)}
-                    </Text>
-                    <Text style={{ color: '#52525b', fontSize: 12, marginTop: 2 }}>
-                      {stat.workoutCount} {stat.workoutCount === 1 ? 'session' : 'sessions'}
-                      {'  ·  '}
-                      {relativeTime(stat.lastTrainedAt)}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={{ color: '#3f3f46', fontSize: 13, fontStyle: 'italic' }}>
-                    Not started
-                  </Text>
-                )}
-              </View>
-
-              {/* Favourite indicator */}
-              {!!variant.isFavourite && (
-                <Star size={15} color="#f59e0b" fill="#f59e0b" />
-              )}
-            </View>
+            {canEdit ? (
+              <TouchableOpacity
+                activeOpacity={0.6}
+                onPress={() => onEditVariant!(variant.id)}>
+                {rowContent}
+              </TouchableOpacity>
+            ) : (
+              rowContent
+            )}
           </React.Fragment>
         );
       })}
@@ -429,18 +457,32 @@ export default function Exercises() {
             <Text style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
               Exercises
             </Text>
-            <TouchableOpacity
-              onPress={() => setSearchOpen(true)}
-              style={{
-                padding: 8,
-                backgroundColor: '#18181b',
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: '#27272a',
-              }}
-            >
-              <Search size={19} color="#a1a1aa" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => router.push('/create_exercise')}
+                style={{
+                  padding: 8,
+                  backgroundColor: '#18181b',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#27272a',
+                }}
+              >
+                <Plus size={19} color="#ea580c" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSearchOpen(true)}
+                style={{
+                  padding: 8,
+                  backgroundColor: '#18181b',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#27272a',
+                }}
+              >
+                <Search size={19} color="#a1a1aa" />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
@@ -457,7 +499,15 @@ export default function Exercises() {
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => <ExerciseGroupCard group={item} stats={stats} />}
+        renderItem={({ item }) => (
+          <ExerciseGroupCard
+            group={item}
+            stats={stats}
+            onEditVariant={(exerciseId) =>
+              router.push({ pathname: '/create_exercise', params: { exerciseId } })
+            }
+          />
+        )}
         ListHeaderComponent={
           <View style={{ paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ color: '#52525b', fontSize: 13 }}>

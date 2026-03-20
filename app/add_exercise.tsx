@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Exercise, HEAD_LABELS } from '@/lib/exercises';
 import { ExerciseDAL } from '@/lib/db';
 import { Search, Link, Star, X } from 'lucide-react-native';
-import { canDismiss } from 'expo-router/build/global-state/routing';
+import { router } from 'expo-router';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -86,11 +86,15 @@ function buildExerciseGroups(exs: Exercise[]): ExerciseGroup[] {
 }
 
 function variantLabel(ex: Exercise): string {
-  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : ex.id;
-  return suffix
-    .replace('ez_bar', 'EZ Bar')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  if (ex.equipmentVariant) {
+    const v = ex.equipmentVariant.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return `${v} ${formatEquipment(ex.equipment)}`.trim();
+  }
+  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
+  if (suffix) {
+    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return formatEquipment(ex.equipment);
 }
 
 function formatMuscle(muscle: string): string {
@@ -117,7 +121,9 @@ function matchesMuscle(
     );
   }
   if (selectedGroup) {
-    return group.primaryEmphasis.some((e) => groupMap[e.muscle]?.groupId === selectedGroup);
+    return group.primaryEmphasis.some(
+      (e) => (groupMap[e.muscle]?.groupId ?? e.muscle) === selectedGroup
+    );
   }
   return true;
 }
@@ -205,7 +211,7 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
           .filter((g) => matchesEquipment(g, selectedEquipment))
           .flatMap((g) =>
             g.primaryEmphasis
-              .filter((e) => groupMap[e.muscle]?.groupId === selectedGroup)
+              .filter((e) => (groupMap[e.muscle]?.groupId ?? e.muscle) === selectedGroup)
               .map((e) => (e.head ? `${e.muscle}:${e.head}` : e.muscle))
           )
       ),
@@ -495,8 +501,13 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity className="border-b border-neutral-900 px-5 py-4 active:bg-neutral-800">
-              <Text style={{ color: 'white' }}>+ Add new exercise</Text>
+            <TouchableOpacity
+              className="border-b border-neutral-900 px-5 py-4 active:bg-neutral-800"
+              onPress={() => {
+                resetAndClose();
+                router.push('/create_exercise');
+              }}>
+              <Text style={{ color: '#ea580c', fontWeight: '600' }}>+ Create new exercise</Text>
             </TouchableOpacity>
           </ScrollView>
 

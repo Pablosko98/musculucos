@@ -22,6 +22,9 @@ function AppShell() {
     <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="create_exercise" options={{ headerShown: false }} />
+        <Stack.Screen name="exercise_history" options={{ headerShown: false }} />
+        <Stack.Screen name="exercise_block" options={{ headerShown: false }} />
       </Stack>
     </View>
   );

@@ -35,9 +35,12 @@ type ExerciseRow = {
   baseId: string;
   name: string;
   equipment: string;
+  equipmentVariant: string | null;
   muscleEmphasis: string;
   description: string;
   videoUrl: string;
+  defaultRestSeconds: number | null;
+  baseWeightKg: number | null;
   isCustom: number;
   isFavourite: number;
 };
@@ -57,6 +60,10 @@ export const initDB = () => {
       muscle TEXT PRIMARY KEY NOT NULL,
       groupId TEXT NOT NULL,
       groupLabel TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS custom_equipment (
+      id TEXT PRIMARY KEY NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS exercises (
@@ -112,6 +119,15 @@ export const initDB = () => {
   } catch {
     // Column already exists — ignore
   }
+  try {
+    db.execSync('ALTER TABLE exercises ADD COLUMN defaultRestSeconds INTEGER');
+  } catch {}
+  try {
+    db.execSync('ALTER TABLE exercises ADD COLUMN baseWeightKg REAL');
+  } catch {}
+  try {
+    db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT');
+  } catch {}
 
   // TEMP: seed test favourites — delete these two lines after testing
   // db.execSync("UPDATE exercises SET isFavourite = 1 WHERE id = 'incline_press_barbell'");
@@ -290,13 +306,19 @@ export const WorkoutDAL = {
         });
 
         const exerciseIds: string[] = block.exerciseIds ? JSON.parse(block.exerciseIds) : [];
+        const resolvedExercises = exerciseIds
+          .map((id) => exerciseLookup.get(id))
+          .filter((e): e is Exercise => e != null);
+        // Derive name fresh from exercises so renames are reflected immediately
+        const freshName = resolvedExercises.length > 0
+          ? resolvedExercises.map((e) => e.name).join(' / ')
+          : block.name;
         return {
           ...block,
+          name: freshName,
           type: block.type as Block['type'],
           exerciseIds,
-          exercises: exerciseIds
-            .map((id) => exerciseLookup.get(id))
-            .filter((e): e is Exercise => e != null),
+          exercises: resolvedExercises,
           events: formattedEvents,
         };
       })
@@ -382,6 +404,9 @@ export const ExerciseDAL = {
       ...r,
       muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [],
       isFavourite: r.isFavourite ?? 0,
+      defaultRestSeconds: r.defaultRestSeconds ?? null,
+      baseWeightKg: r.baseWeightKg ?? null,
+      equipmentVariant: r.equipmentVariant ?? null,
     }));
   },
 
@@ -403,21 +428,27 @@ export const ExerciseDAL = {
       ...r,
       muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [],
       isFavourite: r.isFavourite ?? 0,
+      defaultRestSeconds: r.defaultRestSeconds ?? null,
+      baseWeightKg: r.baseWeightKg ?? null,
+      equipmentVariant: r.equipmentVariant ?? null,
     }));
   },
 
   async save(exercise: Omit<Exercise, 'isCustom'>) {
     await db.runAsync(
-      `INSERT INTO exercises (id, baseId, name, equipment, muscleEmphasis, description, videoUrl, isCustom)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, isCustom)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         exercise.id,
         exercise.baseId,
         exercise.name,
         exercise.equipment ?? '',
+        exercise.equipmentVariant ?? null,
         JSON.stringify(exercise.muscleEmphasis ?? []),
         exercise.description ?? '',
         exercise.videoUrl ?? '',
+        exercise.defaultRestSeconds ?? null,
+        exercise.baseWeightKg ?? null,
       ]
     );
   },
@@ -425,23 +456,30 @@ export const ExerciseDAL = {
   async update(
     id: string,
     updates: Partial<
-      Pick<Exercise, 'name' | 'equipment' | 'muscleEmphasis' | 'description' | 'videoUrl'>
+      Pick<Exercise, 'name' | 'equipment' | 'equipmentVariant' | 'muscleEmphasis' | 'description' | 'videoUrl' | 'defaultRestSeconds' | 'baseWeightKg'>
     >
   ) {
     await db.runAsync(
       `UPDATE exercises
        SET name = COALESCE(?, name),
            equipment = COALESCE(?, equipment),
+           equipmentVariant = CASE WHEN ? THEN ? ELSE equipmentVariant END,
            muscleEmphasis = COALESCE(?, muscleEmphasis),
            description = COALESCE(?, description),
-           videoUrl = COALESCE(?, videoUrl)
+           videoUrl = COALESCE(?, videoUrl),
+           defaultRestSeconds = ?,
+           baseWeightKg = ?
        WHERE id = ?`,
       [
         updates.name ?? null,
         updates.equipment ?? null,
+        'equipmentVariant' in updates ? 1 : 0,
+        updates.equipmentVariant ?? null,
         updates.muscleEmphasis ? JSON.stringify(updates.muscleEmphasis) : null,
         updates.description ?? null,
         updates.videoUrl ?? null,
+        updates.defaultRestSeconds ?? null,
+        updates.baseWeightKg ?? null,
         id,
       ]
     );
@@ -449,6 +487,23 @@ export const ExerciseDAL = {
 
   async delete(id: string) {
     await db.runAsync('DELETE FROM exercises WHERE id = ?', [id]);
+    await ExerciseDAL.cleanupUnusedCustomEquipment();
+  },
+
+  async cleanupUnusedCustomEquipment(): Promise<void> {
+    await db.runAsync(
+      `DELETE FROM custom_equipment
+       WHERE id NOT IN (SELECT DISTINCT equipment FROM exercises WHERE equipment IS NOT NULL AND equipment != '')`
+    );
+  },
+
+  async getCustomEquipment(): Promise<string[]> {
+    const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM custom_equipment ORDER BY id');
+    return rows.map((r) => r.id);
+  },
+
+  async saveCustomEquipment(id: string): Promise<void> {
+    await db.runAsync('INSERT OR IGNORE INTO custom_equipment (id) VALUES (?)', [id]);
   },
 
   async setFavourite(id: string, isFavourite: boolean) {
@@ -506,6 +561,71 @@ export const ExerciseDAL = {
 
     return statsMap;
   },
+
+  async getExerciseHistory(
+    exerciseId: string,
+    limit: number,
+    offset: number
+  ): Promise<HistoryWorkout[]> {
+    const dateRows = await db.getAllAsync<{ date: string }>(
+      `SELECT DISTINCT w.date
+       FROM events e
+       JOIN blocks b ON e.blockId = b.id
+       JOIN workouts w ON b.workoutId = w.id
+       WHERE e.exerciseId = ? AND e.type = 'set'
+       ORDER BY w.date DESC
+       LIMIT ? OFFSET ?`,
+      [exerciseId, limit, offset]
+    );
+    if (dateRows.length === 0) return [];
+
+    const dates = dateRows.map((r) => r.date);
+    const placeholders = dates.map(() => '?').join(',');
+
+    const rows = await db.getAllAsync<{
+      date: string;
+      weightKg: number | null;
+      reps: number | null;
+      rpe: number | null;
+      rep_type: string | null;
+      parentEventId: string;
+    }>(
+      `SELECT w.date, e.weightKg, e.reps, e.rpe, e.rep_type, e.parentEventId
+       FROM events e
+       JOIN blocks b ON e.blockId = b.id
+       JOIN workouts w ON b.workoutId = w.id
+       WHERE e.exerciseId = ? AND e.type = 'set' AND w.date IN (${placeholders})
+       ORDER BY w.date DESC, e.id ASC`,
+      [exerciseId, ...dates]
+    );
+
+    const byDate = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (!byDate.has(row.date)) byDate.set(row.date, []);
+      byDate.get(row.date)!.push(row);
+    }
+
+    return dates.map((date) => {
+      const sets = byDate.get(date) ?? [];
+      const working = sets.filter((s) => s.rep_type !== 'warmup');
+      const workingParentIds = new Set(working.map((s) => s.parentEventId));
+      const maxWeightKg = sets.length > 0 ? Math.max(...sets.map((s) => s.weightKg ?? 0)) : 0;
+      const totalVolume = working.reduce((sum, s) => sum + (s.weightKg ?? 0) * (s.reps ?? 0), 0);
+      return {
+        date,
+        sets: sets.map((s) => ({
+          weightKg: s.weightKg ?? 0,
+          reps: s.reps ?? 0,
+          rpe: s.rpe ?? null,
+          rep_type: s.rep_type ?? 'full',
+          parentEventId: s.parentEventId,
+        })),
+        workingSets: workingParentIds.size,
+        maxWeightKg,
+        totalVolume,
+      };
+    });
+  },
 };
 
 export type ExerciseStat = {
@@ -513,6 +633,21 @@ export type ExerciseStat = {
   workoutCount: number;
   maxWeightKg: number | null;
   repsAtMaxWeight: number | null;
+};
+
+export type HistorySet = {
+  weightKg: number;
+  reps: number;
+  rpe: number | null;
+  rep_type: string;
+  parentEventId: string;
+};
+export type HistoryWorkout = {
+  date: string;
+  sets: HistorySet[];
+  workingSets: number;
+  maxWeightKg: number;
+  totalVolume: number;
 };
 
 export const seedDatabase = async () => {

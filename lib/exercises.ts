@@ -14,10 +14,13 @@ export type Exercise = {
   id: string; // unique variant ID, e.g. 'bicep_curl_dumbbell'
   baseId: string; // movement family, e.g. 'bicep_curl'
   name: string; // movement display name, same for all variants
-  equipment: string; // 'barbell' | 'dumbbell' | 'cable' | 'machine' | 'bodyweight' | 'ez_bar'
+  equipment: string; // category used for filtering: 'barbell' | 'dumbbell' | 'cable' | 'machine' | 'bodyweight' | 'ez_bar'
+  equipmentVariant?: string | null; // optional subtype label, e.g. 'Seated', 'Smith', 'Wide Grip'
   muscleEmphasis: MuscleEmphasis[];
   description?: string;
   videoUrl?: string;
+  defaultRestSeconds?: number | null; // preferred rest between sets
+  baseWeightKg?: number | null; // inherent equipment weight (e.g. 20 for barbell, 10 for ez_bar)
   isCustom?: number; // 0 = base exercise, 1 = user-created; present when read from DB
   isFavourite?: number; // 0 = not favourite, 1 = favourite; present when read from DB
 };
@@ -42,24 +45,29 @@ export const HEAD_LABELS: Record<string, string> = {
   upper:     'Upper',
   lower:     'Lower',
   traps:     'Traps',
+  rhomboids: 'Rhomboids',
   // biceps
   long_head:  'Long Head',
   short_head: 'Short Head',
   brachialis: 'Brachialis',
   // chest
-  middle: 'Middle',
+  upper_chest: 'Upper',
+  middle:      'Middle',
+  lower_chest: 'Lower',
   // legs
-  quads:      'Quads',
-  hamstrings: 'Hamstrings',
-  glutes:     'Glutes',
-  calves:     'Calves',
+  quads:       'Quads',
+  hamstrings:  'Hamstrings',
+  glutes:      'Glutes',
+  calves:      'Calves',
+  adductors:   'Adductors',
+  hip_flexors: 'Hip Flexors',
   // shoulders
   front: 'Front',
   side:  'Side',
   rear:  'Rear',
   // triceps
-  lateral: 'Lateral Head',
-  medial:  'Medial Head',
+  lateral:  'Lateral Head',
+  medial:   'Medial Head',
   // abs
   obliques: 'Obliques',
 };

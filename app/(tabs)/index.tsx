@@ -29,7 +29,7 @@ export default function WorkoutTracker() {
   const today = startOfDay(new Date());
   const ITEM_COUNT = 2000;
   const INITIAL_INDEX = ITEM_COUNT / 2;
-  const CAROUSEL_HEIGHT = height - insets.top - insets.bottom - 100;
+  const CAROUSEL_HEIGHT = height - insets.top - insets.bottom - 50;
 
   useEffect(() => {
     initDB();
@@ -176,7 +176,7 @@ export default function WorkoutTracker() {
         style={{
           flexDirection: 'row',
           justifyContent: 'space-evenly',
-          paddingVertical: 10,
+          paddingTop: 10,
           zIndex: 50,
         }}>
         <Button style={{ backgroundColor: '#6b21a8', width: 140 }}>
@@ -203,8 +203,21 @@ export default function WorkoutTracker() {
         renderItem={({ index }) => {
           const dateForCard = addDays(today, index - INITIAL_INDEX);
           const dateString = format(dateForCard, 'yyyy-MM-dd');
+          const dayDiff = index - INITIAL_INDEX;
 
           const dailyWorkout = workoutMap[dateString] ?? null;
+          const hasBlocks = dailyWorkout && dailyWorkout.blocks.length > 0;
+
+          const relativeLabel =
+            dayDiff === 0
+              ? 'Today'
+              : dayDiff === -1
+                ? 'Yesterday'
+                : dayDiff === 1
+                  ? 'Tomorrow'
+                  : dayDiff < 0
+                    ? `${Math.abs(dayDiff)} days ago`
+                    : `In ${dayDiff} days`;
 
           return (
             <View
@@ -225,15 +238,15 @@ export default function WorkoutTracker() {
                 }}>
                 <CardHeader>
                   <CardTitle style={{ color: 'white', fontSize: 22 }}>
-                    {format(dateForCard, 'EEEE')} {index === INITIAL_INDEX ? '(Today)' : ''}
+                    {format(dateForCard, 'EEEE')}a
                   </CardTitle>
                   <CardDescription style={{ color: '#a3a3a3' }}>
-                    {format(dateForCard, 'MMM do, yyyy')}
+                    {format(dateForCard, 'MMM do, yyyy')} · {relativeLabel}
                   </CardDescription>
                 </CardHeader>
 
                 <ScrollView className="flex-1 px-4">
-                  {dailyWorkout ? (
+                  {hasBlocks ? (
                     dailyWorkout.blocks.map((block: any) => (
                       <ViewExerciseBlock
                         key={block.id}
@@ -247,7 +260,6 @@ export default function WorkoutTracker() {
                   ) : (
                     <View
                       style={{
-                        flex: 1,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: 100,

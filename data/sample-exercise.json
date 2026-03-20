@@ -1,5 +1,5 @@
 {
-  "_comment": "Shape of a single exercise row — base exercises have isCustom=0, user-created have isCustom=1. muscleEmphasis is stored as JSON string in DB and parsed on read.",
+  "_comment": "Shape of a single exercise row — base exercises have isCustom=0, user-created have isCustom=1. muscleEmphasis is stored as JSON string in DB and parsed on read. defaultRestSeconds is preferred rest between sets. baseWeightKg is the inherent weight of the equipment (e.g. 20 for barbell, 10 for ez_bar).",
   "examples": [
     {
       "_group": "Triceps (cable)",
@@ -13,6 +13,8 @@
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 90,
+      "baseWeightKg": null,
       "isCustom": 0
     },
     {
@@ -23,11 +25,13 @@
       "equipment": "barbell",
       "muscleEmphasis": [
         { "muscle": "chest", "head": "middle", "role": "primary" },
-        { "muscle": "shoulders", "head": "anterior", "role": "secondary" },
+        { "muscle": "shoulders", "head": "front", "role": "secondary" },
         { "muscle": "triceps", "role": "secondary" }
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 180,
+      "baseWeightKg": 20,
       "isCustom": 0
     },
     {
@@ -38,10 +42,12 @@
       "equipment": "cable",
       "muscleEmphasis": [
         { "muscle": "chest", "head": "middle", "role": "primary" },
-        { "muscle": "shoulders", "head": "anterior", "role": "stabilizer" }
+        { "muscle": "shoulders", "head": "front", "role": "stabilizer" }
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 90,
+      "baseWeightKg": null,
       "isCustom": 0
     },
     {
@@ -57,6 +63,8 @@
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 120,
+      "baseWeightKg": null,
       "isCustom": 0
     },
     {
@@ -74,6 +82,8 @@
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 240,
+      "baseWeightKg": 20,
       "isCustom": 0
     },
     {
@@ -87,6 +97,8 @@
       ],
       "description": "",
       "videoUrl": "",
+      "defaultRestSeconds": 60,
+      "baseWeightKg": null,
       "isCustom": 0
     },
     {
@@ -100,6 +112,8 @@
       ],
       "description": "A user-defined movement added from the app.",
       "videoUrl": "",
+      "defaultRestSeconds": null,
+      "baseWeightKg": null,
       "isCustom": 1
     }
   ]

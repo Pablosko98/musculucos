@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Image } from 'react-native';
-import { Settings, Dumbbell, NotebookPen, NotebookTabs } from 'lucide-react-native';
+import { Settings, Dumbbell, NotebookPen, NotebookTabs, TrendingUp } from 'lucide-react-native';
 
 export default function TablLayout() {
   return (
@@ -30,6 +30,13 @@ export default function TablLayout() {
         options={{
           tabBarLabel: 'Exercises',
           tabBarIcon: ({ color }) => <Dumbbell size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          tabBarLabel: 'Analytics',
+          tabBarIcon: ({ color }) => <TrendingUp size={24} color={color} />,
         }}
       />
       <Tabs.Screen
