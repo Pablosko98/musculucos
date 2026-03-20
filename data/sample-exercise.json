@@ -1,0 +1,106 @@
+{
+  "_comment": "Shape of a single exercise row — base exercises have isCustom=0, user-created have isCustom=1. muscleEmphasis is stored as JSON string in DB and parsed on read.",
+  "examples": [
+    {
+      "_group": "Triceps (cable)",
+      "id": "tricep_pushdown_rope_cable",
+      "baseId": "tricep_pushdown",
+      "name": "Tricep Pushdown",
+      "equipment": "cable",
+      "muscleEmphasis": [
+        { "muscle": "triceps", "head": "lateral", "role": "primary" },
+        { "muscle": "triceps", "head": "long_head", "role": "secondary" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Chest (barbell)",
+      "id": "bench_press_barbell",
+      "baseId": "bench_press",
+      "name": "Bench Press",
+      "equipment": "barbell",
+      "muscleEmphasis": [
+        { "muscle": "chest", "head": "middle", "role": "primary" },
+        { "muscle": "shoulders", "head": "anterior", "role": "secondary" },
+        { "muscle": "triceps", "role": "secondary" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Chest (cable)",
+      "id": "chest_fly_cable",
+      "baseId": "chest_fly",
+      "name": "Chest Fly",
+      "equipment": "cable",
+      "muscleEmphasis": [
+        { "muscle": "chest", "head": "middle", "role": "primary" },
+        { "muscle": "shoulders", "head": "anterior", "role": "stabilizer" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Legs (machine)",
+      "id": "leg_press_machine",
+      "baseId": "leg_press",
+      "name": "Leg Press",
+      "equipment": "machine",
+      "muscleEmphasis": [
+        { "muscle": "legs", "head": "quads", "role": "primary" },
+        { "muscle": "legs", "head": "glutes", "role": "secondary" },
+        { "muscle": "legs", "head": "hamstrings", "role": "secondary" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Legs (barbell)",
+      "id": "squat_barbell",
+      "baseId": "squat",
+      "name": "Squat",
+      "equipment": "barbell",
+      "muscleEmphasis": [
+        { "muscle": "legs", "head": "quads", "role": "primary" },
+        { "muscle": "legs", "head": "glutes", "role": "primary" },
+        { "muscle": "legs", "head": "hamstrings", "role": "secondary" },
+        { "muscle": "back", "head": "lower", "role": "stabilizer" },
+        { "muscle": "abs", "role": "stabilizer" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Legs (bodyweight)",
+      "id": "calf_raise_bodyweight",
+      "baseId": "calf_raise",
+      "name": "Calf Raise",
+      "equipment": "bodyweight",
+      "muscleEmphasis": [
+        { "muscle": "legs", "head": "calves", "role": "primary" }
+      ],
+      "description": "",
+      "videoUrl": "",
+      "isCustom": 0
+    },
+    {
+      "_group": "Custom (user-created)",
+      "id": "custom_1742000000000",
+      "baseId": "custom_1742000000000",
+      "name": "My Custom Exercise",
+      "equipment": "machine",
+      "muscleEmphasis": [
+        { "muscle": "back", "head": "lats", "role": "primary" }
+      ],
+      "description": "A user-defined movement added from the app.",
+      "videoUrl": "",
+      "isCustom": 1
+    }
+  ]
+}

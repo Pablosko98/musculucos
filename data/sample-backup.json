@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "exportedAt": "2026-03-20T00:36:55.115Z",
+  "workouts": [
+    { "id": "workout-1773704403485", "date": "2026-03-16", "durationSeconds": 0, "notes": "" },
+    { "id": "workout-1773730999517", "date": "2026-03-17", "durationSeconds": 0, "notes": "" },
+    { "id": "workout-1773954301383", "date": "2026-03-19", "durationSeconds": 0, "notes": "" }
+  ],
+  "blocks": [
+    {
+      "id": "block-1773704403485",
+      "workoutId": "workout-1773704403485",
+      "order": 0,
+      "type": "standard",
+      "name": "Bench Press",
+      "exerciseIds": "[\"bench_press\"]",
+      "sets": 0,
+      "datetime": "2026-03-16T23:40:03.485Z"
+    },
+    {
+      "id": "block-1773956846282",
+      "workoutId": "workout-1773954301383",
+      "order": 0,
+      "type": "standard",
+      "name": "Incline Press",
+      "exerciseIds": "[\"incline_press_barbell\"]",
+      "sets": 0,
+      "datetime": "2026-03-19T21:47:26.282Z"
+    }
+  ],
+  "events": [
+    {
+      "id": 62,
+      "blockId": "block-1773704403485",
+      "type": "set",
+      "exerciseId": "bench_press",
+      "parentEventId": "event-set-1773734071451",
+      "weightKg": 60,
+      "rep_type": "full",
+      "reps": 10,
+      "rpe": 8,
+      "durationSeconds": null,
+      "datetime": "07:54"
+    },
+    {
+      "id": 115,
+      "blockId": "block-1773956846282",
+      "type": "rest",
+      "exerciseId": null,
+      "parentEventId": null,
+      "weightKg": null,
+      "rep_type": null,
+      "reps": null,
+      "rpe": null,
+      "durationSeconds": 60,
+      "datetime": "21:49"
+    }
+  ],
+  "customExercises": []
+}

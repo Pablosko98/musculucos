@@ -1,0 +1,111 @@
+{
+  "_comment": "Shape returned by WorkoutDAL.getWorkoutByDate(). Blocks and subSets are enriched with full exercise objects from the DB.",
+  "id": "workout-1773954301383",
+  "date": "2026-03-19",
+  "durationSeconds": 0,
+  "notes": "",
+  "blocks": [
+    {
+      "id": "block-1773956846282",
+      "workoutId": "workout-1773954301383",
+      "order": 0,
+      "type": "standard",
+      "name": "Incline Press",
+      "exerciseIds": ["incline_press_barbell"],
+      "exercises": [
+        {
+          "id": "incline_press_barbell",
+          "baseId": "incline_press",
+          "name": "Incline Press",
+          "equipment": "barbell",
+          "muscleEmphasis": [
+            { "muscle": "chest", "head": "upper", "role": "primary" },
+            { "muscle": "shoulders", "head": "anterior", "role": "secondary" },
+            { "muscle": "triceps", "role": "secondary" }
+          ],
+          "description": "",
+          "videoUrl": "",
+          "isCustom": 0
+        }
+      ],
+      "datetime": "2026-03-19T21:47:26.282Z",
+      "sets": 0,
+      "events": [
+        {
+          "id": "group_block-1773956846282_21:47",
+          "type": "set",
+          "datetime": "21:47",
+          "subSets": [
+            {
+              "id": "480",
+              "blockId": "block-1773956846282",
+              "type": "set",
+              "exerciseId": "incline_press_barbell",
+              "parentEventId": "group_block-1773956846282_21:47",
+              "weightKg": 40,
+              "rep_type": "warmup",
+              "reps": 7,
+              "rpe": 6,
+              "durationSeconds": null,
+              "datetime": "21:47",
+              "exercise": {
+                "id": "incline_press_barbell",
+                "baseId": "incline_press",
+                "name": "Incline Press",
+                "equipment": "barbell",
+                "muscleEmphasis": [
+                  { "muscle": "chest", "head": "upper", "role": "primary" },
+                  { "muscle": "shoulders", "head": "anterior", "role": "secondary" },
+                  { "muscle": "triceps", "role": "secondary" }
+                ],
+                "description": "",
+                "videoUrl": "",
+                "isCustom": 0
+              }
+            },
+            {
+              "id": "481",
+              "blockId": "block-1773956846282",
+              "type": "set",
+              "exerciseId": "incline_press_barbell",
+              "parentEventId": "group_block-1773956846282_21:47",
+              "weightKg": 35,
+              "rep_type": "full",
+              "reps": 9,
+              "rpe": 8.5,
+              "durationSeconds": null,
+              "datetime": "21:49",
+              "exercise": {
+                "id": "incline_press_barbell",
+                "baseId": "incline_press",
+                "name": "Incline Press",
+                "equipment": "barbell",
+                "muscleEmphasis": [
+                  { "muscle": "chest", "head": "upper", "role": "primary" },
+                  { "muscle": "shoulders", "head": "anterior", "role": "secondary" },
+                  { "muscle": "triceps", "role": "secondary" }
+                ],
+                "description": "",
+                "videoUrl": "",
+                "isCustom": 0
+              }
+            }
+          ]
+        },
+        {
+          "id": "482",
+          "type": "rest",
+          "blockId": "block-1773956846282",
+          "durationSeconds": 60,
+          "datetime": "21:49",
+          "parentEventId": null,
+          "exerciseId": null,
+          "weightKg": null,
+          "rep_type": null,
+          "reps": null,
+          "rpe": null
+        }
+      ]
+    }
+  ]
+}
