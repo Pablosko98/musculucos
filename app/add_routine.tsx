@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { exercises } from '@/lib/exercises';
 import { Search, Link, ChevronRight, X } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
