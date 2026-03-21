@@ -321,6 +321,15 @@ export default function ExerciseBlock() {
   const navigation = useNavigation();
   const allowBackRef = useRef(false);
 
+  // Hide the tab bar while in this screen, restore when leaving
+  useEffect(() => {
+    const parent = navigation.getParent();
+    parent?.setOptions({ tabBarStyle: { display: 'none' } });
+    return () => {
+      parent?.setOptions({ tabBarStyle: { backgroundColor: '#fff', borderTopWidth: 0 } });
+    };
+  }, [navigation]);
+
   // Hijack hardware back / swipe gesture to always return to the workout tab.
   // allowBackRef prevents the re-dispatched action from re-triggering this listener.
   useEffect(() => {
@@ -898,7 +907,7 @@ export default function ExerciseBlock() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#09090b', paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: '#09090b' }}>
       {/* Header */}
       <View
         style={{
@@ -1097,6 +1106,7 @@ export default function ExerciseBlock() {
                     onFocus={() => {
                       weightJustSelected.current = true;
                       setWeightSel({ start: 0, end: inputWeight.length });
+                      flatListRef.current?.scrollToEnd({ animated: true });
                     }}
                     onBlur={() => setWeightSel(undefined)}
                     onSelectionChange={() => {
@@ -1142,6 +1152,7 @@ export default function ExerciseBlock() {
                     onFocus={() => {
                       repsJustSelected.current = true;
                       setRepsSel({ start: 0, end: inputReps.length });
+                      flatListRef.current?.scrollToEnd({ animated: true });
                     }}
                     onBlur={() => setRepsSel(undefined)}
                     onSelectionChange={() => {

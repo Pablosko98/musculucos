@@ -48,7 +48,11 @@ async function prefetchRange(centerDate: Date) {
       [startDate, endDate]
     );
     // Dates with no workout row → cache null so cards show REST DAY immediately
-    for (let d = new Date(startDate + 'T00:00:00'); d <= new Date(endDate + 'T00:00:00'); d = addDays(d, 1)) {
+    for (
+      let d = new Date(startDate + 'T00:00:00');
+      d <= new Date(endDate + 'T00:00:00');
+      d = addDays(d, 1)
+    ) {
       const key = format(d, 'yyyy-MM-dd');
       if (!queryClient.getQueryData(workoutKey(key))) {
         queryClient.setQueryData(workoutKey(key), null);
@@ -88,7 +92,10 @@ export async function saveEditedBlock(dateString: string, updatedBlock: Block) {
     JSON.stringify(lastOld) !== JSON.stringify(matchNew);
   try {
     if (countDiff === 1 && !existingModified) {
-      await WorkoutDAL.addEvent(updatedBlock.id, updatedBlock.events[updatedBlock.events.length - 1]);
+      await WorkoutDAL.addEvent(
+        updatedBlock.id,
+        updatedBlock.events[updatedBlock.events.length - 1]
+      );
     } else {
       await WorkoutDAL.saveFullWorkout(updated);
     }
@@ -207,7 +214,10 @@ function WorkoutCard({ index }: { index: number }) {
         </ScrollView>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
-          <AddExercise dateString={dateString} onAdd={(exercises) => addExercise(dateString, exercises)} />
+          <AddExercise
+            dateString={dateString}
+            onAdd={(exercises) => addExercise(dateString, exercises)}
+          />
           <AddRoutine onAdd={() => {}} />
         </View>
       </Card>
@@ -248,7 +258,13 @@ export default function WorkoutTracker() {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'black' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingTop: 10, zIndex: 50 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-evenly',
+          paddingTop: 10,
+          zIndex: 50,
+        }}>
         <Button style={{ backgroundColor: '#6b21a8', width: 140 }}>
           <Text style={{ color: 'white' }}>Calendar</Text>
         </Button>
@@ -259,20 +275,23 @@ export default function WorkoutTracker() {
         </Button>
       </View>
 
-      <View style={{ flex: 1 }} onLayout={(e) => setCarouselHeight(e.nativeEvent.layout.height)}>
-      {carouselHeight > 0 && <Carousel
-        ref={carouselRef}
-        width={width}
-        height={carouselHeight}
-        data={CAROUSEL_DATA}
-        defaultIndex={INITIAL_INDEX}
-        windowSize={11}
-
-        mode="parallax"
-        modeConfig={{ parallaxScrollingScale: 0.94, parallaxScrollingOffset: 40 }}
-        onSnapToItem={(index) => prefetchRange(addDays(today, index - INITIAL_INDEX))}
-        renderItem={renderCarouselItem}
-      />}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => setCarouselHeight(e.nativeEvent.layout.height + 50)}>
+        {carouselHeight > 0 && (
+          <Carousel
+            ref={carouselRef}
+            width={width}
+            height={carouselHeight}
+            data={CAROUSEL_DATA}
+            defaultIndex={INITIAL_INDEX}
+            windowSize={11}
+            mode="parallax"
+            modeConfig={{ parallaxScrollingScale: 0.94, parallaxScrollingOffset: 40 }}
+            onSnapToItem={(index) => prefetchRange(addDays(today, index - INITIAL_INDEX))}
+            renderItem={renderCarouselItem}
+          />
+        )}
       </View>
     </View>
   );
