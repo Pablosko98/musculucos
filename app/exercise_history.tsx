@@ -13,16 +13,20 @@ const PAGE_SIZE = 50;
 const PREFETCH_THRESHOLD = 25;
 
 const EQUIPMENT_LABELS: Record<string, string> = {
-  barbell: 'Barbell', dumbbell: 'Dumbbell', cable: 'Cable',
-  machine: 'Machine', bodyweight: 'Bodyweight', ez_bar: 'EZ Bar',
+  barbell: 'Barbell',
+  dumbbell: 'Dumbbell',
+  cable: 'Cable',
+  machine: 'Machine',
+  bodyweight: 'Bodyweight',
+  ez_bar: 'EZ Bar',
 };
 const EQUIPMENT_COLORS: Record<string, { bg: string; text: string; activeBg: string }> = {
-  barbell:    { bg: '#1c2e4a', text: '#60a5fa', activeBg: '#1d4ed8' },
-  dumbbell:   { bg: '#162d22', text: '#4ade80', activeBg: '#16a34a' },
-  cable:      { bg: '#2a1a3e', text: '#c084fc', activeBg: '#7c3aed' },
-  machine:    { bg: '#2e1f0a', text: '#fb923c', activeBg: '#ea580c' },
+  barbell: { bg: '#1c2e4a', text: '#60a5fa', activeBg: '#1d4ed8' },
+  dumbbell: { bg: '#162d22', text: '#4ade80', activeBg: '#16a34a' },
+  cable: { bg: '#2a1a3e', text: '#c084fc', activeBg: '#7c3aed' },
+  machine: { bg: '#2e1f0a', text: '#fb923c', activeBg: '#ea580c' },
   bodyweight: { bg: '#0f2e2e', text: '#2dd4bf', activeBg: '#0d9488' },
-  ez_bar:     { bg: '#2e1021', text: '#f472b6', activeBg: '#db2777' },
+  ez_bar: { bg: '#2e1021', text: '#f472b6', activeBg: '#db2777' },
 };
 
 function fmt(s: string) {
@@ -31,13 +35,21 @@ function fmt(s: string) {
 function fmtEquipment(eq: string): string {
   return EQUIPMENT_LABELS[eq] ?? fmt(eq);
 }
-function variantLabel(ex: { id: string; baseId: string; equipment: string; equipmentVariant?: string | null }): string {
+function variantLabel(ex: {
+  id: string;
+  baseId: string;
+  equipment: string;
+  equipmentVariant?: string | null;
+}): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${EQUIPMENT_LABELS[ex.equipment] ?? fmt(ex.equipment)}`.trim();
   }
   const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
   if (suffix) {
-    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return suffix
+      .replace('ez_bar', 'EZ Bar')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return EQUIPMENT_LABELS[ex.equipment] ?? fmt(ex.equipment);
 }
@@ -79,8 +91,7 @@ function WorkoutCard({
         borderColor: '#27272a',
         marginBottom: 10,
         overflow: 'hidden',
-      }}
-    >
+      }}>
       {/* Date header — tappable */}
       <TouchableOpacity
         onPress={() => onPressDate(workout.date)}
@@ -92,8 +103,7 @@ function WorkoutCard({
           borderBottomColor: '#27272a',
           flexDirection: 'row',
           alignItems: 'center',
-        }}
-      >
+        }}>
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>
             {formatDate(workout.date)}
@@ -105,9 +115,7 @@ function WorkoutCard({
               </Text>
             )}
             {workout.maxWeightKg > 0 && (
-              <Text style={{ color: '#52525b', fontSize: 12 }}>
-                · {workout.maxWeightKg}kg max
-              </Text>
+              <Text style={{ color: '#52525b', fontSize: 12 }}>· {workout.maxWeightKg}kg max</Text>
             )}
             {workout.totalVolume > 0 && (
               <Text style={{ color: '#52525b', fontSize: 12 }}>
@@ -136,8 +144,7 @@ function WorkoutCard({
                   fontSize: 15,
                   fontWeight: '600',
                   flex: 1,
-                }}
-              >
+                }}>
                 {isBodyweight ? 'BW' : `${s.weightKg}`}
                 {!isBodyweight && (
                   <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}> kg</Text>
@@ -151,13 +158,41 @@ function WorkoutCard({
                 </Text>
               )}
               {isWarmup && (
-                <View style={{ backgroundColor: '#27272a', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
-                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>warmup</Text>
+                <View
+                  style={{
+                    backgroundColor: '#27272a',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                  }}>
+                  <Text
+                    style={{
+                      color: '#71717a',
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                    warmup
+                  </Text>
                 </View>
               )}
               {!isWarmup && s.rep_type !== 'full' && (
-                <View style={{ backgroundColor: '#1c1c1f', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
-                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.rep_type}</Text>
+                <View
+                  style={{
+                    backgroundColor: '#1c1c1f',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                  }}>
+                  <Text
+                    style={{
+                      color: '#71717a',
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                    {s.rep_type}
+                  </Text>
                 </View>
               )}
             </View>
@@ -170,7 +205,11 @@ function WorkoutCard({
 
 export default function ExerciseHistory() {
   const insets = useSafeAreaInsets();
-  const { exerciseId: initialExerciseId, exerciseName, baseId } = useLocalSearchParams<{
+  const {
+    exerciseId: initialExerciseId,
+    exerciseName,
+    baseId,
+  } = useLocalSearchParams<{
     exerciseId: string;
     exerciseName?: string;
     baseId?: string;
@@ -251,9 +290,10 @@ export default function ExerciseHistory() {
           paddingVertical: 14,
           borderBottomWidth: 1,
           borderBottomColor: '#18181b',
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 8 }}>
@@ -269,11 +309,14 @@ export default function ExerciseHistory() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}
-          style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: '#18181b' }}
-        >
+          style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: '#18181b' }}>
           {variants.map((v) => {
             const isActive = v.id === activeId;
-            const colors = EQUIPMENT_COLORS[v.equipment] ?? { bg: '#27272a', text: '#a1a1aa', activeBg: '#3f3f46' };
+            const colors = EQUIPMENT_COLORS[v.equipment] ?? {
+              bg: '#27272a',
+              text: '#a1a1aa',
+              activeBg: '#3f3f46',
+            };
             return (
               <TouchableOpacity
                 key={v.id}
@@ -286,9 +329,13 @@ export default function ExerciseHistory() {
                   backgroundColor: isActive ? colors.activeBg : colors.bg,
                   borderWidth: 1,
                   borderColor: isActive ? 'transparent' : '#27272a',
-                }}
-              >
-                <Text style={{ color: isActive ? '#fff' : colors.text, fontSize: 13, fontWeight: isActive ? '700' : '500' }}>
+                }}>
+                <Text
+                  style={{
+                    color: isActive ? '#fff' : colors.text,
+                    fontSize: 13,
+                    fontWeight: isActive ? '700' : '500',
+                  }}>
                   {variantLabel(v)}
                 </Text>
               </TouchableOpacity>
@@ -319,10 +366,9 @@ export default function ExerciseHistory() {
           ListHeaderComponent={
             history.length > 0 ? (
               <Text style={{ color: '#52525b', fontSize: 13, marginBottom: 12 }}>
-                {history.length} workout{history.length !== 1 ? 's' : ''}{hasMore ? '+' : ''}
-                {variants.length > 1 && activeVariant
-                  ? ` · ${variantLabel(activeVariant)}`
-                  : ''}
+                {history.length} workout{history.length !== 1 ? 's' : ''}
+                {hasMore ? '+' : ''}
+                {variants.length > 1 && activeVariant ? ` · ${variantLabel(activeVariant)}` : ''}
               </Text>
             ) : null
           }

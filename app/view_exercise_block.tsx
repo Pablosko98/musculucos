@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/ui/text';
@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import type { Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
 import { setActiveBlock } from '@/lib/block-state';
+import { restTimer } from '@/lib/rest-timer';
 
 function fmt(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -39,7 +40,24 @@ function ViewExerciseBlock({
   dateString,
   onDeleteBlock,
 }: ViewExerciseBlockProps) {
+  // Re-render when this block's rest state changes (active → done or started)
+  const [, forceUpdate] = useState(0);
+  const wasRestingRef = useRef(restTimer.isActiveBlock(exerciseBlock?.id ?? ''));
+  useEffect(() => {
+    const id = exerciseBlock?.id ?? '';
+    const interval = setInterval(() => {
+      const isResting = restTimer.isActiveBlock(id);
+      if (isResting || isResting !== wasRestingRef.current) {
+        wasRestingRef.current = isResting;
+        forceUpdate((n) => n + 1);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [exerciseBlock?.id]);
+
   if (!exerciseBlock) return null;
+
+  const isResting = restTimer.isActiveBlock(exerciseBlock.id);
 
   const blockSummary = useMemo(() => {
     const setEvents = exerciseBlock.events.filter((e) => e.type === 'set');
@@ -112,13 +130,19 @@ function ViewExerciseBlock({
             </Text>
           </View>
         )}
-        {blockSummary.totalRest > 0 && (
+        {isResting ? (
+          <View className="rounded-lg border border-purple-500/40 bg-purple-500/20 px-2 py-1">
+            <Text className="text-[9px] font-black uppercase tracking-widest text-purple-400">
+              Resting…
+            </Text>
+          </View>
+        ) : blockSummary.totalRest > 0 ? (
           <View className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1">
             <Text className="text-[9px] font-black uppercase tracking-widest text-purple-400">
               {Math.round(blockSummary.totalRest / 60)}m rest
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
     </Pressable>
   );

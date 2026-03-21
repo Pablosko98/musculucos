@@ -17,7 +17,7 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { produce } from 'immer';
 import { Text } from '@/components/ui/text';
@@ -25,27 +25,29 @@ import { Button } from '@/components/ui/button';
 import {
   ChevronLeft,
   ChevronRight,
-  Clock,
   ChevronDown,
   ChevronUp,
   Minus,
   Plus,
+  Scale,
+  Square,
+  Timer,
   Trash2,
   Youtube,
   Zap,
 } from 'lucide-react-native';
-import { ExerciseDAL } from '@/lib/db';
+import { ExerciseDAL, PrefsDAL } from '@/lib/db';
 import type { HistoryWorkout } from '@/lib/db';
-import type { Block, WorkoutEvent, SubSet } from '@/lib/types';
+import type { Block, WorkoutEvent, SubSet, SetEvent } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
-import { getActiveBlock } from '@/lib/block-state';
+import { getActiveBlock, setActiveBlock } from '@/lib/block-state';
 import { setPendingWorkoutDate } from '@/lib/navigation-state';
+import { restTimer } from '@/lib/rest-timer';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
 const WEIGHT_STEP = 2.5;
-const RPE_VALUES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
-const REP_TYPES = ['warmup', 'full', 'top half', 'bot half', 'assisted'];
+const REP_TYPES = ['warmup', 'full', 'half', 'assisted'];
 const DEFAULT_RESTS: Record<string, number> = {
   leg_press: 180,
   bench_press: 120,
@@ -57,6 +59,14 @@ const HISTORY_PAGE = 50;
 
 function fmt(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDuration(s: number): string {
+  if (s <= 0) return '0s';
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m === 0) return `${rem}s`;
+  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
 }
 
 function variantLabel(ex: Exercise): string {
@@ -73,6 +83,41 @@ function variantLabel(ex: Exercise): string {
   return fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment);
 }
 
+// ─── Prefill helpers ─────────────────────────────────────────────────────────
+
+type PrefillMode = 'last_set' | 'first_set';
+
+function getDefaultInputs(
+  exerciseId: string,
+  currentRepType: string,
+  block: Block,
+  history: HistoryWorkout[],
+  mode: PrefillMode,
+  baseWeightKg = 0,
+  multiplier = 1
+): { weight: string; reps: string } {
+  const currentSets = block.events
+    .filter((e): e is SetEvent => e.type === 'set')
+    .flatMap((e) => e.subSets)
+    .filter((s) => s.exerciseId === exerciseId && s.rep_type === 'full');
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+
+  if (currentSets.length > 0) {
+    const ref = currentSets[currentSets.length - 1];
+    const plates = r2(Math.max((ref.weightKg - baseWeightKg) / multiplier, 0));
+    return { weight: String(plates), reps: ref.reps.toString() };
+  }
+
+  const lastWorkout = history[0];
+  if (!lastWorkout) return { weight: '', reps: '' };
+  const workingSets = lastWorkout.sets.filter((s) => s.rep_type === 'full');
+  if (workingSets.length === 0) return { weight: '', reps: '' };
+  const ref = mode === 'first_set' ? workingSets[0] : workingSets[workingSets.length - 1];
+  const plates = r2(Math.max((ref.weightKg - baseWeightKg) / multiplier, 0));
+  return { weight: String(plates), reps: ref.reps.toString() };
+}
+
 // ─── History helpers ────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string): string {
@@ -82,7 +127,8 @@ function formatDate(dateStr: string): string {
   const abs = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   if (diffDays === 0) return `Today · ${abs}`;
   if (diffDays === 1) return `Yesterday · ${abs}`;
-  if (diffDays < 7) return `${diffDays} days ago · ${abs}`;
+  if (diffDays > 1 && diffDays < 7) return `${diffDays} days ago · ${abs}`;
+  if (diffDays < 0) return `In ${Math.abs(diffDays)}d · ${abs}`;
   return abs;
 }
 
@@ -170,11 +216,6 @@ function HistoryCard({
                 {' × '}
                 {s.reps}
               </Text>
-              {s.rpe != null && (
-                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600' }}>
-                  @{s.rpe % 1 === 0 ? s.rpe : s.rpe.toFixed(1)}
-                </Text>
-              )}
               {isWarmup && (
                 <View
                   style={{
@@ -241,14 +282,30 @@ export default function ExerciseBlock() {
   } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeExerciseId, setActiveExerciseId] = useState(initialBlock?.exerciseIds?.[0] ?? '');
-  const [inputWeight, setInputWeight] = useState('60');
-  const [inputReps, setInputReps] = useState('10');
+  const [inputWeight, setInputWeight] = useState('');
+  const [inputReps, setInputReps] = useState('');
   const [inputRest, setInputRest] = useState('');
-  const [inputRPE, setInputRPE] = useState(8);
   const [repType, setRepType] = useState('full');
+  const [prefillMode, setPrefillMode] = useState<PrefillMode>('last_set');
+  const flatListRef = useRef<any>(null);
+  const localBlockRef = useRef<Block>(initialBlock!);
+  const weightInputRef = useRef<any>(null);
+  const repsInputRef = useRef<any>(null);
+  const [weightSel, setWeightSel] = useState<{ start: number; end: number } | undefined>();
+  const [repsSel, setRepsSel] = useState<{ start: number; end: number } | undefined>();
+  const weightJustSelected = useRef(false);
+  const repsJustSelected = useRef(false);
   const [currentDefaultRest, setCurrentDefaultRest] = useState(
-    DEFAULT_RESTS[activeExerciseId] || DEFAULT_RESTS['default']
+    initialBlock?.exercises?.[0]?.defaultRestSeconds ??
+      DEFAULT_RESTS[activeExerciseId] ??
+      DEFAULT_RESTS['default']
   );
+  const [tick, setTick] = useState(0);
+  const [editingRestId, setEditingRestId] = useState<string | null>(null);
+  const [editRestValue, setEditRestValue] = useState(0);
+  const [localPerSide, setLocalPerSide] = useState<boolean | null>(null);
+  const [globalWeightMode, setGlobalWeightMode] = useState<'total' | 'per_side'>('total');
+  const [barWeightInput, setBarWeightInput] = useState('');
 
   // History state
   const [historyData, setHistoryData] = useState<HistoryWorkout[]>([]);
@@ -261,12 +318,37 @@ export default function ExerciseBlock() {
   // so we can skip the spinner on subsequent reloads (silently refresh instead).
   const historyInitializedRef = useRef(false);
 
+  const navigation = useNavigation();
+
+  // Hijack all back actions (hardware back, swipe, gesture) to always go to workout
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      if (dateString) setPendingWorkoutDate(dateString);
+      router.navigate('/(tabs)');
+    });
+    return unsub;
+  }, [navigation, dateString]);
+
   const exerciseMap = useMemo(
     () => new Map<string, Exercise>((initialBlock?.exercises ?? []).map((ex) => [ex.id, ex])),
     [initialBlock]
   );
 
   const activeExercise = exerciseMap.get(activeExerciseId);
+  const exerciseDefaultBase = activeExercise?.baseWeightKg ?? 0;
+  const parsedBarInput = barWeightInput.trim() !== '' ? parseFloat(barWeightInput) : NaN;
+  const effectiveBaseWeight = !isNaN(parsedBarInput) ? parsedBarInput : exerciseDefaultBase;
+  const isLocalBarOverride = !isNaN(parsedBarInput) && parsedBarInput !== exerciseDefaultBase;
+  // Exercise-level 'per_side' overrides global; 'total' or null falls back to global
+  const isPerSide =
+    localPerSide ??
+    (activeExercise?.weightMode === 'per_side'
+      ? true
+      : activeExercise?.weightMode === 'total'
+        ? false
+        : globalWeightMode === 'per_side');
+  const weightMultiplier = isPerSide ? 2 : 1;
 
   // ── History loading ──────────────────────────────────────────────────────
 
@@ -323,6 +405,43 @@ export default function ExerciseBlock() {
     }
   }, [activeTab]);
 
+  // Load prefill mode and global weight mode from prefs on mount
+  useEffect(() => {
+    PrefsDAL.get('weightPrefill').then((v) => {
+      if (v === 'last_set' || v === 'first_set') setPrefillMode(v);
+    });
+    PrefsDAL.get('defaultWeightMode').then((v) => {
+      if (v === 'total' || v === 'per_side') setGlobalWeightMode(v);
+    });
+  }, []);
+
+  // Scroll editing item into view when keyboard opens
+  useEffect(() => {
+    if (!editing) return;
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      const idx = localBlock.events.findIndex((e) => e.id === editing.eventId);
+      if (idx >= 0) {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewOffset: 16 });
+      }
+    });
+    return () => sub.remove();
+  }, [editing?.eventId]);
+
+  // Apply prefill when history loads or exercise/mode changes
+  useEffect(() => {
+    const { weight, reps } = getDefaultInputs(
+      activeExerciseId,
+      repType,
+      localBlock,
+      historyData,
+      prefillMode,
+      effectiveBaseWeight,
+      weightMultiplier
+    );
+    setInputWeight(weight);
+    setInputReps(reps);
+  }, [historyData, prefillMode, activeExerciseId]);
+
   // ── Sets tab logic ───────────────────────────────────────────────────────
 
   // Live sync while editing a set
@@ -333,16 +452,18 @@ export default function ExerciseBlock() {
         if (event?.type === 'set') {
           const sub = event.subSets.find((s) => s.id === editing.subSetId);
           if (sub) {
-            sub.weightKg = parseFloat(inputWeight) || 0;
+            sub.weightKg =
+              Math.round(
+                ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+              ) / 100;
             sub.reps = parseInt(inputReps) || 0;
-            sub.rpe = inputRPE;
             sub.rep_type = repType;
           }
         }
       });
       setLocalBlock(nextBlock);
     }
-  }, [inputWeight, inputReps, inputRPE, repType]);
+  }, [inputWeight, inputReps, repType, barWeightInput, localPerSide]);
 
   const handleFinishEditing = () => {
     saveEditedBlock?.(dateString, localBlock);
@@ -350,16 +471,33 @@ export default function ExerciseBlock() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleChangeActiveExercise = (id: string) => {
+  const handleChangeActiveExercise = (id: string, blockOverride?: Block) => {
     setActiveExerciseId(id);
-    setCurrentDefaultRest(DEFAULT_RESTS[id] || DEFAULT_RESTS['default']);
-    const allMatching = localBlock.events
-      .filter((e): e is import('@/lib/types').SetEvent => e.type === 'set')
-      .flatMap((e) => e.subSets)
-      .filter((s) => s.exerciseId === id);
-    const lastWeight =
-      allMatching.length > 0 ? allMatching[allMatching.length - 1].weightKg.toString() : '60';
-    setInputWeight(lastWeight);
+    setLocalPerSide(null);
+    const ex = exerciseMap.get(id);
+    const newBase = ex?.baseWeightKg ?? 0;
+    setBarWeightInput(newBase > 0 ? String(newBase) : '');
+    setCurrentDefaultRest(ex?.defaultRestSeconds ?? DEFAULT_RESTS[id] ?? DEFAULT_RESTS['default']);
+    const block = blockOverride ?? localBlock;
+    const newIsPerSide =
+      localPerSide ??
+      (ex?.weightMode === 'per_side'
+        ? true
+        : ex?.weightMode === 'total'
+          ? false
+          : globalWeightMode === 'per_side');
+    const newMultiplier = newIsPerSide ? 2 : 1;
+    const { weight, reps } = getDefaultInputs(
+      id,
+      repType,
+      block,
+      historyData,
+      prefillMode,
+      newBase,
+      newMultiplier
+    );
+    setInputWeight(weight);
+    setInputReps(reps);
   };
 
   const handleAddNewSet = () => {
@@ -370,14 +508,18 @@ export default function ExerciseBlock() {
     const newSub: SubSet = {
       id: `sub-${Date.now()}`,
       exerciseId: activeExerciseId,
-      weightKg: parseFloat(inputWeight) || 0,
+      weightKg:
+        Math.round(
+          ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+        ) / 100,
       reps: parseInt(inputReps) || 0,
-      rpe: inputRPE,
+      rpe: 0,
       rep_type: repType,
       datetime: now,
       exercise: exerciseMap.get(activeExerciseId),
     };
-    const nextBlock = produce(localBlock, (draft) => {
+    const baseBlock = finalizeActiveRest(localBlock);
+    const nextBlock = produce(baseBlock, (draft) => {
       const lastEvent = draft.events[draft.events.length - 1];
       if (lastEvent?.type === 'set') {
         lastEvent.subSets.push(newSub);
@@ -393,9 +535,9 @@ export default function ExerciseBlock() {
     setLocalBlock(nextBlock);
     saveEditedBlock?.(dateString, nextBlock);
     if (activeExerciseId === initialBlock?.exerciseIds?.[0] && initialBlock?.exerciseIds?.[1]) {
-      handleChangeActiveExercise(initialBlock.exerciseIds[1]);
+      handleChangeActiveExercise(initialBlock.exerciseIds[1], nextBlock);
     } else {
-      handleChangeActiveExercise(initialBlock?.exerciseIds?.[0] ?? activeExerciseId);
+      handleChangeActiveExercise(initialBlock?.exerciseIds?.[0] ?? activeExerciseId, nextBlock);
     }
   };
 
@@ -442,6 +584,130 @@ export default function ExerciseBlock() {
     setInputRest('');
   };
 
+  const handleStopRest = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const nextBlock = finalizeActiveRest(localBlock);
+    setLocalBlock(nextBlock);
+    saveEditedBlock?.(dateString, nextBlock);
+  };
+
+  const handleSaveRestEdit = (eventId: string, newSeconds: number) => {
+    const nextBlock = produce(localBlock, (draft) => {
+      const ev = draft.events.find((e) => e.id === eventId);
+      if (ev && ev.type === 'rest') ev.durationSeconds = Math.max(newSeconds, 1);
+    });
+    setLocalBlock(nextBlock);
+    saveEditedBlock?.(dateString, nextBlock);
+    setEditingRestId(null);
+  };
+
+  // Keep localBlockRef in sync so the nav callback always has fresh block state
+  useEffect(() => {
+    localBlockRef.current = localBlock;
+  }, [localBlock]);
+
+  useEffect(() => {
+    setBarWeightInput(exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '');
+  }, [activeExerciseId]);
+
+  // Tick every second to drive the live rest counter
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (restTimer.isActiveBlock(localBlock.id)) setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [localBlock.id]);
+
+  // Finalize the active rest (record elapsed) and return the updated block.
+  // Matches by durationSeconds === 0 since DB reload changes the event ID.
+  const finalizeActiveRest = (block: Block): Block => {
+    if (!restTimer.isActiveBlock(block.id)) return block;
+    const elapsed = Math.max(restTimer.elapsed(), 1);
+    restTimer.clear();
+    return produce(block, (draft) => {
+      // Find the last rest with durationSeconds === 0 (the active one)
+      for (let i = draft.events.length - 1; i >= 0; i--) {
+        const ev = draft.events[i];
+        if (ev.type === 'rest' && ev.durationSeconds === 0) {
+          ev.durationSeconds = elapsed;
+          break;
+        }
+      }
+    });
+  };
+
+  const handleAddSetWithTimer = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowAdvanced(false);
+    Keyboard.dismiss();
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    // If another block has an active rest, call its finalize callback before taking over.
+    // Must call finalizeForBlock before clear() since clear() nulls the callbacks.
+    if (restTimer.get() && !restTimer.isActiveBlock(localBlock.id)) {
+      restTimer.finalizeForBlock(Math.max(restTimer.elapsed(), 1));
+      restTimer.clear();
+    }
+
+    const newSub: SubSet = {
+      id: `sub-${Date.now()}`,
+      exerciseId: activeExerciseId,
+      weightKg:
+        Math.round(
+          ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+        ) / 100,
+      reps: parseInt(inputReps) || 0,
+      rpe: 0,
+      rep_type: repType,
+      datetime: now,
+      exercise: exerciseMap.get(activeExerciseId),
+    };
+    const baseBlock = finalizeActiveRest(localBlock);
+    const nextBlock = produce(baseBlock, (draft) => {
+      const lastEvent = draft.events[draft.events.length - 1];
+      if (lastEvent?.type === 'set') {
+        lastEvent.subSets.push(newSub);
+      } else {
+        draft.events.push({
+          id: `event-set-${Date.now()}`,
+          type: 'set',
+          subSets: [newSub],
+          datetime: now,
+        });
+      }
+      draft.events.push({
+        id: `rest-${Date.now()}`,
+        type: 'rest',
+        durationSeconds: 0,
+        datetime: now,
+      });
+    });
+    setLocalBlock(nextBlock);
+    saveEditedBlock?.(dateString, nextBlock);
+    restTimer.setNavCallback(() => {
+      setActiveBlock({ block: localBlockRef.current, dateString, saveEditedBlock, onDeleteBlock });
+    });
+    restTimer.setFinalizeCallback((elapsed: number) => {
+      // Finalize this block's active 0s rest in memory, then save through the normal path
+      const finalized = produce(localBlockRef.current, (draft) => {
+        for (let i = draft.events.length - 1; i >= 0; i--) {
+          const ev = draft.events[i];
+          if (ev.type === 'rest' && ev.durationSeconds === 0) {
+            ev.durationSeconds = elapsed;
+            break;
+          }
+        }
+      });
+      saveEditedBlock?.(dateString, finalized);
+    });
+    restTimer.start(localBlock.id, dateString, currentDefaultRest, localBlock.name);
+    if (activeExerciseId === initialBlock?.exerciseIds?.[0] && initialBlock?.exerciseIds?.[1]) {
+      handleChangeActiveExercise(initialBlock.exerciseIds[1], nextBlock);
+    } else {
+      handleChangeActiveExercise(initialBlock?.exerciseIds?.[0] ?? activeExerciseId, nextBlock);
+    }
+  };
+
   const renderEvent = useCallback(
     ({ item, drag, isActive }: RenderItemParams<WorkoutEvent>) => (
       <ScaleDecorator>
@@ -466,7 +732,6 @@ export default function ExerciseBlock() {
                   const exerciseMeta = sub.exercise ?? exerciseMap.get(sub.exerciseId);
                   const displayWeight = isEditing ? inputWeight : sub.weightKg;
                   const displayReps = isEditing ? inputReps : sub.reps;
-                  const displayRPE = isEditing ? inputRPE : sub.rpe;
                   return (
                     <Pressable
                       key={sub.id}
@@ -478,9 +743,15 @@ export default function ExerciseBlock() {
                         }
                         setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
                         handleChangeActiveExercise(sub.exerciseId);
-                        setInputWeight(sub.weightKg.toString());
+                        setInputWeight(
+                          String(
+                            Math.max(
+                              ((sub.weightKg || 0) - effectiveBaseWeight) / weightMultiplier,
+                              0
+                            )
+                          )
+                        );
                         setInputReps(sub.reps.toString());
-                        setInputRPE(sub.rpe || 8);
                         setRepType(sub.rep_type || 'full');
                       }}
                       style={{ flex: 1, minWidth: 140 }}
@@ -495,10 +766,6 @@ export default function ExerciseBlock() {
                           className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
                           | {sub.rep_type}{' '}
                         </Text>
-                        <Text
-                          className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>
-                          @{displayRPE}
-                        </Text>
                       </View>
                       <Text
                         className={`text-lg font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
@@ -511,29 +778,111 @@ export default function ExerciseBlock() {
                 })}
               </View>
             </View>
+          ) : restTimer.isActiveBlock(localBlock.id) && item.durationSeconds === 0 ? (
+            // ── Active rest row ──
+            <View className="overflow-hidden rounded-2xl border border-purple-500/40 bg-purple-900/20">
+              <View className="flex-row items-center gap-3 px-4 py-3">
+                <Timer size={13} color="#a855f7" />
+                <Text className="flex-1 text-xs font-black uppercase text-purple-400">
+                  Resting · {formatDuration(restTimer.elapsed())}
+                </Text>
+                <Pressable
+                  onPress={handleStopRest}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  className="flex-row items-center gap-1 rounded-xl border border-purple-500/30 bg-purple-900/30 px-3 py-1.5">
+                  <Square size={10} color="#a855f7" fill="#a855f7" />
+                  <Text className="text-[10px] font-black uppercase text-purple-400">Stop</Text>
+                </Pressable>
+              </View>
+              <View style={{ height: 3, backgroundColor: 'rgba(168,85,247,0.15)' }}>
+                <View
+                  style={{
+                    height: 3,
+                    width: `${Math.min((restTimer.elapsed() / currentDefaultRest) * 100, 100)}%`,
+                    backgroundColor: '#a855f7',
+                  }}
+                />
+              </View>
+            </View>
+          ) : editingRestId === item.id ? (
+            // ── Inline rest time editor ──
+            <View className="flex-row items-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-900/10 px-3 py-2">
+              {([-60, -10] as const).map((d) => (
+                <Pressable
+                  key={d}
+                  onPress={() => setEditRestValue((v) => Math.max(v + d, 1))}
+                  className="h-9 w-12 items-center justify-center rounded-xl bg-zinc-800">
+                  <Text className="text-[10px] font-black text-zinc-400">{d}s</Text>
+                </Pressable>
+              ))}
+              <Text className="flex-1 text-center text-sm font-black text-purple-300">
+                {formatDuration(editRestValue)}
+              </Text>
+              {([10, 60] as const).map((d) => (
+                <Pressable
+                  key={d}
+                  onPress={() => setEditRestValue((v) => v + d)}
+                  className="h-9 w-12 items-center justify-center rounded-xl bg-zinc-800">
+                  <Text className="text-[10px] font-black text-zinc-400">+{d}s</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                onPress={() => handleSaveRestEdit(item.id, editRestValue)}
+                className="ml-1 h-9 w-9 items-center justify-center rounded-xl bg-purple-600">
+                <Text className="text-xs font-black text-white">✓</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  if (restTimer.isActiveBlock(localBlock.id) && item.durationSeconds === 0)
+                    restTimer.clear();
+                  const nextBlock = produce(localBlock, (draft) => {
+                    const idx = draft.events.findIndex((e) => e.id === item.id);
+                    if (idx !== -1) draft.events.splice(idx, 1);
+                  });
+                  setLocalBlock(nextBlock);
+                  saveEditedBlock?.(dateString, nextBlock);
+                  setEditingRestId(null);
+                }}
+                className="h-9 w-9 items-center justify-center rounded-xl bg-red-900/40">
+                <Trash2 size={13} color="#f87171" />
+              </Pressable>
+            </View>
           ) : (
+            // ── Completed rest row ──
             <Pressable
               onPress={() => {
                 Haptics.selectionAsync();
-                if (editing) {
-                  handleFinishEditing();
-                  return;
-                }
-                setEditing({ type: 'rest', eventId: item.id });
-                setInputRest(item.durationSeconds.toString());
+                if (editing) handleFinishEditing();
+                setEditingRestId(item.id);
+                setEditRestValue(item.durationSeconds);
               }}
-              className={`flex-row items-center justify-center gap-2 rounded-2xl border p-3 ${editing?.eventId === item.id ? 'border-purple-500 bg-purple-600' : 'border-purple-500/20 bg-purple-900/10'}`}>
-              <Zap size={12} color={editing?.eventId === item.id ? 'white' : '#a855f7'} />
-              <Text
-                className={`text-xs font-black uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>
-                {item.durationSeconds}s Rest
+              className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 p-3">
+              <Zap size={12} color="#a855f7" />
+              <Text className="text-xs font-black uppercase text-purple-400">
+                {formatDuration(item.durationSeconds)} Rest
               </Text>
             </Pressable>
           )}
         </Pressable>
       </ScaleDecorator>
     ),
-    [editing, exerciseMap, inputWeight, inputReps, inputRPE, repType, localBlock]
+    [
+      editing,
+      editingRestId,
+      editRestValue,
+      exerciseMap,
+      inputWeight,
+      inputReps,
+      repType,
+      localBlock,
+      tick,
+      currentDefaultRest,
+      effectiveBaseWeight,
+      barWeightInput,
+      localPerSide,
+      weightMultiplier,
+    ]
   );
 
   if (!state || !initialBlock) return null;
@@ -555,7 +904,8 @@ export default function ExerciseBlock() {
         <Pressable
           onPress={() => {
             if (editing) handleFinishEditing();
-            router.back();
+            if (dateString) setPendingWorkoutDate(dateString);
+            router.navigate('/(tabs)');
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
@@ -693,6 +1043,7 @@ export default function ExerciseBlock() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}>
           <DraggableFlatList
+            ref={flatListRef}
             data={localBlock.events}
             onDragEnd={({ data }) => {
               const next = { ...localBlock, events: data };
@@ -718,7 +1069,9 @@ export default function ExerciseBlock() {
               <View className="flex-1 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
                 <Pressable
                   onPress={() =>
-                    setInputWeight((prev) => Math.max(0, parseFloat(prev) - WEIGHT_STEP).toString())
+                    setInputWeight((prev) =>
+                      Math.max(0, (parseFloat(prev) || 0) - WEIGHT_STEP).toString()
+                    )
                   }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Minus size={18} color="#71717a" />
@@ -726,16 +1079,34 @@ export default function ExerciseBlock() {
                 <View className="flex-1 items-center">
                   <Text className="text-[8px] font-black uppercase text-zinc-600">Weight</Text>
                   <TextInput
+                    ref={weightInputRef}
                     keyboardType="decimal-pad"
-                    selectTextOnFocus
                     value={inputWeight}
-                    onChangeText={setInputWeight}
+                    selection={weightSel}
+                    onChangeText={(text) => {
+                      setWeightSel(undefined);
+                      setInputWeight(text);
+                    }}
+                    onFocus={() => {
+                      weightJustSelected.current = true;
+                      setWeightSel({ start: 0, end: inputWeight.length });
+                    }}
+                    onBlur={() => setWeightSel(undefined)}
+                    onSelectionChange={() => {
+                      if (weightJustSelected.current) {
+                        weightJustSelected.current = false;
+                      } else if (weightSel !== undefined) {
+                        setWeightSel(undefined);
+                      }
+                    }}
+                    placeholder="0"
+                    placeholderTextColor="#3f3f46"
                     className="text-center text-2xl font-black text-white"
                   />
                 </View>
                 <Pressable
                   onPress={() =>
-                    setInputWeight((prev) => (parseFloat(prev) + WEIGHT_STEP).toString())
+                    setInputWeight((prev) => ((parseFloat(prev) || 0) + WEIGHT_STEP).toString())
                   }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Plus size={18} color="#71717a" />
@@ -744,78 +1115,184 @@ export default function ExerciseBlock() {
 
               <View className="w-36 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
                 <Pressable
-                  onPress={() => setInputReps((prev) => Math.max(0, parseInt(prev) - 1).toString())}
+                  onPress={() =>
+                    setInputReps((prev) => Math.max(0, (parseInt(prev) || 0) - 1).toString())
+                  }
                   className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
                   <Minus size={16} color="#71717a" />
                 </Pressable>
                 <View className="flex-1 items-center">
                   <Text className="text-[8px] font-black uppercase text-zinc-600">Reps</Text>
                   <TextInput
+                    ref={repsInputRef}
                     keyboardType="number-pad"
-                    selectTextOnFocus
                     value={inputReps}
-                    onChangeText={setInputReps}
+                    selection={repsSel}
+                    onChangeText={(text) => {
+                      setRepsSel(undefined);
+                      setInputReps(text);
+                    }}
+                    onFocus={() => {
+                      repsJustSelected.current = true;
+                      setRepsSel({ start: 0, end: inputReps.length });
+                    }}
+                    onBlur={() => setRepsSel(undefined)}
+                    onSelectionChange={() => {
+                      if (repsJustSelected.current) {
+                        repsJustSelected.current = false;
+                      } else if (repsSel !== undefined) {
+                        setRepsSel(undefined);
+                      }
+                    }}
+                    placeholder="0"
+                    placeholderTextColor="#3f3f46"
                     className="text-center text-2xl font-black text-white"
                   />
                 </View>
                 <Pressable
-                  onPress={() => setInputReps((prev) => (parseInt(prev) + 1).toString())}
+                  onPress={() => setInputReps((prev) => ((parseInt(prev) || 0) + 1).toString())}
                   className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
                   <Plus size={16} color="#71717a" />
                 </Pressable>
               </View>
             </View>
 
+            {(effectiveBaseWeight > 0 || isPerSide) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                {effectiveBaseWeight > 0 && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 5,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isLocalBarOverride ? 'rgba(217,119,6,0.4)' : '#27272a',
+                      backgroundColor: isLocalBarOverride ? 'rgba(28,21,3,0.8)' : '#18181b',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <Scale size={11} color={isLocalBarOverride ? '#d97706' : '#52525b'} />
+                    <Text
+                      style={{
+                        color: isLocalBarOverride ? '#d97706' : '#71717a',
+                        fontSize: 12,
+                        fontWeight: '700',
+                        marginLeft: 4,
+                      }}>
+                      {effectiveBaseWeight}kg bar
+                    </Text>
+                    {isLocalBarOverride && (
+                      <Text
+                        style={{
+                          color: '#d97706',
+                          fontSize: 9,
+                          fontWeight: '900',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          marginLeft: 3,
+                        }}>
+                        local
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {isPerSide && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: localPerSide !== null ? 'rgba(217,119,6,0.4)' : '#27272a',
+                      backgroundColor: localPerSide !== null ? 'rgba(28,21,3,0.8)' : '#18181b',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <Text
+                      style={{
+                        color: localPerSide !== null ? '#d97706' : '#71717a',
+                        fontSize: 12,
+                        fontWeight: '700',
+                      }}>
+                      ×2 per side
+                    </Text>
+                    {localPerSide !== null && (
+                      <Text
+                        style={{
+                          color: '#d97706',
+                          fontSize: 9,
+                          fontWeight: '900',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                        local
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {isLocalBarOverride && (
+                  <Pressable
+                    onPress={() =>
+                      setBarWeightInput(exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '')
+                    }
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺ reset</Text>
+                  </Pressable>
+                )}
+                <View style={{ flex: 1 }} />
+                <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '700' }}>
+                  {Math.round(
+                    ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+                  ) / 100}
+                  kg total
+                </Text>
+              </View>
+            )}
+
             <View className="flex-row gap-2">
               <Button
                 onPress={() => setShowAdvanced(!showAdvanced)}
                 variant="outline"
-                className="h-16 flex-1 flex-row gap-2 rounded-[24px] border-zinc-800">
-                <Text className="text-[10px] font-black uppercase text-zinc-500">RPE / Type</Text>
+                className="h-16 w-16 flex-row gap-1 rounded-[24px] border-zinc-800">
                 {showAdvanced ? (
                   <ChevronUp size={14} color="#52525b" />
                 ) : (
                   <ChevronDown size={14} color="#52525b" />
                 )}
               </Button>
-              {!editing && (
-                <Pressable
-                  onPress={handleAddRest}
-                  className="ml-2 flex-row items-center gap-2 rounded-full border border-purple-500/30 bg-purple-600/10 px-4">
-                  <Clock size={14} color="#a855f7" />
-                  <Text className="text-xs font-black text-purple-400">{currentDefaultRest}s</Text>
-                </Pressable>
-              )}
               {editing ? (
                 <Button
                   variant="destructive"
-                  className="h-16 w-20 rounded-[24px]"
+                  className="h-16 flex-1 rounded-[24px]"
                   onPress={deleteCurrent}>
                   <Trash2 color="white" />
                 </Button>
               ) : (
-                <Button className="h-16 w-20 rounded-[24px] bg-green-600" onPress={handleAddNewSet}>
-                  <Plus color="white" strokeWidth={4} />
-                </Button>
+                <>
+                  {/* Secondary: log set without rest (drop sets / supersets) */}
+                  <Button
+                    variant="outline"
+                    className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
+                    onPress={handleAddNewSet}>
+                    <Plus color="#71717a" strokeWidth={3} size={18} />
+                    <Text className="text-[8px] font-black uppercase text-zinc-600">no rest</Text>
+                  </Button>
+                  {/* Primary: log set + start rest timer */}
+                  <Button
+                    className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
+                    onPress={handleAddSetWithTimer}>
+                    <Timer color="white" size={16} />
+                    <Text className="text-sm font-black text-white">Log Set + Rest</Text>
+                  </Button>
+                </>
               )}
             </View>
 
             {showAdvanced && (
               <View className="mt-4 rounded-[32px] border border-zinc-800 bg-zinc-950 p-4">
-                <ScrollView horizontal className="mb-5 flex-row">
-                  {RPE_VALUES.map((v) => (
-                    <Pressable
-                      key={v}
-                      onPress={() => setInputRPE(v)}
-                      className={`mr-2 h-11 w-12 items-center justify-center rounded-xl border ${inputRPE === v ? 'border-green-400 bg-green-500' : 'border-zinc-800 bg-zinc-900'}`}>
-                      <Text
-                        className={`text-xs font-black ${inputRPE === v ? 'text-white' : 'text-zinc-500'}`}>
-                        {v}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                <View className="flex-row flex-wrap gap-2">
+                <View className="mb-4 flex-row flex-wrap gap-2">
                   {REP_TYPES.map((t) => (
                     <Pressable
                       key={t}
@@ -827,6 +1304,143 @@ export default function ExerciseBlock() {
                       </Text>
                     </Pressable>
                   ))}
+                </View>
+
+                {/* Bar weight — local override */}
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: '#27272a',
+                    marginTop: 12,
+                    paddingTop: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}>
+                  <Scale size={12} color="#52525b" />
+                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600' }}>
+                    Bar weight
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isLocalBarOverride ? 'rgba(217,119,6,0.4)' : '#27272a',
+                      backgroundColor: '#09090b',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      gap: 6,
+                    }}>
+                    <TextInput
+                      keyboardType="decimal-pad"
+                      value={barWeightInput}
+                      onChangeText={setBarWeightInput}
+                      placeholder={exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '0'}
+                      placeholderTextColor="#3f3f46"
+                      style={{
+                        flex: 1,
+                        color: isLocalBarOverride ? '#d97706' : '#71717a',
+                        fontSize: 13,
+                        fontWeight: '700',
+                      }}
+                    />
+                    <Text style={{ color: '#3f3f46', fontSize: 11 }}>kg</Text>
+                    {isLocalBarOverride && (
+                      <Text
+                        style={{
+                          color: '#d97706',
+                          fontSize: 9,
+                          fontWeight: '900',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.4,
+                        }}>
+                        local
+                      </Text>
+                    )}
+                  </View>
+                  {isLocalBarOverride && (
+                    <Pressable
+                      onPress={() =>
+                        setBarWeightInput(
+                          exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : ''
+                        )
+                      }
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Per side toggle */}
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: '#27272a',
+                    marginTop: 12,
+                    paddingTop: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}>
+                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600', flex: 1 }}>
+                    Per side
+                  </Text>
+                  <Pressable
+                    onPress={() => setLocalPerSide(!isPerSide)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isPerSide ? '#ea580c' : '#27272a',
+                      backgroundColor: isPerSide ? 'rgba(234,88,12,0.1)' : '#09090b',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    }}>
+                    <Text
+                      style={{
+                        color: isPerSide ? '#ea580c' : '#52525b',
+                        fontSize: 12,
+                        fontWeight: '700',
+                      }}>
+                      {isPerSide ? 'Per side (×2)' : 'Total weight'}
+                    </Text>
+                    {localPerSide !== null && (
+                      <Text
+                        style={{
+                          color: '#d97706',
+                          fontSize: 9,
+                          fontWeight: '900',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.4,
+                        }}>
+                        local
+                      </Text>
+                    )}
+                  </Pressable>
+                  {localPerSide !== null && (
+                    <Pressable
+                      onPress={() => setLocalPerSide(null)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Manual rest — no set logged, less common */}
+                <View className="mt-4 border-t border-zinc-800 pt-4">
+                  <Pressable
+                    onPress={handleAddRest}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
+                    <Zap size={12} color="#a855f7" />
+                    <Text className="text-xs font-black uppercase text-purple-400">
+                      Add Rest · {currentDefaultRest}s
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
             )}

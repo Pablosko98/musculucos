@@ -28,11 +28,19 @@ export default function Settings() {
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [loading, setLoading] = useState<'backup' | 'restore' | null>(null);
   const [bodyGender, setBodyGender] = useState<'male' | 'female'>('male');
+  const [weightPrefill, setWeightPrefill] = useState<'last_set' | 'first_set'>('last_set');
+  const [defaultWeightMode, setDefaultWeightMode] = useState<'total' | 'per_side'>('total');
 
   useEffect(() => {
     getCurrentUser().then(setUser);
     PrefsDAL.get('bodyGender').then((v) => {
       if (v === 'male' || v === 'female') setBodyGender(v);
+    });
+    PrefsDAL.get('weightPrefill').then((v) => {
+      if (v === 'last_set' || v === 'first_set') setWeightPrefill(v);
+    });
+    PrefsDAL.get('defaultWeightMode').then((v) => {
+      if (v === 'total' || v === 'per_side') setDefaultWeightMode(v);
     });
   }, []);
 
@@ -151,7 +159,14 @@ export default function Settings() {
                 Shown in the Muscles tab
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', backgroundColor: '#27272a', borderRadius: 8, padding: 3, gap: 3 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: '#27272a',
+                borderRadius: 8,
+                padding: 3,
+                gap: 3,
+              }}>
               {(['male', 'female'] as const).map((g) => (
                 <TouchableOpacity
                   key={g}
@@ -165,8 +180,124 @@ export default function Settings() {
                     borderRadius: 6,
                     backgroundColor: bodyGender === g ? '#3f3f46' : 'transparent',
                   }}>
-                  <Text style={{ color: bodyGender === g ? '#fafafa' : '#71717a', fontSize: 13, fontWeight: '600' }}>
+                  <Text
+                    style={{
+                      color: bodyGender === g ? '#fafafa' : '#71717a',
+                      fontSize: 13,
+                      fontWeight: '600',
+                    }}>
                     {g === 'male' ? '♂ Male' : '♀ Female'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Workout */}
+      <View style={{ marginBottom: 32 }}>
+        <Text
+          style={{
+            color: '#71717a',
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 12,
+          }}>
+          Workout
+        </Text>
+        <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
+          <View style={{ padding: 16, gap: 12 }}>
+            <View>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Weight &amp; reps prefill</Text>
+              <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
+                Default values when starting the first set of an exercise
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: '#27272a',
+                borderRadius: 8,
+                padding: 3,
+                gap: 3,
+              }}>
+              {(
+                [
+                  ['last_set', 'Last set'],
+                  ['first_set', 'First of last workout'],
+                ] as const
+              ).map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => {
+                    setWeightPrefill(val);
+                    PrefsDAL.set('weightPrefill', val);
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    alignItems: 'center',
+                    backgroundColor: weightPrefill === val ? '#3f3f46' : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      color: weightPrefill === val ? '#fafafa' : '#71717a',
+                      fontSize: 13,
+                      fontWeight: '600',
+                    }}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={{ borderTopWidth: 1, borderTopColor: '#27272a', paddingTop: 12, gap: 12 }}>
+            <View>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Default weight mode</Text>
+              <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
+                Per side: enter weight for one side — total is doubled (e.g. dumbbells). Can be overridden per exercise.
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: '#27272a',
+                borderRadius: 8,
+                padding: 3,
+                gap: 3,
+              }}>
+              {(
+                [
+                  ['total', 'Total weight'],
+                  ['per_side', 'Per side (×2)'],
+                ] as const
+              ).map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => {
+                    setDefaultWeightMode(val);
+                    PrefsDAL.set('defaultWeightMode', val);
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    alignItems: 'center',
+                    backgroundColor: defaultWeightMode === val ? '#3f3f46' : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      color: defaultWeightMode === val ? '#fafafa' : '#71717a',
+                      fontSize: 13,
+                      fontWeight: '600',
+                    }}>
+                    {label}
                   </Text>
                 </TouchableOpacity>
               ))}

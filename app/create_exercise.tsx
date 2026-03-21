@@ -548,6 +548,7 @@ export default function CreateExercise() {
   const [emphasis, setEmphasis] = useState<Emphasis[]>([{ muscle: '', role: 'primary' }]);
   const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>(null);
   const [baseWeightKg, setBaseWeightKg] = useState('');
+  const [weightMode, setWeightMode] = useState<'total' | 'per_side'>('total');
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -562,6 +563,7 @@ export default function CreateExercise() {
   const emphasisBuilderRef = useRef<EmphasisBuilderHandle>(null);
   const originalEquipmentRef = useRef('');
   const originalBaseIdRef = useRef('');
+  const originalBaseWeightRef = useRef<number | null>(null);
 
   // Load persisted custom equipment on mount (for all exercises)
   useEffect(() => {
@@ -594,6 +596,8 @@ export default function CreateExercise() {
           );
           setDefaultRestSeconds(ex.defaultRestSeconds ?? null);
           setBaseWeightKg(ex.baseWeightKg != null ? String(ex.baseWeightKg) : '');
+          originalBaseWeightRef.current = ex.baseWeightKg ?? null;
+          setWeightMode(ex.weightMode === 'per_side' ? 'per_side' : 'total');
           setDescription(ex.description ?? '');
           setVideoUrl(ex.videoUrl ?? '');
           setIsCustom((ex.isCustom ?? 0) === 1);
@@ -668,7 +672,25 @@ export default function CreateExercise() {
           defaultRestSeconds,
           baseWeightKg: parsedBaseWeight,
           equipmentVariant: variantValue,
+          weightMode,
         });
+        const oldBase = originalBaseWeightRef.current ?? 0;
+        const newBase = parsedBaseWeight ?? 0;
+        if (newBase !== oldBase) {
+          const delta = newBase - oldBase;
+          const sign = delta > 0 ? `+${delta}` : String(delta);
+          Alert.alert(
+            'Update history?',
+            `Base weight changed by ${sign}kg. Apply this to all previously recorded sets for this exercise?`,
+            [
+              { text: 'No', style: 'cancel' },
+              {
+                text: 'Yes, update all',
+                onPress: () => ExerciseDAL.adjustSetWeights(exerciseId!, delta).catch(console.error),
+              },
+            ]
+          );
+        }
         if (shouldAutoAdd) {
           setPendingExerciseAdd([exerciseId!], dateString!);
         }
@@ -687,6 +709,7 @@ export default function CreateExercise() {
             videoUrl: videoUrl.trim(),
             defaultRestSeconds,
             baseWeightKg: parsedBaseWeight,
+            weightMode,
             isFavourite: 0,
           });
         }
@@ -707,6 +730,7 @@ export default function CreateExercise() {
             videoUrl: videoUrl.trim(),
             defaultRestSeconds,
             baseWeightKg: parsedBaseWeight,
+            weightMode,
             isFavourite: 0,
           });
           createdIds.push(id);
@@ -988,6 +1012,35 @@ export default function CreateExercise() {
                 style={[inputStyle, { width: 100 }]}
               />
               <Text style={{ color: '#71717a', fontSize: 15 }}>kg</Text>
+            </View>
+          </View>
+
+          {/* Weight Mode */}
+          <View style={{ gap: 8 }}>
+            <Text style={labelStyle}>Weight Mode</Text>
+            <Text style={{ color: '#52525b', fontSize: 12 }}>
+              Per side: enter weight for one side (e.g. 12kg dumbbell → stores 24kg total)
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['total', 'per_side'] as const).map((mode) => {
+                const active = weightMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    onPress={() => setWeightMode(mode)}
+                    style={[
+                      chipStyle,
+                      {
+                        backgroundColor: active ? '#ea580c' : '#27272a',
+                        borderColor: active ? '#ea580c' : '#3f3f46',
+                      },
+                    ]}>
+                    <Text style={{ color: active ? '#fff' : '#a1a1aa', fontSize: 14, fontWeight: active ? '600' : '400' }}>
+                      {mode === 'total' ? 'Total weight' : 'Per side'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 

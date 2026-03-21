@@ -41,6 +41,7 @@ type ExerciseRow = {
   videoUrl: string;
   defaultRestSeconds: number | null;
   baseWeightKg: number | null;
+  weightMode: string | null;
   isCustom: number;
   isFavourite: number;
 };
@@ -118,25 +119,23 @@ export const initDB = () => {
     );
   `);
 
-  // Migration: add isFavourite column if it doesn't exist yet (safe no-op on fresh installs)
+  // ── Migrations ────────────────────────────────────────────────────────────
+  // try { db.execSync('ALTER TABLE exercises ADD COLUMN isFavourite INTEGER NOT NULL DEFAULT 0'); } catch {}
+  // try { db.execSync('ALTER TABLE exercises ADD COLUMN defaultRestSeconds INTEGER'); } catch {}
+  // try { db.execSync('ALTER TABLE exercises ADD COLUMN baseWeightKg REAL'); } catch {}
+  // try { db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT'); } catch {}
   try {
-    db.execSync('ALTER TABLE exercises ADD COLUMN isFavourite INTEGER NOT NULL DEFAULT 0');
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    db.execSync('ALTER TABLE exercises ADD COLUMN defaultRestSeconds INTEGER');
+    db.execSync('ALTER TABLE exercises ADD COLUMN weightMode TEXT DEFAULT NULL');
   } catch {}
-  try {
-    db.execSync('ALTER TABLE exercises ADD COLUMN baseWeightKg REAL');
-  } catch {}
-  try {
-    db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT');
-  } catch {}
+  // db.execSync(`UPDATE events SET rep_type = 'half' WHERE rep_type IN ('top half', 'bot half', 'top 1/2', 'bot 1/2')`);
+  // ─────────────────────────────────────────────────────────────────────────
 
   // TEMP: seed test favourites — delete these two lines after testing
   // db.execSync("UPDATE exercises SET isFavourite = 1 WHERE id = 'incline_press_barbell'");
   // db.execSync("UPDATE exercises SET isFavourite = 1 WHERE id = 'tricep_pushdown_vbar_cable'");
+
+  // Clean up any rest events left at 0s by a force-quit during an active rest
+  db.execSync(`DELETE FROM events WHERE type = 'rest' AND durationSeconds = 0`);
 
   // Seed base exercises on first install (no-op if already seeded)
   // Deferred so ExerciseDAL is defined by the time this runs
@@ -168,6 +167,16 @@ export const WorkoutDAL = {
       console.error('DB Update Error:', error);
       throw error;
     }
+  },
+
+  async finalizeOrphanedRest(blockId: string, durationSeconds: number) {
+    saveQueue = saveQueue.then(() =>
+      db.runAsync(
+        `UPDATE events SET durationSeconds = ? WHERE blockId = ? AND type = 'rest' AND durationSeconds = 0`,
+        [durationSeconds, blockId]
+      )
+    );
+    return saveQueue;
   },
 
   async saveFullWorkout(workout: Workout) {
@@ -253,7 +262,11 @@ export const WorkoutDAL = {
     const exerciseLookup = new Map<string, Exercise>(
       exerciseRows.map((r) => [
         r.id,
-        { ...r, muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [] },
+        {
+          ...r,
+          muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [],
+          weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
+        },
       ])
     );
 
@@ -315,9 +328,10 @@ export const WorkoutDAL = {
           .map((id) => exerciseLookup.get(id))
           .filter((e): e is Exercise => e != null);
         // Derive name fresh from exercises so renames are reflected immediately
-        const freshName = resolvedExercises.length > 0
-          ? resolvedExercises.map((e) => e.name).join(' / ')
-          : block.name;
+        const freshName =
+          resolvedExercises.length > 0
+            ? resolvedExercises.map((e) => e.name).join(' / ')
+            : block.name;
         return {
           ...block,
           name: freshName,
@@ -412,6 +426,7 @@ export const ExerciseDAL = {
       defaultRestSeconds: r.defaultRestSeconds ?? null,
       baseWeightKg: r.baseWeightKg ?? null,
       equipmentVariant: r.equipmentVariant ?? null,
+      weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
     }));
   },
 
@@ -436,13 +451,14 @@ export const ExerciseDAL = {
       defaultRestSeconds: r.defaultRestSeconds ?? null,
       baseWeightKg: r.baseWeightKg ?? null,
       equipmentVariant: r.equipmentVariant ?? null,
+      weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
     }));
   },
 
   async save(exercise: Omit<Exercise, 'isCustom'>) {
     await db.runAsync(
-      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, isCustom)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, weightMode, isCustom)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         exercise.id,
         exercise.baseId,
@@ -454,6 +470,7 @@ export const ExerciseDAL = {
         exercise.videoUrl ?? '',
         exercise.defaultRestSeconds ?? null,
         exercise.baseWeightKg ?? null,
+        exercise.weightMode ?? null,
       ]
     );
   },
@@ -461,7 +478,18 @@ export const ExerciseDAL = {
   async update(
     id: string,
     updates: Partial<
-      Pick<Exercise, 'name' | 'equipment' | 'equipmentVariant' | 'muscleEmphasis' | 'description' | 'videoUrl' | 'defaultRestSeconds' | 'baseWeightKg'>
+      Pick<
+        Exercise,
+        | 'name'
+        | 'equipment'
+        | 'equipmentVariant'
+        | 'muscleEmphasis'
+        | 'description'
+        | 'videoUrl'
+        | 'defaultRestSeconds'
+        | 'baseWeightKg'
+        | 'weightMode'
+      >
     >
   ) {
     await db.runAsync(
@@ -473,7 +501,8 @@ export const ExerciseDAL = {
            description = COALESCE(?, description),
            videoUrl = COALESCE(?, videoUrl),
            defaultRestSeconds = ?,
-           baseWeightKg = ?
+           baseWeightKg = ?,
+           weightMode = COALESCE(?, weightMode)
        WHERE id = ?`,
       [
         updates.name ?? null,
@@ -485,8 +514,16 @@ export const ExerciseDAL = {
         updates.videoUrl ?? null,
         updates.defaultRestSeconds ?? null,
         updates.baseWeightKg ?? null,
+        updates.weightMode ?? null,
         id,
       ]
+    );
+  },
+
+  async adjustSetWeights(exerciseId: string, delta: number) {
+    await db.runAsync(
+      `UPDATE events SET weightKg = weightKg + ? WHERE exerciseId = ? AND type = 'set' AND weightKg IS NOT NULL`,
+      [delta, exerciseId]
     );
   },
 
@@ -503,7 +540,9 @@ export const ExerciseDAL = {
   },
 
   async getCustomEquipment(): Promise<string[]> {
-    const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM custom_equipment ORDER BY id');
+    const rows = await db.getAllAsync<{ id: string }>(
+      'SELECT id FROM custom_equipment ORDER BY id'
+    );
     return rows.map((r) => r.id);
   },
 
@@ -567,11 +606,14 @@ export const ExerciseDAL = {
     return statsMap;
   },
 
-  async getMuscleStats(startDate: string | null): Promise<Array<{ exerciseId: string; date: string; volume: number }>> {
+  async getMuscleStats(
+    startDate: string | null
+  ): Promise<Array<{ exerciseId: string; date: string; volume: number; sets: number }>> {
     if (startDate) {
-      return db.getAllAsync<{ exerciseId: string; date: string; volume: number }>(
+      return db.getAllAsync<{ exerciseId: string; date: string; volume: number; sets: number }>(
         `SELECT ev.exerciseId, w.date,
-                SUM(COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume
+                SUM(CASE WHEN COALESCE(ev.rep_type, 'full') = 'half' THEN 0.5 ELSE 1.0 END * COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume,
+                COUNT(*) as sets
          FROM events ev
          JOIN blocks b ON ev.blockId = b.id
          JOIN workouts w ON b.workoutId = w.id
@@ -582,9 +624,10 @@ export const ExerciseDAL = {
         [startDate]
       );
     }
-    return db.getAllAsync<{ exerciseId: string; date: string; volume: number }>(
+    return db.getAllAsync<{ exerciseId: string; date: string; volume: number; sets: number }>(
       `SELECT ev.exerciseId, w.date,
-              SUM(COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume
+              SUM(CASE WHEN COALESCE(ev.rep_type, 'full') = 'half' THEN 0.5 ELSE 1.0 END * COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume,
+              COUNT(*) as sets
        FROM events ev
        JOIN blocks b ON ev.blockId = b.id
        JOIN workouts w ON b.workoutId = w.id
@@ -642,7 +685,10 @@ export const ExerciseDAL = {
       const working = sets.filter((s) => s.rep_type !== 'warmup');
       const workingParentIds = new Set(working.map((s) => s.parentEventId));
       const maxWeightKg = sets.length > 0 ? Math.max(...sets.map((s) => s.weightKg ?? 0)) : 0;
-      const totalVolume = working.reduce((sum, s) => sum + (s.weightKg ?? 0) * (s.reps ?? 0), 0);
+      const totalVolume = working.reduce(
+        (sum, s) => sum + (s.weightKg ?? 0) * (s.reps ?? 0) * (s.rep_type === 'half' ? 0.5 : 1),
+        0
+      );
       return {
         date,
         sets: sets.map((s) => ({
@@ -684,7 +730,9 @@ export type HistoryWorkout = {
 
 export const PrefsDAL = {
   async get(key: string): Promise<string | null> {
-    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM prefs WHERE key = ?', [key]);
+    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM prefs WHERE key = ?', [
+      key,
+    ]);
     return row?.value ?? null;
   },
   async set(key: string, value: string): Promise<void> {

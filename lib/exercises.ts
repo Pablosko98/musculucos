@@ -21,6 +21,7 @@ export type Exercise = {
   videoUrl?: string;
   defaultRestSeconds?: number | null; // preferred rest between sets
   baseWeightKg?: number | null; // inherent equipment weight (e.g. 20 for barbell, 10 for ez_bar)
+  weightMode?: 'total' | 'per_side' | null; // 'per_side' = user enters per-side weight (e.g. dumbbells); total stored = input × 2 + base
   isCustom?: number; // 0 = base exercise, 1 = user-created; present when read from DB
   isFavourite?: number; // 0 = not favourite, 1 = favourite; present when read from DB
 };

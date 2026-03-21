@@ -1,6 +1,6 @@
 import type { Exercise } from './exercises';
 
-export type RepType = 'warmup' | 'full' | 'top half' | 'bot half' | 'assisted';
+export type RepType = 'warmup' | 'full' | 'half' | 'assisted';
 export type BlockType = 'standard' | 'superset';
 
 export type SubSet = {

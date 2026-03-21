@@ -1,4 +1,7 @@
 {
+  "cli": {
+    "version": ">= 16.0.0"
+  },
   "build": {
     "development": {
       "developmentClient": true,
@@ -10,10 +13,15 @@
         "simulator": true
       }
     },
-    "production": {
+    "preview": {
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
-    }
+    },
+    "production": {}
+  },
+  "submit": {
+    "production": {}
   }
 }
