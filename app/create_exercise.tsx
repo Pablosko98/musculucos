@@ -20,6 +20,7 @@ import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ExerciseDAL, db } from '@/lib/db';
+import { setPendingExerciseAdd } from '@/lib/pending-exercise-add';
 import { MUSCLE_GROUP_MAP, HEAD_LABELS } from '@/lib/exercises';
 import type { MuscleEmphasis, MuscleRole } from '@/lib/exercises';
 import { ChevronLeft, Trash2, Plus, X } from 'lucide-react-native';
@@ -537,8 +538,9 @@ const EmphasisBuilder = memo(EmphasisBuilderBase);
 
 export default function CreateExercise() {
   const insets = useSafeAreaInsets();
-  const { exerciseId } = useLocalSearchParams<{ exerciseId?: string }>();
+  const { exerciseId, autoAdd, dateString } = useLocalSearchParams<{ exerciseId?: string; autoAdd?: string; dateString?: string }>();
   const isEditing = !!exerciseId;
+  const shouldAutoAdd = autoAdd === 'true' && !!dateString;
 
   const [name, setName] = useState('');
   const [equipments, setEquipments] = useState<string[]>([]);
@@ -667,6 +669,9 @@ export default function CreateExercise() {
           baseWeightKg: parsedBaseWeight,
           equipmentVariant: variantValue,
         });
+        if (shouldAutoAdd) {
+          setPendingExerciseAdd([exerciseId!], dateString!);
+        }
         const baseId = originalBaseIdRef.current;
         for (const eq of allEquipments.filter((e) => e !== originalEquipmentRef.current)) {
           const idSuffix = variantSlug ? `${variantSlug}_${slugify(eq)}` : slugify(eq);
@@ -687,6 +692,7 @@ export default function CreateExercise() {
         }
       } else {
         const baseId = `custom_${slugify(trimmedName)}`;
+        const createdIds: string[] = [];
         for (const eq of allEquipments) {
           const idSuffix = variantSlug ? `${variantSlug}_${slugify(eq)}` : slugify(eq);
           const id = `${baseId}_${idSuffix}`;
@@ -703,6 +709,10 @@ export default function CreateExercise() {
             baseWeightKg: parsedBaseWeight,
             isFavourite: 0,
           });
+          createdIds.push(id);
+        }
+        if (shouldAutoAdd && createdIds.length > 0) {
+          setPendingExerciseAdd(createdIds, dateString!);
         }
       }
       router.back();

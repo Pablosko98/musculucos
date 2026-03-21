@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Alert,
   Animated,
@@ -14,7 +14,9 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Exercise, HEAD_LABELS } from '@/lib/exercises';
 import { ExerciseDAL } from '@/lib/db';
 import { Search, Link, Star, X } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { setActiveBlock } from '@/lib/block-state';
+import { takePendingExerciseAdd } from '@/lib/pending-exercise-add';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
@@ -92,7 +94,10 @@ function variantLabel(ex: Exercise): string {
   }
   const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
   if (suffix) {
-    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return suffix
+      .replace('ez_bar', 'EZ Bar')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return formatEquipment(ex.equipment);
 }
@@ -144,7 +149,7 @@ const EQUIPMENT_ORDER = [
   'kettlebell',
 ];
 
-export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) => void }) {
+export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: Exercise[]) => void; dateString: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedSubFilter, setSelectedSubFilter] = useState<SubFilter | null>(null);
@@ -158,6 +163,8 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
   );
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAdd = useRef<Exercise[] | null>(null);
+  const pendingNav = useRef<{ pathname: string; params?: Record<string, string> } | null>(null);
 
   const showToast = () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -174,6 +181,39 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
       setGroupMap(map);
     });
   }, [open]);
+
+  // Call onAdd only after the dialog's FadeOut animation has finished,
+  // so it doesn't conflict with the navigation transition animation.
+  useEffect(() => {
+    if (open || !pendingAdd.current) return;
+    const exercises = pendingAdd.current;
+    pendingAdd.current = null;
+    const timer = setTimeout(() => onAdd(exercises), 350);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  // Navigate only after the dialog's FadeOut animation has finished,
+  // so it doesn't conflict with the gesture handler view tree.
+  useEffect(() => {
+    if (open || !pendingNav.current) return;
+    const nav = pendingNav.current;
+    pendingNav.current = null;
+    const timer = setTimeout(() => router.push(nav as any), 350);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  // When returning from create_exercise, auto-add any newly created/edited exercises
+  // Only this specific date's instance will match and consume the pending data
+  useFocusEffect(
+    useCallback(() => {
+      const pendingIds = takePendingExerciseAdd(dateString);
+      if (!pendingIds || pendingIds.length === 0) return;
+      ExerciseDAL.getAll().then((all) => {
+        const exercises = pendingIds.map((id) => all.find((e) => e.id === id)).filter(Boolean) as Exercise[];
+        if (exercises.length > 0) onAdd(exercises);
+      });
+    }, [dateString, onAdd])
+  );
 
   const allGroups = useMemo(() => buildExerciseGroups(dbExercises), [dbExercises]);
   const allFilterGroups = useMemo(
@@ -253,7 +293,7 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
         setStaged([...staged, exercise]);
       }
     } else {
-      await onAdd([exercise]);
+      pendingAdd.current = [exercise];
       resetAndClose();
     }
   };
@@ -457,7 +497,12 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
                 <TouchableOpacity
                   key={group.baseId}
                   activeOpacity={0.7}
-                  onLongPress={() => Alert.alert(group.name, 'Edit exercise coming soon.')}
+                  onLongPress={() => {
+                    if (displayVariants.length === 1) {
+                      pendingNav.current = { pathname: '/create_exercise', params: { exerciseId: displayVariants[0].id, autoAdd: 'true', dateString } };
+                      resetAndClose();
+                    }
+                  }}
                   onPress={() => {
                     if (displayVariants.length === 1) {
                       handleSelect(displayVariants[0]);
@@ -485,6 +530,10 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
                         <TouchableOpacity
                           key={variant.id}
                           onPress={() => handleSelect(variant)}
+                          onLongPress={() => {
+                            pendingNav.current = { pathname: '/create_exercise', params: { exerciseId: variant.id, autoAdd: 'true', dateString } };
+                            resetAndClose();
+                          }}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                           className={`rounded-full px-3 py-1.5 ${isStaged ? 'bg-orange-500' : 'bg-neutral-800'}`}>
                           {!!variant.isFavourite && (
@@ -504,8 +553,8 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
             <TouchableOpacity
               className="border-b border-neutral-900 px-5 py-4 active:bg-neutral-800"
               onPress={() => {
+                pendingNav.current = { pathname: '/create_exercise', params: { autoAdd: 'true', dateString } };
                 resetAndClose();
-                router.push('/create_exercise');
               }}>
               <Text style={{ color: '#ea580c', fontWeight: '600' }}>+ Create new exercise</Text>
             </TouchableOpacity>
@@ -516,8 +565,8 @@ export default function AddExercise({ onAdd }: { onAdd: (exercises: Exercise[]) 
             <View className="border-t border-neutral-800 p-4">
               <Button
                 className="w-full bg-orange-600"
-                onPress={async () => {
-                  await onAdd(staged);
+                onPress={() => {
+                  pendingAdd.current = staged;
                   resetAndClose();
                 }}>
                 <Text className="font-bold text-white">Finish Superset ({staged.length})</Text>

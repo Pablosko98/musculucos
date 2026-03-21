@@ -4,7 +4,8 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import Carousel from 'react-native-reanimated-carousel';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
+import { setActiveBlock } from '@/lib/block-state';
 import { ScrollView } from 'react-native-gesture-handler';
 import { addDays, format, startOfDay } from 'date-fns';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function WorkoutTracker() {
   const [workoutMap, setWorkoutMap] = useState<Record<string, Workout>>({});
+  const workoutMapRef = useRef<Record<string, Workout>>({});
   const fetchedRanges = useRef<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
   const carouselRef = useRef<ICarouselInstance>(null);
@@ -35,15 +37,19 @@ export default function WorkoutTracker() {
     initDB();
   }, []);
 
+  useEffect(() => {
+    workoutMapRef.current = workoutMap;
+  }, [workoutMap]);
+
+
   useFocusEffect(
     useCallback(() => {
       fetchedRanges.current.clear();
-      setWorkoutMap({});
-      loadDateRange(today);
+      loadDateRange(today, true);
     }, [])
   );
 
-  const loadDateRange = async (centerDate: Date) => {
+  const loadDateRange = async (centerDate: Date, replace = false) => {
     const range = 10;
     const startDate = format(addDays(centerDate, -range), 'yyyy-MM-dd');
     const endDate = format(addDays(centerDate, range), 'yyyy-MM-dd');
@@ -63,7 +69,7 @@ export default function WorkoutTracker() {
         if (w) detailedWorkouts[row.date] = w;
       }
 
-      setWorkoutMap((prev) => ({ ...prev, ...detailedWorkouts }));
+      setWorkoutMap((prev) => replace ? detailedWorkouts : { ...prev, ...detailedWorkouts });
       fetchedRanges.current.add(rangeKey);
     } catch (error) {
       console.error('Failed to fetch workout range:', error);
@@ -71,12 +77,13 @@ export default function WorkoutTracker() {
   };
 
   const saveEditedBlock = async (dateString: string, updatedBlock: Block) => {
-    const workout = workoutMap[dateString];
+    const workout = workoutMapRef.current[dateString];
     if (!workout) return;
 
     // 1. Update local state immediately for responsiveness
     const updatedWorkout = { ...workout };
     const blockIndex = updatedWorkout.blocks.findIndex((b) => b.id === updatedBlock.id);
+    if (blockIndex === -1) return;
     const oldBlock = workout.blocks[blockIndex];
 
     updatedWorkout.blocks[blockIndex] = updatedBlock;
@@ -134,8 +141,16 @@ export default function WorkoutTracker() {
     };
 
     setWorkoutMap((prev) => ({ ...prev, [dateString]: updatedWorkout }));
-    await WorkoutDAL.saveFullWorkout(updatedWorkout);
 
+    setActiveBlock({
+      block: newBlock,
+      dateString,
+      saveEditedBlock,
+      onDeleteBlock: (blockId) => handleDeleteBlock(dateString, blockId),
+    });
+    router.push('/exercise_block');
+
+    await WorkoutDAL.saveFullWorkout(updatedWorkout);
     const finalWorkoutState = await WorkoutDAL.getWorkoutByDate(dateString);
     setWorkoutMap((prev) => ({ ...prev, [dateString]: finalWorkoutState }));
   };
@@ -238,7 +253,7 @@ export default function WorkoutTracker() {
                 }}>
                 <CardHeader>
                   <CardTitle style={{ color: 'white', fontSize: 22 }}>
-                    {format(dateForCard, 'EEEE')}a
+                    {format(dateForCard, 'EEEE')}
                   </CardTitle>
                   <CardDescription style={{ color: '#a3a3a3' }}>
                     {format(dateForCard, 'MMM do, yyyy')} · {relativeLabel}
@@ -276,7 +291,7 @@ export default function WorkoutTracker() {
                     flexDirection: 'row',
                     justifyContent: 'space-evenly',
                   }}>
-                  <AddExercise onAdd={(exercises) => handleAddExercise(dateString, exercises)} />
+                  <AddExercise dateString={dateString} onAdd={(exercises) => handleAddExercise(dateString, exercises)} />
                   <AddRoutine onAdd={() => {}} />
                 </View>
               </Card>

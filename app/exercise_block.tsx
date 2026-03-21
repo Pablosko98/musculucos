@@ -12,7 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -20,8 +23,16 @@ import { produce } from 'immer';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import {
-  ChevronLeft, ChevronRight, Clock, ChevronDown, ChevronUp,
-  Minus, Plus, Trash2, Youtube, Zap,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Minus,
+  Plus,
+  Trash2,
+  Youtube,
+  Zap,
 } from 'lucide-react-native';
 import { ExerciseDAL } from '@/lib/db';
 import type { HistoryWorkout } from '@/lib/db';
@@ -54,7 +65,10 @@ function variantLabel(ex: Exercise): string {
   }
   const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
   if (suffix) {
-    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return suffix
+      .replace('ez_bar', 'EZ Bar')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment);
 }
@@ -90,22 +104,43 @@ function HistoryCard({
     }
   }
   return (
-    <View style={{ backgroundColor: '#18181b', borderRadius: 16, borderWidth: 1, borderColor: '#27272a', marginBottom: 10, overflow: 'hidden' }}>
+    <View
+      style={{
+        backgroundColor: '#18181b',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#27272a',
+        marginBottom: 10,
+        overflow: 'hidden',
+      }}>
       <TouchableOpacity
         onPress={() => onPressDate(workout.date)}
         activeOpacity={0.7}
-        style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#27272a', flexDirection: 'row', alignItems: 'center' }}>
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: '#27272a',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>{formatDate(workout.date)}</Text>
+          <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>
+            {formatDate(workout.date)}
+          </Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 3 }}>
             {workout.workingSets > 0 && (
-              <Text style={{ color: '#52525b', fontSize: 12 }}>{workout.workingSets} {workout.workingSets === 1 ? 'set' : 'sets'}</Text>
+              <Text style={{ color: '#52525b', fontSize: 12 }}>
+                {workout.workingSets} {workout.workingSets === 1 ? 'set' : 'sets'}
+              </Text>
             )}
             {workout.maxWeightKg > 0 && (
               <Text style={{ color: '#52525b', fontSize: 12 }}>· {workout.maxWeightKg}kg max</Text>
             )}
             {workout.totalVolume > 0 && (
-              <Text style={{ color: '#52525b', fontSize: 12 }}>· {workout.totalVolume.toLocaleString()}kg vol</Text>
+              <Text style={{ color: '#52525b', fontSize: 12 }}>
+                · {workout.totalVolume.toLocaleString()}kg vol
+              </Text>
             )}
           </View>
         </View>
@@ -118,11 +153,22 @@ function HistoryCard({
           const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
           return (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Text style={{ color: '#3f3f46', fontSize: 12, width: 18, textAlign: 'right' }}>{setNum}</Text>
-              <Text style={{ color: isWarmup ? '#52525b' : '#f4f4f5', fontSize: 15, fontWeight: '600', flex: 1 }}>
+              <Text style={{ color: '#3f3f46', fontSize: 12, width: 18, textAlign: 'right' }}>
+                {setNum}
+              </Text>
+              <Text
+                style={{
+                  color: isWarmup ? '#52525b' : '#f4f4f5',
+                  fontSize: 15,
+                  fontWeight: '600',
+                  flex: 1,
+                }}>
                 {isBodyweight ? 'BW' : `${s.weightKg}`}
-                {!isBodyweight && <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}> kg</Text>}
-                {' × '}{s.reps}
+                {!isBodyweight && (
+                  <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}> kg</Text>
+                )}
+                {' × '}
+                {s.reps}
               </Text>
               {s.rpe != null && (
                 <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600' }}>
@@ -130,13 +176,41 @@ function HistoryCard({
                 </Text>
               )}
               {isWarmup && (
-                <View style={{ backgroundColor: '#27272a', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
-                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>warmup</Text>
+                <View
+                  style={{
+                    backgroundColor: '#27272a',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                  }}>
+                  <Text
+                    style={{
+                      color: '#71717a',
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                    warmup
+                  </Text>
                 </View>
               )}
               {!isWarmup && s.rep_type !== 'full' && (
-                <View style={{ backgroundColor: '#1c1c1f', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
-                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.rep_type}</Text>
+                <View
+                  style={{
+                    backgroundColor: '#1c1c1f',
+                    borderRadius: 4,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                  }}>
+                  <Text
+                    style={{
+                      color: '#71717a',
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                    {s.rep_type}
+                  </Text>
                 </View>
               )}
             </View>
@@ -160,7 +234,11 @@ export default function ExerciseBlock() {
 
   const [localBlock, setLocalBlock] = useState<Block>(initialBlock!);
   const [activeTab, setActiveTab] = useState<'sets' | 'history'>('sets');
-  const [editing, setEditing] = useState<{ type: 'set' | 'rest'; eventId: string; subSetId?: string } | null>(null);
+  const [editing, setEditing] = useState<{
+    type: 'set' | 'rest';
+    eventId: string;
+    subSetId?: string;
+  } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeExerciseId, setActiveExerciseId] = useState(initialBlock?.exerciseIds?.[0] ?? '');
   const [inputWeight, setInputWeight] = useState('60');
@@ -192,33 +270,36 @@ export default function ExerciseBlock() {
 
   // ── History loading ──────────────────────────────────────────────────────
 
-  const loadHistory = useCallback(async (exId: string, reset = false) => {
-    if (!reset && historyLoadingRef.current) return;
-    if (!reset && !historyHasMore) return;
-    historyLoadingRef.current = true;
-    const offset = reset ? 0 : historyOffsetRef.current;
-    // Only show the full loading spinner on the very first load for this exercise.
-    // Subsequent reloads (e.g. after adding a set) silently replace data to avoid flicker.
-    const showSpinner = reset && !historyInitializedRef.current;
-    if (showSpinner) setHistoryLoading(true);
-    try {
-      const results = await ExerciseDAL.getExerciseHistory(exId, HISTORY_PAGE, offset);
-      historyInitializedRef.current = true;
-      if (reset) {
-        setHistoryData(results);
-        historyOffsetRef.current = results.length;
-      } else {
-        setHistoryData((prev) => [...prev, ...results]);
-        historyOffsetRef.current += results.length;
+  const loadHistory = useCallback(
+    async (exId: string, reset = false) => {
+      if (!reset && historyLoadingRef.current) return;
+      if (!reset && !historyHasMore) return;
+      historyLoadingRef.current = true;
+      const offset = reset ? 0 : historyOffsetRef.current;
+      // Only show the full loading spinner on the very first load for this exercise.
+      // Subsequent reloads (e.g. after adding a set) silently replace data to avoid flicker.
+      const showSpinner = reset && !historyInitializedRef.current;
+      if (showSpinner) setHistoryLoading(true);
+      try {
+        const results = await ExerciseDAL.getExerciseHistory(exId, HISTORY_PAGE, offset);
+        historyInitializedRef.current = true;
+        if (reset) {
+          setHistoryData(results);
+          historyOffsetRef.current = results.length;
+        } else {
+          setHistoryData((prev) => [...prev, ...results]);
+          historyOffsetRef.current += results.length;
+        }
+        setHistoryHasMore(results.length === HISTORY_PAGE);
+      } catch (e) {
+        console.error('History error', e);
+      } finally {
+        if (showSpinner) setHistoryLoading(false);
+        historyLoadingRef.current = false;
       }
-      setHistoryHasMore(results.length === HISTORY_PAGE);
-    } catch (e) {
-      console.error('History error', e);
-    } finally {
-      if (showSpinner) setHistoryLoading(false);
-      historyLoadingRef.current = false;
-    }
-  }, [historyHasMore]);
+    },
+    [historyHasMore]
+  );
 
   // When exercise changes: reset init flag and reload
   useEffect(() => {
@@ -301,7 +382,12 @@ export default function ExerciseBlock() {
       if (lastEvent?.type === 'set') {
         lastEvent.subSets.push(newSub);
       } else {
-        draft.events.push({ id: `event-set-${Date.now()}`, type: 'set', subSets: [newSub], datetime: now });
+        draft.events.push({
+          id: `event-set-${Date.now()}`,
+          type: 'set',
+          subSets: [newSub],
+          datetime: now,
+        });
       }
     });
     setLocalBlock(nextBlock);
@@ -360,13 +446,18 @@ export default function ExerciseBlock() {
     ({ item, drag, isActive }: RenderItemParams<WorkoutEvent>) => (
       <ScaleDecorator>
         <Pressable
-          onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); drag(); }}
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            drag();
+          }}
           disabled={isActive}
           className={`mb-4 ${isActive ? 'opacity-50' : ''}`}>
           {item.type === 'set' ? (
             <View className="rounded-[32px] border border-zinc-800 bg-zinc-900 p-4">
               <View className="mb-3 flex-row items-center justify-between px-1">
-                <Text className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Training Set</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                  Training Set
+                </Text>
                 <Text className="text-[10px] font-bold text-zinc-700">{item.datetime}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1, gap: 4 }}>
@@ -381,7 +472,10 @@ export default function ExerciseBlock() {
                       key={sub.id}
                       onPress={() => {
                         Haptics.selectionAsync();
-                        if (isEditing) { handleFinishEditing(); return; }
+                        if (isEditing) {
+                          handleFinishEditing();
+                          return;
+                        }
                         setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
                         handleChangeActiveExercise(sub.exerciseId);
                         setInputWeight(sub.weightKg.toString());
@@ -392,17 +486,22 @@ export default function ExerciseBlock() {
                       style={{ flex: 1, minWidth: 140 }}
                       className={`rounded-2xl border px-4 py-3 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
                       <View className="mb-1 flex-row items-center justify-between gap-4">
-                        <Text numberOfLines={1} className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                        <Text
+                          numberOfLines={1}
+                          className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
                           {exerciseMeta?.name || sub.exerciseId}
                         </Text>
-                        <Text className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                        <Text
+                          className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
                           | {sub.rep_type}{' '}
                         </Text>
-                        <Text className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>
+                        <Text
+                          className={`text-[9px] font-black ${isEditing ? 'text-zinc-900' : 'text-green-500'}`}>
                           @{displayRPE}
                         </Text>
                       </View>
-                      <Text className={`text-lg font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
+                      <Text
+                        className={`text-lg font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
                         <Text className="text-green-500">{index + 1}. </Text>
                         {displayWeight}
                         <Text className="text-xs text-zinc-500">kg</Text> × {displayReps}
@@ -416,13 +515,17 @@ export default function ExerciseBlock() {
             <Pressable
               onPress={() => {
                 Haptics.selectionAsync();
-                if (editing) { handleFinishEditing(); return; }
+                if (editing) {
+                  handleFinishEditing();
+                  return;
+                }
                 setEditing({ type: 'rest', eventId: item.id });
                 setInputRest(item.durationSeconds.toString());
               }}
               className={`flex-row items-center justify-center gap-2 rounded-2xl border p-3 ${editing?.eventId === item.id ? 'border-purple-500 bg-purple-600' : 'border-purple-500/20 bg-purple-900/10'}`}>
               <Zap size={12} color={editing?.eventId === item.id ? 'white' : '#a855f7'} />
-              <Text className={`text-xs font-black uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>
+              <Text
+                className={`text-xs font-black uppercase ${editing?.eventId === item.id ? 'text-white' : 'text-purple-400'}`}>
                 {item.durationSeconds}s Rest
               </Text>
             </Pressable>
@@ -439,14 +542,33 @@ export default function ExerciseBlock() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#09090b', paddingTop: insets.top }}>
-
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#18181b' }}>
-        <Pressable onPress={() => { if (editing) handleFinishEditing(); router.back(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: '#18181b',
+        }}>
+        <Pressable
+          onPress={() => {
+            if (editing) handleFinishEditing();
+            router.back();
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={{ color: '#71717a', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+          <Text
+            style={{
+              color: '#71717a',
+              fontSize: 10,
+              fontWeight: '900',
+              textTransform: 'uppercase',
+              letterSpacing: 1.2,
+            }}>
             Active Exercise
           </Text>
           <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900', lineHeight: 24 }}>
@@ -461,25 +583,68 @@ export default function ExerciseBlock() {
         {activeExercise?.videoUrl ? (
           <Pressable
             onPress={() => Linking.openURL(activeExercise.videoUrl!)}
-            style={{ height: 44, width: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)', backgroundColor: 'rgba(220,38,38,0.1)' }}>
+            style={{
+              height: 44,
+              width: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(220,38,38,0.2)',
+              backgroundColor: 'rgba(220,38,38,0.1)',
+            }}>
             <Youtube color="#dc2626" size={20} />
           </Pressable>
         ) : null}
       </View>
 
       {/* Tab bar */}
-      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderBottomWidth: 1, borderBottomColor: '#18181b' }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          gap: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: '#18181b',
+        }}>
         <Pressable
           onPress={() => setActiveTab('sets')}
-          style={{ flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center', backgroundColor: activeTab === 'sets' ? '#27272a' : 'transparent', borderWidth: 1, borderColor: activeTab === 'sets' ? '#3f3f46' : 'transparent' }}>
-          <Text style={{ color: activeTab === 'sets' ? '#fafafa' : '#52525b', fontSize: 13, fontWeight: '700' }}>
+          style={{
+            flex: 1,
+            paddingVertical: 9,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: activeTab === 'sets' ? '#27272a' : 'transparent',
+            borderWidth: 1,
+            borderColor: activeTab === 'sets' ? '#3f3f46' : 'transparent',
+          }}>
+          <Text
+            style={{
+              color: activeTab === 'sets' ? '#fafafa' : '#52525b',
+              fontSize: 13,
+              fontWeight: '700',
+            }}>
             Sets
           </Text>
         </Pressable>
         <Pressable
           onPress={() => setActiveTab('history')}
-          style={{ flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center', backgroundColor: activeTab === 'history' ? '#27272a' : 'transparent', borderWidth: 1, borderColor: activeTab === 'history' ? '#3f3f46' : 'transparent' }}>
-          <Text style={{ color: activeTab === 'history' ? '#fafafa' : '#52525b', fontSize: 13, fontWeight: '700' }}>
+          style={{
+            flex: 1,
+            paddingVertical: 9,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: activeTab === 'history' ? '#27272a' : 'transparent',
+            borderWidth: 1,
+            borderColor: activeTab === 'history' ? '#3f3f46' : 'transparent',
+          }}>
+          <Text
+            style={{
+              color: activeTab === 'history' ? '#fafafa' : '#52525b',
+              fontSize: 13,
+              fontWeight: '700',
+            }}>
             History
           </Text>
         </Pressable>
@@ -495,9 +660,26 @@ export default function ExerciseBlock() {
           {localBlock.exerciseIds.map((id: string) => (
             <Pressable
               key={id}
-              onPress={() => { Haptics.selectionAsync(); handleChangeActiveExercise(id); }}
-              style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, backgroundColor: activeExerciseId === id ? '#fafafa' : '#09090b', borderColor: activeExerciseId === id ? '#fafafa' : '#27272a' }}>
-              <Text style={{ color: activeExerciseId === id ? '#09090b' : '#71717a', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              onPress={() => {
+                Haptics.selectionAsync();
+                handleChangeActiveExercise(id);
+              }}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 20,
+                borderWidth: 1,
+                backgroundColor: activeExerciseId === id ? '#fafafa' : '#09090b',
+                borderColor: activeExerciseId === id ? '#fafafa' : '#27272a',
+              }}>
+              <Text
+                style={{
+                  color: activeExerciseId === id ? '#09090b' : '#71717a',
+                  fontSize: 11,
+                  fontWeight: '900',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}>
                 {exerciseMap.get(id) ? variantLabel(exerciseMap.get(id)!) : id}
               </Text>
             </Pressable>
@@ -507,7 +689,9 @@ export default function ExerciseBlock() {
 
       {/* ── Sets tab ── */}
       {activeTab === 'sets' && (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}>
           <DraggableFlatList
             data={localBlock.events}
             onDragEnd={({ data }) => {
@@ -522,11 +706,20 @@ export default function ExerciseBlock() {
           />
 
           {/* Bottom control panel */}
-          <View style={{ borderTopWidth: 1, borderTopColor: '#18181b', backgroundColor: '#09090b', padding: 16, paddingBottom: insets.bottom + 8 }}>
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: '#18181b',
+              backgroundColor: '#09090b',
+              padding: 16,
+              paddingBottom: insets.bottom + 8,
+            }}>
             <View className="mb-4 flex-row gap-3">
               <View className="flex-1 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
                 <Pressable
-                  onPress={() => setInputWeight((prev) => Math.max(0, parseFloat(prev) - WEIGHT_STEP).toString())}
+                  onPress={() =>
+                    setInputWeight((prev) => Math.max(0, parseFloat(prev) - WEIGHT_STEP).toString())
+                  }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Minus size={18} color="#71717a" />
                 </Pressable>
@@ -541,7 +734,9 @@ export default function ExerciseBlock() {
                   />
                 </View>
                 <Pressable
-                  onPress={() => setInputWeight((prev) => (parseFloat(prev) + WEIGHT_STEP).toString())}
+                  onPress={() =>
+                    setInputWeight((prev) => (parseFloat(prev) + WEIGHT_STEP).toString())
+                  }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Plus size={18} color="#71717a" />
                 </Pressable>
@@ -577,7 +772,11 @@ export default function ExerciseBlock() {
                 variant="outline"
                 className="h-16 flex-1 flex-row gap-2 rounded-[24px] border-zinc-800">
                 <Text className="text-[10px] font-black uppercase text-zinc-500">RPE / Type</Text>
-                {showAdvanced ? <ChevronUp size={14} color="#52525b" /> : <ChevronDown size={14} color="#52525b" />}
+                {showAdvanced ? (
+                  <ChevronUp size={14} color="#52525b" />
+                ) : (
+                  <ChevronDown size={14} color="#52525b" />
+                )}
               </Button>
               {!editing && (
                 <Pressable
@@ -588,7 +787,10 @@ export default function ExerciseBlock() {
                 </Pressable>
               )}
               {editing ? (
-                <Button variant="destructive" className="h-16 w-20 rounded-[24px]" onPress={deleteCurrent}>
+                <Button
+                  variant="destructive"
+                  className="h-16 w-20 rounded-[24px]"
+                  onPress={deleteCurrent}>
                   <Trash2 color="white" />
                 </Button>
               ) : (
@@ -606,7 +808,10 @@ export default function ExerciseBlock() {
                       key={v}
                       onPress={() => setInputRPE(v)}
                       className={`mr-2 h-11 w-12 items-center justify-center rounded-xl border ${inputRPE === v ? 'border-green-400 bg-green-500' : 'border-zinc-800 bg-zinc-900'}`}>
-                      <Text className={`text-xs font-black ${inputRPE === v ? 'text-white' : 'text-zinc-500'}`}>{v}</Text>
+                      <Text
+                        className={`text-xs font-black ${inputRPE === v ? 'text-white' : 'text-zinc-500'}`}>
+                        {v}
+                      </Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -616,7 +821,10 @@ export default function ExerciseBlock() {
                       key={t}
                       onPress={() => setRepType(t)}
                       className={`rounded-xl border px-4 py-2 ${repType === t ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-900'}`}>
-                      <Text className={`text-[10px] font-black uppercase ${repType === t ? 'text-black' : 'text-zinc-500'}`}>{t}</Text>
+                      <Text
+                        className={`text-[10px] font-black uppercase ${repType === t ? 'text-black' : 'text-zinc-500'}`}>
+                        {t}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
@@ -627,8 +835,8 @@ export default function ExerciseBlock() {
       )}
 
       {/* ── History tab ── */}
-      {activeTab === 'history' && (
-        historyLoading ? (
+      {activeTab === 'history' &&
+        (historyLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <ActivityIndicator color="#ea580c" />
           </View>
@@ -639,7 +847,8 @@ export default function ExerciseBlock() {
             contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
             showsVerticalScrollIndicator={false}
             onEndReached={() => {
-              if (historyHasMore && !historyLoadingRef.current) loadHistory(activeExerciseId, false);
+              if (historyHasMore && !historyLoadingRef.current)
+                loadHistory(activeExerciseId, false);
             }}
             onEndReachedThreshold={0.5}
             renderItem={({ item }) => (
@@ -655,14 +864,17 @@ export default function ExerciseBlock() {
             ListHeaderComponent={
               historyData.length > 0 ? (
                 <Text style={{ color: '#52525b', fontSize: 13, marginBottom: 12 }}>
-                  {historyData.length} workout{historyData.length !== 1 ? 's' : ''}{historyHasMore ? '+' : ''}
+                  {historyData.length} workout{historyData.length !== 1 ? 's' : ''}
+                  {historyHasMore ? '+' : ''}
                 </Text>
               ) : null
             }
             ListEmptyComponent={
               <View style={{ paddingTop: 80, alignItems: 'center' }}>
                 <Text style={{ color: '#3f3f46', fontSize: 15 }}>No history yet</Text>
-                <Text style={{ color: '#27272a', fontSize: 13, marginTop: 6 }}>Log a set to see it here</Text>
+                <Text style={{ color: '#27272a', fontSize: 13, marginTop: 6 }}>
+                  Log a set to see it here
+                </Text>
               </View>
             }
             ListFooterComponent={
@@ -673,8 +885,7 @@ export default function ExerciseBlock() {
               ) : null
             }
           />
-        )
-      )}
+        ))}
     </View>
   );
 }

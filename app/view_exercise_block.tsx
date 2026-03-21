@@ -17,7 +17,10 @@ function variantLabel(ex: Exercise): string {
   }
   const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
   if (suffix) {
-    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return suffix
+      .replace('ez_bar', 'EZ Bar')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment);
 }
@@ -87,7 +90,9 @@ function ViewExerciseBlock({
       </View>
       <View className="flex-row flex-wrap gap-2">
         {blockSummary.variantLabels.map((label) => (
-          <View key={label} className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1">
+          <View
+            key={label}
+            className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1">
             <Text className="text-[9px] font-black uppercase tracking-widest text-blue-400">
               {label}
             </Text>
@@ -119,8 +124,10 @@ function ViewExerciseBlock({
   );
 }
 
-export default React.memo(ViewExerciseBlock, (prev, next) =>
-  prev.exerciseBlock === next.exerciseBlock &&
-  prev.dateString === next.dateString &&
-  (prev.exerciseList?.length ?? 0) === (next.exerciseList?.length ?? 0)
+export default React.memo(
+  ViewExerciseBlock,
+  (prev, next) =>
+    prev.exerciseBlock === next.exerciseBlock &&
+    prev.dateString === next.dateString &&
+    (prev.exerciseList?.length ?? 0) === (next.exerciseList?.length ?? 0)
 );

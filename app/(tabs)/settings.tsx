@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { PrefsDAL } from '@/lib/db';
 import {
   configureGoogleSignIn,
   getCurrentUser,
@@ -26,9 +27,13 @@ export default function Settings() {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [loading, setLoading] = useState<'backup' | 'restore' | null>(null);
+  const [bodyGender, setBodyGender] = useState<'male' | 'female'>('male');
 
   useEffect(() => {
     getCurrentUser().then(setUser);
+    PrefsDAL.get('bodyGender').then((v) => {
+      if (v === 'male' || v === 'female') setBodyGender(v);
+    });
   }, []);
 
   async function ensureSignedIn(): Promise<string | null> {
@@ -119,6 +124,56 @@ export default function Settings() {
       <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 32 }}>
         Settings
       </Text>
+
+      {/* Appearance */}
+      <View style={{ marginBottom: 32 }}>
+        <Text
+          style={{
+            color: '#71717a',
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 12,
+          }}>
+          Appearance
+        </Text>
+        <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
+          <View
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+            <View>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Body figure</Text>
+              <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
+                Shown in the Muscles tab
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', backgroundColor: '#27272a', borderRadius: 8, padding: 3, gap: 3 }}>
+              {(['male', 'female'] as const).map((g) => (
+                <TouchableOpacity
+                  key={g}
+                  onPress={() => {
+                    setBodyGender(g);
+                    PrefsDAL.set('bodyGender', g);
+                  }}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    backgroundColor: bodyGender === g ? '#3f3f46' : 'transparent',
+                  }}>
+                  <Text style={{ color: bodyGender === g ? '#fafafa' : '#71717a', fontSize: 13, fontWeight: '600' }}>
+                    {g === 'male' ? '♂ Male' : '♀ Female'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </View>
 
       {/* Google Account */}
       <View style={{ marginBottom: 32 }}>

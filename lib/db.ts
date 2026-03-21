@@ -111,6 +111,11 @@ export const initDB = () => {
       datetime TEXT,
       FOREIGN KEY (blockId) REFERENCES blocks (id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS prefs (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
   `);
 
   // Migration: add isFavourite column if it doesn't exist yet (safe no-op on fresh installs)
@@ -562,6 +567,33 @@ export const ExerciseDAL = {
     return statsMap;
   },
 
+  async getMuscleStats(startDate: string | null): Promise<Array<{ exerciseId: string; date: string; volume: number }>> {
+    if (startDate) {
+      return db.getAllAsync<{ exerciseId: string; date: string; volume: number }>(
+        `SELECT ev.exerciseId, w.date,
+                SUM(COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume
+         FROM events ev
+         JOIN blocks b ON ev.blockId = b.id
+         JOIN workouts w ON b.workoutId = w.id
+         WHERE ev.exerciseId IS NOT NULL
+           AND COALESCE(ev.rep_type, 'full') != 'warmup'
+           AND w.date >= ?
+         GROUP BY ev.exerciseId, w.date`,
+        [startDate]
+      );
+    }
+    return db.getAllAsync<{ exerciseId: string; date: string; volume: number }>(
+      `SELECT ev.exerciseId, w.date,
+              SUM(COALESCE(ev.weightKg, 0) * COALESCE(ev.reps, 0)) as volume
+       FROM events ev
+       JOIN blocks b ON ev.blockId = b.id
+       JOIN workouts w ON b.workoutId = w.id
+       WHERE ev.exerciseId IS NOT NULL
+         AND COALESCE(ev.rep_type, 'full') != 'warmup'
+       GROUP BY ev.exerciseId, w.date`
+    );
+  },
+
   async getExerciseHistory(
     exerciseId: string,
     limit: number,
@@ -648,6 +680,16 @@ export type HistoryWorkout = {
   workingSets: number;
   maxWeightKg: number;
   totalVolume: number;
+};
+
+export const PrefsDAL = {
+  async get(key: string): Promise<string | null> {
+    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM prefs WHERE key = ?', [key]);
+    return row?.value ?? null;
+  },
+  async set(key: string, value: string): Promise<void> {
+    await db.runAsync('INSERT OR REPLACE INTO prefs (key, value) VALUES (?, ?)', [key, value]);
+  },
 };
 
 export const seedDatabase = async () => {
