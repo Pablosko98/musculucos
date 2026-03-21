@@ -276,7 +276,7 @@ export default function ExerciseHistory() {
 
   const handlePressDate = (date: string) => {
     setPendingWorkoutDate(date);
-    router.navigate('/(tabs)');
+    router.navigate('/(tabs)/(home)');
   };
 
   return (

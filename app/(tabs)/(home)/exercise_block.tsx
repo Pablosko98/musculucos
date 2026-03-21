@@ -319,13 +319,21 @@ export default function ExerciseBlock() {
   const historyInitializedRef = useRef(false);
 
   const navigation = useNavigation();
+  const allowBackRef = useRef(false);
 
-  // Hijack all back actions (hardware back, swipe, gesture) to always go to workout
+  // Hijack hardware back / swipe gesture to always return to the workout tab.
+  // allowBackRef prevents the re-dispatched action from re-triggering this listener.
   useEffect(() => {
+    allowBackRef.current = false;
     const unsub = navigation.addListener('beforeRemove', (e) => {
+      if (allowBackRef.current) return;
+      // Only intercept natural back gestures — programmatic navigations (e.g. pressing
+      // a date in history) handle their own routing and must not be intercepted.
+      if (e.data.action.type !== 'GO_BACK' && e.data.action.type !== 'POP') return;
       e.preventDefault();
       if (dateString) setPendingWorkoutDate(dateString);
-      router.navigate('/(tabs)');
+      allowBackRef.current = true;
+      navigation.dispatch(e.data.action);
     });
     return unsub;
   }, [navigation, dateString]);
@@ -904,8 +912,7 @@ export default function ExerciseBlock() {
         <Pressable
           onPress={() => {
             if (editing) handleFinishEditing();
-            if (dateString) setPendingWorkoutDate(dateString);
-            router.navigate('/(tabs)');
+            router.back(); // beforeRemove handles setPendingWorkoutDate
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
@@ -1471,7 +1478,7 @@ export default function ExerciseBlock() {
                 equipment={activeExercise?.equipment}
                 onPressDate={(date) => {
                   setPendingWorkoutDate(date);
-                  router.navigate('/(tabs)');
+                  router.dismissAll();
                 }}
               />
             )}

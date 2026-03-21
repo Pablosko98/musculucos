@@ -12,7 +12,7 @@ export default function TablLayout() {
         tabBarStyle: { backgroundColor: '#fff', borderTopWidth: 0 },
       }}>
       <Tabs.Screen
-        name="index"
+        name="(home)"
         options={{
           title: 'Tracker',
           tabBarIcon: ({ color }) => <NotebookPen size={24} color={color} />,
