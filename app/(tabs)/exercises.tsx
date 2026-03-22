@@ -510,6 +510,7 @@ export default function Exercises() {
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScrollToIndexFailed={() => {}}
         renderItem={({ item }) => (
           <ExerciseGroupCard
             group={item}
