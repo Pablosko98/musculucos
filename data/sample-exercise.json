@@ -4,7 +4,6 @@
     {
       "_group": "Triceps (cable)",
       "id": "tricep_pushdown_rope_cable",
-      "baseId": "tricep_pushdown",
       "name": "Tricep Pushdown",
       "equipment": "cable",
       "muscleEmphasis": [
@@ -20,7 +19,6 @@
     {
       "_group": "Chest (barbell)",
       "id": "bench_press_barbell",
-      "baseId": "bench_press",
       "name": "Bench Press",
       "equipment": "barbell",
       "muscleEmphasis": [
@@ -37,7 +35,6 @@
     {
       "_group": "Chest (cable)",
       "id": "chest_fly_cable",
-      "baseId": "chest_fly",
       "name": "Chest Fly",
       "equipment": "cable",
       "muscleEmphasis": [
@@ -53,7 +50,6 @@
     {
       "_group": "Legs (machine)",
       "id": "leg_press_machine",
-      "baseId": "leg_press",
       "name": "Leg Press",
       "equipment": "machine",
       "muscleEmphasis": [
@@ -70,7 +66,6 @@
     {
       "_group": "Legs (barbell)",
       "id": "squat_barbell",
-      "baseId": "squat",
       "name": "Squat",
       "equipment": "barbell",
       "muscleEmphasis": [
@@ -89,7 +84,6 @@
     {
       "_group": "Legs (bodyweight)",
       "id": "calf_raise_bodyweight",
-      "baseId": "calf_raise",
       "name": "Calf Raise",
       "equipment": "bodyweight",
       "muscleEmphasis": [
@@ -104,7 +98,6 @@
     {
       "_group": "Custom (user-created)",
       "id": "custom_1742000000000",
-      "baseId": "custom_1742000000000",
       "name": "My Custom Exercise",
       "equipment": "machine",
       "muscleEmphasis": [

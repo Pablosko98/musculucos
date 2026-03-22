@@ -37,19 +37,11 @@ function fmtEquipment(eq: string): string {
 }
 function variantLabel(ex: {
   id: string;
-  baseId: string;
   equipment: string;
   equipmentVariant?: string | null;
 }): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${EQUIPMENT_LABELS[ex.equipment] ?? fmt(ex.equipment)}`.trim();
-  }
-  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
-  if (suffix) {
-    return suffix
-      .replace('ez_bar', 'EZ Bar')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return EQUIPMENT_LABELS[ex.equipment] ?? fmt(ex.equipment);
 }
@@ -208,11 +200,9 @@ export default function ExerciseHistory() {
   const {
     exerciseId: initialExerciseId,
     exerciseName,
-    baseId,
   } = useLocalSearchParams<{
     exerciseId: string;
     exerciseName?: string;
-    baseId?: string;
   }>();
 
   const [variants, setVariants] = useState<Exercise[]>([]);
@@ -227,13 +217,12 @@ export default function ExerciseHistory() {
 
   // Load sibling variants for tab strip
   useEffect(() => {
-    const id = baseId || initialExerciseId;
-    ExerciseDAL.getByBaseId(id).then((vs) => {
-      // If baseId wasn't passed, try using the exerciseId's baseId from results
+    if (!exerciseName) return;
+    ExerciseDAL.getByName(exerciseName).then((vs) => {
       if (vs.length > 0) setVariants(vs);
       else setVariants([]);
     });
-  }, [baseId, initialExerciseId]);
+  }, [exerciseName]);
 
   const activeVariant = variants.find((v) => v.id === activeId);
 

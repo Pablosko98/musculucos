@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { View, ScrollView, FlatList, TouchableOpacity, TextInput, Animated } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, router } from 'expo-router';
+import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { Search, Star, X, Plus, Pencil } from 'lucide-react-native';
 import { Exercise, MUSCLE_GROUP_MAP, HEAD_LABELS } from '@/lib/exercises';
 import { ExerciseDAL } from '@/lib/db';
@@ -33,7 +33,7 @@ const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs',
 
 type SubMuscleFilter = { muscle: string; head?: string };
 type ExerciseGroup = {
-  baseId: string;
+  key: string;
   name: string;
   variants: Exercise[];
   primaryMuscles: string[];
@@ -50,13 +50,6 @@ function fmtEquipment(eq: string): string {
 function variantLabel(ex: Exercise): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${fmtEquipment(ex.equipment)}`.trim();
-  }
-  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
-  if (suffix) {
-    return suffix
-      .replace('ez_bar', 'EZ Bar')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return fmtEquipment(ex.equipment);
 }
@@ -258,6 +251,8 @@ function ExerciseGroupCard({
 
 export default function Exercises() {
   const insets = useSafeAreaInsets();
+  const { focusName } = useLocalSearchParams<{ focusName?: string }>();
+  const flatListRef = useRef<FlatList>(null);
 
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [stats, setStats] = useState<Record<string, ExerciseStat>>({});
@@ -356,16 +351,17 @@ export default function Exercises() {
   }, [allExercises]);
 
   const filteredGroups = useMemo((): ExerciseGroup[] => {
-    const baseMap = new Map<string, Exercise[]>();
+    const nameMap = new Map<string, Exercise[]>();
     for (const ex of allExercises) {
-      if (!baseMap.has(ex.baseId)) baseMap.set(ex.baseId, []);
-      baseMap.get(ex.baseId)!.push(ex);
+      const key = ex.name.toLowerCase().trim();
+      if (!nameMap.has(key)) nameMap.set(key, []);
+      nameMap.get(key)!.push(ex);
     }
 
     const groups: ExerciseGroup[] = [];
     const q = search.trim().toLowerCase();
 
-    for (const [baseId, variants] of baseMap) {
+    for (const [nameKey, variants] of nameMap) {
       const matching = variants.filter((ex) => {
         if (q && !ex.name.toLowerCase().includes(q) && !ex.equipment.toLowerCase().includes(q))
           return false;
@@ -399,11 +395,23 @@ export default function Exercises() {
         )
       ).filter((m) => MUSCLE_GROUP_MAP[m]);
 
-      groups.push({ baseId, name: variants[0].name, variants: matching, primaryMuscles });
+      groups.push({ key: nameKey, name: variants[0].name, variants: matching, primaryMuscles });
     }
 
     return groups;
   }, [allExercises, search, activeGroup, activeSub, activeEquipment, showFavsOnly]);
+
+  // Scroll to newly created exercise when navigated here with focusName
+  useEffect(() => {
+    if (!focusName || loading || filteredGroups.length === 0) return;
+    const idx = filteredGroups.findIndex((g) => g.key === focusName.toLowerCase().trim());
+    if (idx < 0) return;
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+      } catch {}
+    }, 100);
+  }, [focusName, loading, filteredGroups]);
 
   const handleGroupPress = (id: string) => {
     const next = activeGroup === id ? null : id;
@@ -491,8 +499,9 @@ export default function Exercises() {
 
       {/* ── Exercise list ── */}
       <FlatList
+        ref={flatListRef}
         data={filteredGroups}
-        keyExtractor={(item) => item.baseId}
+        keyExtractor={(item) => item.key}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 8,

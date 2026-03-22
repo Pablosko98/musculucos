@@ -15,7 +15,6 @@
       "exercises": [
         {
           "id": "incline_press_barbell",
-          "baseId": "incline_press",
           "name": "Incline Press",
           "equipment": "barbell",
           "muscleEmphasis": [
@@ -50,7 +49,6 @@
               "datetime": "21:47",
               "exercise": {
                 "id": "incline_press_barbell",
-                "baseId": "incline_press",
                 "name": "Incline Press",
                 "equipment": "barbell",
                 "muscleEmphasis": [
@@ -77,7 +75,6 @@
               "datetime": "21:49",
               "exercise": {
                 "id": "incline_press_barbell",
-                "baseId": "incline_press",
                 "name": "Incline Press",
                 "equipment": "barbell",
                 "muscleEmphasis": [

@@ -112,7 +112,7 @@ export default function Analytics() {
   const handleSelectVariant = (v: Exercise) => {
     router.push({
       pathname: '/exercise_history',
-      params: { exerciseId: v.id, exerciseName: v.name, baseId: v.baseId },
+      params: { exerciseId: v.id, exerciseName: v.name },
     });
   };
 

@@ -7,12 +7,10 @@ export type MuscleEmphasis = {
 };
 
 // Each entry = one movement + equipment combination.
-// `baseId` groups all variants of the same movement (e.g. all bicep curls).
 // `name` is the movement name shared by all variants (e.g. 'Bicep Curl').
 // Equipment distinguishes variants within a group.
 export type Exercise = {
-  id: string; // unique variant ID, e.g. 'bicep_curl_dumbbell'
-  baseId: string; // movement family, e.g. 'bicep_curl'
+  id: string; // unique exercise ID (opaque)
   name: string; // movement display name, same for all variants
   equipment: string; // category used for filtering: 'barbell' | 'dumbbell' | 'cable' | 'machine' | 'bodyweight' | 'ez_bar'
   equipmentVariant?: string | null; // optional subtype label, e.g. 'Seated', 'Smith', 'Wide Grip'
@@ -80,7 +78,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'bench_press_barbell',
-    baseId: 'bench_press',
     name: 'Bench Press',
     equipment: 'barbell',
     muscleEmphasis: [
@@ -92,7 +89,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bench_press_dumbbell',
-    baseId: 'bench_press',
     name: 'Bench Press',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -103,7 +99,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline_press_barbell',
-    baseId: 'incline_press',
     name: 'Incline Press',
     equipment: 'barbell',
     muscleEmphasis: [
@@ -114,7 +109,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline_press_dumbbell',
-    baseId: 'incline_press',
     name: 'Incline Press',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -125,7 +119,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'decline_press_barbell',
-    baseId: 'decline_press',
     name: 'Decline Press',
     equipment: 'barbell',
     muscleEmphasis: [
@@ -135,7 +128,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'chest_fly_dumbbell',
-    baseId: 'chest_fly',
     name: 'Chest Fly',
     equipment: 'dumbbell',
     description: 'Arms behind body at bottom = deep stretch on all chest fibres.',
@@ -146,7 +138,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'chest_fly_cable',
-    baseId: 'chest_fly',
     name: 'Chest Fly',
     equipment: 'cable',
     description:
@@ -158,7 +149,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'pec_deck_machine',
-    baseId: 'pec_deck',
     name: 'Pec Deck',
     equipment: 'machine',
     muscleEmphasis: [
@@ -168,7 +158,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'push_up_bodyweight',
-    baseId: 'push_up',
     name: 'Push-Up',
     equipment: 'bodyweight',
     muscleEmphasis: [
@@ -183,7 +172,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'pull_up_bodyweight',
-    baseId: 'pull_up',
     name: 'Pull-Up',
     equipment: 'bodyweight',
     description: 'Wide overhand grip = lat width. Neutral grip = more biceps.',
@@ -196,7 +184,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lat_pulldown_wide_cable',
-    baseId: 'lat_pulldown',
     name: 'Lat Pulldown',
     equipment: 'cable',
     description: 'Wide overhand grip. Emphasises lat width.',
@@ -208,7 +195,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lat_pulldown_close_grip_cable',
-    baseId: 'lat_pulldown',
     name: 'Lat Pulldown',
     equipment: 'cable',
     description: 'Neutral/close grip. Longer ROM and more biceps recruitment.',
@@ -220,7 +206,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bent_over_row_barbell',
-    baseId: 'bent_over_row',
     name: 'Bent Over Row',
     equipment: 'barbell',
     description: 'Overhand grip targets upper back; underhand shifts load to lats.',
@@ -233,7 +218,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'single_arm_row_dumbbell',
-    baseId: 'single_arm_row',
     name: 'Single Arm Row',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -244,7 +228,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'seated_cable_row',
-    baseId: 'seated_cable_row',
     name: 'Seated Cable Row',
     equipment: 'cable',
     description: 'Close neutral grip = more lats. Wide overhand = more upper back.',
@@ -256,7 +239,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 't_bar_row_machine',
-    baseId: 't_bar_row',
     name: 'T-Bar Row',
     equipment: 'machine',
     muscleEmphasis: [
@@ -268,7 +250,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'face_pull_cable',
-    baseId: 'face_pull',
     name: 'Face Pull',
     equipment: 'cable',
     description: 'Rope at forehead height. Crucial for shoulder health and rear delt development.',
@@ -280,7 +261,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'straight_arm_pulldown_cable',
-    baseId: 'straight_arm_pulldown',
     name: 'Straight Arm Pulldown',
     equipment: 'cable',
     description: 'Arms stay straight. Pure lat isolation.',
@@ -291,7 +271,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'deadlift_barbell',
-    baseId: 'deadlift',
     name: 'Deadlift',
     equipment: 'barbell',
     muscleEmphasis: [
@@ -308,7 +287,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'overhead_press_barbell',
-    baseId: 'overhead_press',
     name: 'Overhead Press',
     equipment: 'barbell',
     muscleEmphasis: [
@@ -320,7 +298,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'overhead_press_dumbbell',
-    baseId: 'overhead_press',
     name: 'Overhead Press',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -331,7 +308,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'overhead_press_machine',
-    baseId: 'overhead_press',
     name: 'Overhead Press',
     equipment: 'machine',
     muscleEmphasis: [
@@ -342,7 +318,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lateral_raise_dumbbell',
-    baseId: 'lateral_raise',
     name: 'Lateral Raise',
     equipment: 'dumbbell',
     description: 'Slight forward lean increases lateral delt activation.',
@@ -353,7 +328,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lateral_raise_cable',
-    baseId: 'lateral_raise',
     name: 'Lateral Raise',
     equipment: 'cable',
     description: 'Low pulley provides constant tension through full ROM.',
@@ -364,7 +338,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'front_raise_dumbbell',
-    baseId: 'front_raise',
     name: 'Front Raise',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -374,7 +347,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'rear_delt_fly_dumbbell',
-    baseId: 'rear_delt_fly',
     name: 'Rear Delt Fly',
     equipment: 'dumbbell',
     description: 'Torso parallel to floor. Slight elbow bend reduces trap recruitment.',
@@ -385,7 +357,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'rear_delt_fly_cable',
-    baseId: 'rear_delt_fly',
     name: 'Rear Delt Fly',
     equipment: 'cable',
     muscleEmphasis: [
@@ -395,7 +366,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'upright_row_barbell',
-    baseId: 'upright_row',
     name: 'Upright Row',
     equipment: 'barbell',
     description: 'Wide grip = lateral delt; narrow grip = more traps.',
@@ -415,7 +385,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'bicep_curl_dumbbell',
-    baseId: 'bicep_curl',
     name: 'Bicep Curl',
     equipment: 'dumbbell',
     description: 'Supinated (palms-up) grip. Arm at side = both heads loaded equally.',
@@ -428,7 +397,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bicep_curl_barbell',
-    baseId: 'bicep_curl',
     name: 'Bicep Curl',
     equipment: 'barbell',
     description: 'Fixed supination. Slightly more short head due to constant supinated wrist.',
@@ -440,7 +408,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bicep_curl_cable',
-    baseId: 'bicep_curl',
     name: 'Bicep Curl',
     equipment: 'cable',
     description: 'Constant tension through full ROM.',
@@ -452,7 +419,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bicep_curl_ez_bar',
-    baseId: 'bicep_curl',
     name: 'Bicep Curl',
     equipment: 'ez_bar',
     description: 'Angled grip reduces wrist stress. Slight short head emphasis.',
@@ -464,7 +430,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hammer_curl_dumbbell',
-    baseId: 'hammer_curl',
     name: 'Hammer Curl',
     equipment: 'dumbbell',
     description: 'Neutral (thumbs-up) grip. Removes supination → brachialis becomes primary mover.',
@@ -475,7 +440,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hammer_curl_cable',
-    baseId: 'hammer_curl',
     name: 'Hammer Curl',
     equipment: 'cable',
     description: 'Rope attachment, neutral grip. Constant tension on brachialis.',
@@ -486,7 +450,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'preacher_curl_ez_bar',
-    baseId: 'preacher_curl',
     name: 'Preacher Curl',
     equipment: 'ez_bar',
     description: 'Arm rests on pad in front of body. Long head is slack → short head isolated.',
@@ -497,7 +460,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'preacher_curl_dumbbell',
-    baseId: 'preacher_curl',
     name: 'Preacher Curl',
     equipment: 'dumbbell',
     description: 'Single arm. Arm in front of body = short head isolation.',
@@ -508,7 +470,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline_curl_dumbbell',
-    baseId: 'incline_curl',
     name: 'Incline Curl',
     equipment: 'dumbbell',
     description: 'Arm falls behind body on incline bench. Maximum long head stretch.',
@@ -519,7 +480,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'concentration_curl_dumbbell',
-    baseId: 'concentration_curl',
     name: 'Concentration Curl',
     equipment: 'dumbbell',
     description: 'Elbow braced against inner thigh (arm in front of body) → short head isolation.',
@@ -536,7 +496,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'tricep_pushdown_vbar_cable',
-    baseId: 'tricep_pushdown',
     name: 'Tricep Pushdown',
     equipment: 'cable',
     description: 'V-bar attachment. Arms at sides → lateral and medial head dominant.',
@@ -548,7 +507,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tricep_pushdown_rope_cable',
-    baseId: 'tricep_pushdown',
     name: 'Tricep Pushdown',
     equipment: 'cable',
     description: 'Rope attachment. Flare hands at bottom increases lateral head contraction.',
@@ -559,7 +517,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'overhead_tricep_ext_rope_cable',
-    baseId: 'overhead_tricep_ext',
     name: 'Overhead Tricep Extension',
     equipment: 'cable',
     description: 'Overhead = long head fully stretched. Most effective for long head mass.',
@@ -570,7 +527,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'overhead_tricep_ext_dumbbell',
-    baseId: 'overhead_tricep_ext',
     name: 'Overhead Tricep Extension',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -580,7 +536,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'skull_crusher_ez_bar',
-    baseId: 'skull_crusher',
     name: 'Skull Crusher',
     equipment: 'ez_bar',
     description: 'Bar lowered to forehead on bench. Long and lateral heads.',
@@ -592,7 +547,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'close_grip_bench_press_barbell',
-    baseId: 'close_grip_bench_press',
     name: 'Close Grip Bench Press',
     equipment: 'barbell',
     description:
@@ -605,7 +559,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dips_bodyweight',
-    baseId: 'dips',
     name: 'Dips',
     equipment: 'bodyweight',
     description: 'Upright torso = tricep focus. Forward lean = more lower chest.',
@@ -620,7 +573,6 @@ export const exercises: Exercise[] = [
 
   {
     id: 'squat_barbell',
-    baseId: 'squat',
     name: 'Squat',
     equipment: 'barbell',
     description: 'High bar = more quad; low bar = more hip/glute drive.',
@@ -633,7 +585,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'squat_goblet_dumbbell',
-    baseId: 'squat',
     name: 'Squat',
     equipment: 'dumbbell',
     description: 'Goblet hold promotes upright torso → greater quad emphasis.',
@@ -645,7 +596,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hack_squat_machine',
-    baseId: 'hack_squat',
     name: 'Hack Squat',
     equipment: 'machine',
     description: 'Feet forward on platform. VMO (inner quad) dominant.',
@@ -656,7 +606,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg_press_machine',
-    baseId: 'leg_press',
     name: 'Leg Press',
     equipment: 'machine',
     description: 'Foot position changes emphasis: high/wide = glutes; low/narrow = quads.',
@@ -668,7 +617,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'romanian_deadlift_barbell',
-    baseId: 'romanian_deadlift',
     name: 'Romanian Deadlift',
     equipment: 'barbell',
     description: 'Hip hinge with soft knees. Maximal hamstring and glute stretch.',
@@ -680,7 +628,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'romanian_deadlift_dumbbell',
-    baseId: 'romanian_deadlift',
     name: 'Romanian Deadlift',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -691,7 +638,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg_curl_lying_machine',
-    baseId: 'leg_curl',
     name: 'Leg Curl',
     equipment: 'machine',
     description: 'Prone (lying). Hip extended → biceps femoris (outer hamstring) dominant.',
@@ -702,7 +648,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg_curl_seated_machine',
-    baseId: 'leg_curl',
     name: 'Leg Curl',
     equipment: 'machine',
     description: 'Seated. Hip flexed → medial hamstrings more active and deeper stretch.',
@@ -713,7 +658,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg_extension_machine',
-    baseId: 'leg_extension',
     name: 'Leg Extension',
     equipment: 'machine',
     description: 'Toes out = vastus medialis; toes in = vastus lateralis.',
@@ -724,7 +668,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'calf_raise_standing_machine',
-    baseId: 'calf_raise',
     name: 'Calf Raise',
     equipment: 'machine',
     description: 'Knee straight → gastrocnemius dominant (crosses knee and ankle).',
@@ -736,7 +679,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'calf_raise_seated_machine',
-    baseId: 'calf_raise',
     name: 'Calf Raise',
     equipment: 'machine',
     description: 'Knee bent → gastrocnemius is slack → soleus isolated.',
@@ -747,7 +689,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hip_thrust_barbell',
-    baseId: 'hip_thrust',
     name: 'Hip Thrust',
     equipment: 'barbell',
     description: 'Best peak contraction for glutes due to full hip extension under load.',
@@ -759,7 +700,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bulgarian_split_squat_dumbbell',
-    baseId: 'bulgarian_split_squat',
     name: 'Bulgarian Split Squat',
     equipment: 'dumbbell',
     description: 'Upright torso = quad focus; forward lean = glute focus.',
@@ -771,7 +711,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lunge_dumbbell',
-    baseId: 'lunge',
     name: 'Lunge',
     equipment: 'dumbbell',
     muscleEmphasis: [
@@ -785,14 +724,12 @@ export const exercises: Exercise[] = [
 
   {
     id: 'crunch_bodyweight',
-    baseId: 'crunch',
     name: 'Crunch',
     equipment: 'bodyweight',
     muscleEmphasis: [{ muscle: 'abs', role: 'primary' }],
   },
   {
     id: 'cable_crunch',
-    baseId: 'crunch',
     name: 'Crunch',
     equipment: 'cable',
     description: 'Kneeling cable crunch. Allows progressive overload on abs.',
@@ -800,7 +737,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hanging_leg_raise_bodyweight',
-    baseId: 'hanging_leg_raise',
     name: 'Hanging Leg Raise',
     equipment: 'bodyweight',
     muscleEmphasis: [
@@ -810,7 +746,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'plank_bodyweight',
-    baseId: 'plank',
     name: 'Plank',
     equipment: 'bodyweight',
     muscleEmphasis: [
@@ -819,7 +754,6 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'russian_twist_bodyweight',
-    baseId: 'russian_twist',
     name: 'Russian Twist',
     equipment: 'bodyweight',
     muscleEmphasis: [

@@ -23,7 +23,7 @@ const { width, height: screenHeight } = Dimensions.get('window');
 type SubFilter = { label: string; muscle?: string; head?: string };
 type FilterGroup = { groupId: string; groupLabel: string; subFilters: SubFilter[] };
 type ExerciseGroup = {
-  baseId: string;
+  key: string;
   name: string;
   variants: Exercise[];
   primaryMuscles: string[];
@@ -67,10 +67,11 @@ function buildFilterGroups(
 function buildExerciseGroups(exs: Exercise[]): ExerciseGroup[] {
   const map = new Map<string, Exercise[]>();
   exs.forEach((ex) => {
-    if (!map.has(ex.baseId)) map.set(ex.baseId, []);
-    map.get(ex.baseId)!.push(ex);
+    const key = ex.name.toLowerCase().trim();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(ex);
   });
-  return Array.from(map.entries()).map(([baseId, variants]) => {
+  return Array.from(map.entries()).map(([key, variants]) => {
     const primaryEmphasisAll = variants.flatMap((v) =>
       v.muscleEmphasis
         .filter((m) => m.role === 'primary')
@@ -78,7 +79,7 @@ function buildExerciseGroups(exs: Exercise[]): ExerciseGroup[] {
     );
     const primaryMuscles = Array.from(new Set(primaryEmphasisAll.map((e) => e.muscle)));
     return {
-      baseId,
+      key,
       name: variants[0].name,
       variants,
       primaryMuscles,
@@ -91,13 +92,6 @@ function variantLabel(ex: Exercise): string {
   if (ex.equipmentVariant) {
     const v = ex.equipmentVariant.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     return `${v} ${formatEquipment(ex.equipment)}`.trim();
-  }
-  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
-  if (suffix) {
-    return suffix
-      .replace('ez_bar', 'EZ Bar')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return formatEquipment(ex.equipment);
 }
@@ -523,7 +517,7 @@ export default function AddExercise({
               const isGroupStaged = displayVariants.some((v) => staged.some((s) => s.id === v.id));
               return (
                 <TouchableOpacity
-                  key={group.baseId}
+                  key={group.key}
                   activeOpacity={0.7}
                   onLongPress={() => {
                     if (displayVariants.length === 1) {

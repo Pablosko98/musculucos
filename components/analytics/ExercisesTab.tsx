@@ -7,16 +7,17 @@ import { EQUIPMENT_COLORS, variantLabel, fmtEquipment, fmt } from './analyticsUt
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ExerciseGroup = { baseId: string; name: string; variants: Exercise[] };
+export type ExerciseGroup = { key: string; name: string; variants: Exercise[] };
 
 export function buildGroups(exs: Exercise[]): ExerciseGroup[] {
   const map = new Map<string, Exercise[]>();
   for (const ex of exs) {
-    if (!map.has(ex.baseId)) map.set(ex.baseId, []);
-    map.get(ex.baseId)!.push(ex);
+    const key = ex.name.toLowerCase().trim();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(ex);
   }
-  return Array.from(map.entries()).map(([baseId, variants]) => ({
-    baseId,
+  return Array.from(map.entries()).map(([key, variants]) => ({
+    key,
     name: variants[0].name,
     variants,
   }));
@@ -156,7 +157,7 @@ export function ExercisesTab({
       </TouchableOpacity>
       <FlatList
         data={filtered}
-        keyExtractor={(item) => item.baseId}
+        keyExtractor={(item) => item.key}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomInset + 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

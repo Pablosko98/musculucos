@@ -72,6 +72,10 @@ const REST_PRESETS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function generateId(): string {
+  return `ex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function slugify(s: string): string {
   return s
     .trim()
@@ -102,16 +106,6 @@ function generateWeightStack(step: number): string[] {
   const safeStep = Math.max(0.25, step);
   const count = Math.floor(100 / safeStep) + 1;
   return Array.from({ length: count }, (_, i) => String(Math.round(i * safeStep * 100) / 100));
-}
-
-function deriveVariantFromId(id: string, baseId: string, equipment: string): string {
-  if (!id.startsWith(`${baseId}_`)) return '';
-  const suffix = id.slice(baseId.length + 1);
-  if (suffix === equipment) return '';
-  if (suffix.endsWith(`_${equipment}`)) {
-    return suffix.slice(0, suffix.length - equipment.length - 1).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-  return '';
 }
 
 // ─── EmphasisBuilder ──────────────────────────────────────────────────────────
@@ -545,37 +539,43 @@ const EmphasisBuilder = memo(EmphasisBuilderBase);
 
 export default function CreateExercise() {
   const insets = useSafeAreaInsets();
-  const { exerciseId, autoAdd, dateString } = useLocalSearchParams<{ exerciseId?: string; autoAdd?: string; dateString?: string }>();
+  const { exerciseId, autoAdd, dateString, prefillName, prefillEquipment, prefillData } = useLocalSearchParams<{
+    exerciseId?: string;
+    autoAdd?: string;
+    dateString?: string;
+    prefillName?: string;
+    prefillEquipment?: string;
+    prefillData?: string;
+  }>();
   const isEditing = !!exerciseId;
   const shouldAutoAdd = autoAdd === 'true' && !!dateString;
 
-  const [name, setName] = useState('');
-  const [equipments, setEquipments] = useState<string[]>([]);
+  // Parse any prefilled exercise data (carries over muscles, rest, weight, etc. when copying)
+  const pd = !isEditing && prefillData
+    ? (() => { try { return JSON.parse(prefillData) as Record<string, unknown>; } catch { return null; } })()
+    : null;
+
+  const [name, setName] = useState(prefillName ?? '');
+  const [equipment, setEquipment] = useState(prefillEquipment ?? '');
   const [equipmentVariant, setEquipmentVariant] = useState('');
-  const [emphasis, setEmphasis] = useState<Emphasis[]>([{ muscle: '', role: 'primary' }]);
-  const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>(null);
-  const [baseWeightKg, setBaseWeightKg] = useState('');
-  const [weightMode, setWeightMode] = useState<'total' | 'per_side' | null>(null);
-  const [weightStep, setWeightStep] = useState('');
-  const [weightStackItems, setWeightStackItems] = useState<string[]>([]);
-  const [showAdvancedStack, setShowAdvancedStack] = useState(false);
+  const [emphasis, setEmphasis] = useState<Emphasis[]>((pd?.emphasis as Emphasis[]) ?? [{ muscle: '', role: 'primary' }]);
+  const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>((pd?.defaultRestSeconds as number) ?? null);
+  const [baseWeightKg, setBaseWeightKg] = useState((pd?.baseWeightKg as string) ?? '');
+  const [weightMode, setWeightMode] = useState<'total' | 'per_side' | null>((pd?.weightMode as 'total' | 'per_side') ?? null);
+  const [weightStep, setWeightStep] = useState((pd?.weightStep as string) ?? '');
+  const [weightStackItems, setWeightStackItems] = useState<string[]>((pd?.weightStackItems as string[]) ?? []);
+  const [showAdvancedStack, setShowAdvancedStack] = useState((pd?.showAdvancedStack as boolean) ?? false);
   const [showStackEditor, setShowStackEditor] = useState(false);
   const stackInputRefs = useRef<(TextInput | null)[]>([]);
-  const [description, setDescription] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [isCustom, setIsCustom] = useState(false);
+  const [description, setDescription] = useState((pd?.description as string) ?? '');
+  const [videoUrl, setVideoUrl] = useState((pd?.videoUrl as string) ?? '');
   const [isFavourite, setIsFavourite] = useState(false);
-  // Custom equipment pill chain — each entry is a text input; always ends with ''
-  const [customEquipmentTexts, setCustomEquipmentTexts] = useState<string[]>(['']);
-  // Persisted custom equipment from DB (available across all exercises)
+  const [showCustomEquipmentInput, setShowCustomEquipmentInput] = useState(false);
+  const [customEquipmentText, setCustomEquipmentText] = useState('');
   const [persistedCustomEquipment, setPersistedCustomEquipment] = useState<string[]>([]);
-  // Equipment slugs of sibling variants (same baseId) — greyed out in edit mode
-  const [siblingEquipments, setSiblingEquipments] = useState<string[]>([]);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const emphasisBuilderRef = useRef<EmphasisBuilderHandle>(null);
-  const originalEquipmentRef = useRef('');
-  const originalBaseIdRef = useRef('');
   const originalBaseWeightRef = useRef<number | null>(null);
 
   // Load persisted custom equipment on mount (for all exercises)
@@ -593,19 +593,12 @@ export default function CreateExercise() {
         if (ex) {
           setName(ex.name);
           const eq = ex.equipment ?? '';
-          setEquipments(eq ? [eq] : []);
-          setEquipmentVariant(ex.equipmentVariant ?? deriveVariantFromId(ex.id, ex.baseId, eq));
-          originalEquipmentRef.current = eq;
-          originalBaseIdRef.current = ex.baseId;
-          // Load sibling variants to grey out their equipment
-          const siblings = await ExerciseDAL.getByBaseId(ex.baseId);
-          setSiblingEquipments(siblings.map((s) => s.equipment ?? '').filter(Boolean));
+          setEquipment(eq);
+          setEquipmentVariant(ex.equipmentVariant ?? '');
           setEmphasis(
-            ex.muscleEmphasis.map((m) => ({
-              muscle: m.muscle,
-              head: m.head,
-              role: m.role as MuscleRole,
-            }))
+            ex.muscleEmphasis.length > 0
+              ? ex.muscleEmphasis.map((m) => ({ muscle: m.muscle, head: m.head, role: m.role as MuscleRole }))
+              : [{ muscle: '', role: 'primary' as MuscleRole }]
           );
           setDefaultRestSeconds(ex.defaultRestSeconds ?? null);
           setBaseWeightKg(ex.baseWeightKg != null ? String(ex.baseWeightKg) : '');
@@ -618,7 +611,6 @@ export default function CreateExercise() {
           }
           setDescription(ex.description ?? '');
           setVideoUrl(ex.videoUrl ?? '');
-          setIsCustom((ex.isCustom ?? 0) === 1);
           setIsFavourite((ex.isFavourite ?? 0) === 1);
         }
       } finally {
@@ -627,36 +619,38 @@ export default function CreateExercise() {
     })();
   }, [exerciseId]);
 
-  const isEquipmentDuplicate = (slug: string) =>
-    EQUIPMENT_OPTIONS.includes(slug) || persistedCustomEquipment.includes(slug);
-
-  const handleCustomEquipmentChange = (idx: number, text: string) => {
-    setCustomEquipmentTexts((prev) => {
-      const next = [...prev];
-      next[idx] = text;
-      // When this pill gains text and is the last one, append a new empty pill
-      if (text.trim() && idx === prev.length - 1) next.push('');
-      // When this pill is cleared and is not the last, remove it
-      if (!text.trim() && idx < prev.length - 1) next.splice(idx, 1);
-      return next;
+  const navigateToCopy = (targetEquipment?: string) => {
+    router.push({
+      pathname: '/create_exercise',
+      params: {
+        prefillName: name,
+        ...(targetEquipment ? { prefillEquipment: targetEquipment } : {}),
+        prefillData: JSON.stringify({
+          emphasis,
+          defaultRestSeconds,
+          baseWeightKg,
+          weightMode,
+          weightStep,
+          weightStackItems,
+          showAdvancedStack,
+          description,
+          videoUrl,
+        }),
+      },
     });
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       Alert.alert('Name required', 'Please enter an exercise name.');
       return;
     }
-    // Combine preset selections with valid (non-duplicate) custom pill texts
-    const customSlugs = customEquipmentTexts
-      .map((t) => slugify(t))
-      .filter((s) => s && !isEquipmentDuplicate(s));
-    const allEquipments = [...new Set([...equipments, ...customSlugs])];
-    if (allEquipments.length === 0) {
-      Alert.alert('Equipment required', 'Please select at least one equipment type.');
+    const resolvedEquipment = showCustomEquipmentInput ? slugify(customEquipmentText.trim()) : equipment;
+    if (!resolvedEquipment) {
+      Alert.alert('Equipment required', 'Please select an equipment type.');
       return;
     }
-    // Read from builder ref to capture any typed-but-uncommitted custom text
     const currentEmphasis = emphasisBuilderRef.current?.getDraftValue() ?? emphasis;
     const validEmphasis = currentEmphasis.filter((e) => e.muscle);
     if (validEmphasis.length === 0 || !validEmphasis.some((e) => e.role === 'primary')) {
@@ -677,29 +671,25 @@ export default function CreateExercise() {
         showAdvancedStack && weightStackItems.length >= 2
           ? weightStackItems.map((s) => parseFloat(s)).filter((n) => !isNaN(n) && n >= 0)
           : null;
-      const trimmedName = name.trim();
-
-      // Persist any new custom equipment to DB (available for future exercises)
-      for (const slug of customSlugs) {
-        await ExerciseDAL.saveCustomEquipment(slug);
-      }
-
-      const variantSlug = slugify(equipmentVariant.trim());
       const variantValue = equipmentVariant.trim() || null;
+      const payload = {
+        name: trimmedName,
+        equipment: resolvedEquipment,
+        equipmentVariant: variantValue,
+        muscleEmphasis,
+        description: description.trim(),
+        videoUrl: videoUrl.trim(),
+        defaultRestSeconds,
+        baseWeightKg: parsedBaseWeight,
+        weightMode,
+        weightStep: parsedWeightStep,
+        weightStack: parsedWeightStack,
+      };
 
       if (isEditing) {
-        await ExerciseDAL.update(exerciseId!, {
-          name: trimmedName,
-          muscleEmphasis,
-          description: description.trim(),
-          videoUrl: videoUrl.trim(),
-          defaultRestSeconds,
-          baseWeightKg: parsedBaseWeight,
-          equipmentVariant: variantValue,
-          weightMode,
-          weightStep: parsedWeightStep,
-          weightStack: parsedWeightStack,
-        });
+        // ID never changes — just update the fields directly
+        await ExerciseDAL.update(exerciseId, payload);
+
         const oldBase = originalBaseWeightRef.current ?? 0;
         const newBase = parsedBaseWeight ?? 0;
         if (newBase !== oldBase) {
@@ -717,57 +707,45 @@ export default function CreateExercise() {
             ]
           );
         }
-        if (shouldAutoAdd) {
-          setPendingExerciseAdd([exerciseId!], dateString!);
-        }
-        const baseId = originalBaseIdRef.current;
-        for (const eq of allEquipments.filter((e) => e !== originalEquipmentRef.current)) {
-          const idSuffix = variantSlug ? `${variantSlug}_${slugify(eq)}` : slugify(eq);
-          const id = `${baseId}_${idSuffix}`;
-          await ExerciseDAL.save({
-            id,
-            baseId,
-            name: trimmedName,
-            equipment: eq,
-            equipmentVariant: variantValue,
-            muscleEmphasis,
-            description: description.trim(),
-            videoUrl: videoUrl.trim(),
-            defaultRestSeconds,
-            baseWeightKg: parsedBaseWeight,
-            weightMode,
-            weightStep: parsedWeightStep,
-            weightStack: parsedWeightStack,
-            isFavourite: 0,
-          });
-        }
+        if (shouldAutoAdd) setPendingExerciseAdd([exerciseId!], dateString!);
       } else {
-        const baseId = `custom_${slugify(trimmedName)}`;
-        const createdIds: string[] = [];
-        for (const eq of allEquipments) {
-          const idSuffix = variantSlug ? `${variantSlug}_${slugify(eq)}` : slugify(eq);
-          const id = `${baseId}_${idSuffix}`;
-          await ExerciseDAL.save({
-            id,
-            baseId,
-            name: trimmedName,
-            equipment: eq,
-            equipmentVariant: variantValue,
-            muscleEmphasis,
-            description: description.trim(),
-            videoUrl: videoUrl.trim(),
-            defaultRestSeconds,
-            baseWeightKg: parsedBaseWeight,
-            weightMode,
-            weightStep: parsedWeightStep,
-            weightStack: parsedWeightStack,
-            isFavourite: isFavourite ? 1 : 0,
-          });
-          createdIds.push(id);
+        // Create — opaque ID
+        const all = await ExerciseDAL.getAll();
+        const id = generateId();
+
+        // Warn if exact name+equipment+variant combo already exists
+        const conflict = all.find(
+          (e) =>
+            slugify(e.name) === slugify(trimmedName) &&
+            e.equipment === resolvedEquipment &&
+            (e.equipmentVariant ?? '') === (variantValue ?? '')
+        );
+        if (conflict) {
+          Alert.alert(
+            'Already exists',
+            `"${trimmedName}" (${formatEquipmentLabel(resolvedEquipment)}${variantValue ? ` · ${variantValue}` : ''}) already exists.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Go to Exercise',
+                onPress: () => {
+                  router.back();
+                  router.push({ pathname: '/create_exercise', params: { exerciseId: conflict.id } });
+                },
+              },
+            ]
+          );
+          setSaving(false);
+          return;
         }
-        if (shouldAutoAdd && createdIds.length > 0) {
-          setPendingExerciseAdd(createdIds, dateString!);
+
+        if (!EQUIPMENT_OPTIONS.includes(resolvedEquipment)) {
+          await ExerciseDAL.saveCustomEquipment(resolvedEquipment);
         }
+        await ExerciseDAL.save({ id, ...payload, isFavourite: isFavourite ? 1 : 0 });
+        if (shouldAutoAdd) setPendingExerciseAdd([id], dateString!);
+        router.replace({ pathname: '/(tabs)/exercises', params: { focusName: trimmedName } });
+        return;
       }
       router.back();
     } catch {
@@ -830,7 +808,7 @@ export default function CreateExercise() {
           borderBottomColor: '#18181b',
         }}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => isEditing ? router.replace('/(tabs)/exercises') : router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
         </TouchableOpacity>
@@ -882,115 +860,95 @@ export default function CreateExercise() {
           </View>
 
           {/* Equipment */}
-          {(() => {
-            const totalSelected =
-              equipments.length +
-              customEquipmentTexts.filter((t) => {
-                const s = slugify(t);
-                return s && !isEquipmentDuplicate(s);
-              }).length;
-            return (
-              <View style={{ gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-                  <Text style={labelStyle}>Equipment</Text>
-                  <Text style={{ color: '#52525b', fontSize: 11 }}>
-                    {totalSelected > 1
-                      ? `${totalSelected} variants${isEditing ? ' (new ones added on save)' : ' will be created'}`
-                      : 'tap multiple to add variants'}
+          {isEditing ? null : (
+            <View style={{ gap: 8 }}>
+              <Text style={labelStyle}>Equipment</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {[...EQUIPMENT_OPTIONS, ...persistedCustomEquipment.filter((eq) => !EQUIPMENT_OPTIONS.includes(eq))].map((eq) => {
+                  const active = equipment === eq;
+                  return (
+                    <TouchableOpacity
+                      key={eq}
+                      onPress={() => {
+                        setEquipment(eq);
+                        setShowCustomEquipmentInput(false);
+                        setCustomEquipmentText('');
+                      }}
+                      style={[
+                        chipStyle,
+                        { backgroundColor: active ? '#ea580c' : '#27272a', borderColor: active ? '#ea580c' : '#3f3f46' },
+                      ]}>
+                      <Text style={{ color: active ? '#fff' : '#a1a1aa', fontSize: 14, fontWeight: active ? '600' : '400' }}>
+                        {formatEquipmentLabel(eq)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  onPress={() => { setShowCustomEquipmentInput(true); setEquipment(''); }}
+                  style={[
+                    chipStyle,
+                    { backgroundColor: showCustomEquipmentInput ? '#ea580c' : '#27272a', borderColor: showCustomEquipmentInput ? '#ea580c' : '#3f3f46' },
+                  ]}>
+                  <Text style={{ color: showCustomEquipmentInput ? '#fff' : '#71717a', fontSize: 14 }}>
+                    + Custom
                   </Text>
-                </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {/* Preset chips */}
-                  {[
-                    ...EQUIPMENT_OPTIONS,
-                    ...persistedCustomEquipment.filter((eq) => !EQUIPMENT_OPTIONS.includes(eq)),
-                  ].map((eq) => {
-                    const isLocked = isEditing && eq === originalEquipmentRef.current;
-                    const isSibling = isEditing && siblingEquipments.includes(eq) && !isLocked;
-                    const active = equipments.includes(eq);
-                    return (
-                      <TouchableOpacity
-                        key={eq}
-                        onPress={() => {
-                          if (isLocked || isSibling) return;
-                          setEquipments(
-                            active ? equipments.filter((e) => e !== eq) : [...equipments, eq]
-                          );
-                        }}
-                        style={[
-                          chipStyle,
-                          {
-                            backgroundColor: active ? '#ea580c' : '#27272a',
-                            borderColor: isLocked
-                              ? '#52525b'
-                              : isSibling
-                                ? '#27272a'
-                                : active
-                                  ? '#ea580c'
-                                  : '#3f3f46',
-                            opacity: isSibling ? 0.35 : 1,
-                          },
-                        ]}>
-                        <Text
-                          style={{
-                            color: active ? '#fff' : '#a1a1aa',
-                            fontSize: 14,
-                            fontWeight: active ? '600' : '400',
-                          }}>
-                          {formatEquipmentLabel(eq)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {/* Custom pill chain */}
-                  {customEquipmentTexts.map((text, idx) => {
-                    const slug = slugify(text);
-                    const isDup = !!slug && isEquipmentDuplicate(slug);
-                    const isActive = !!text.trim() && !isDup;
-                    const bgColor = isDup ? '#450a0a' : isActive ? '#ea580c' : '#27272a';
-                    const borderColor = isDup ? '#dc2626' : isActive ? '#ea580c' : '#3f3f46';
-                    const textColor = isDup ? '#fca5a5' : isActive ? '#fff' : undefined;
-                    return (
-                      <TextInput
-                        key={idx}
-                        value={text}
-                        onChangeText={(t) => handleCustomEquipmentChange(idx, t)}
-                        placeholder="Custom…"
-                        placeholderTextColor="#3f3f46"
-                        returnKeyType="done"
-                        style={[
-                          chipStyle,
-                          {
-                            backgroundColor: bgColor,
-                            borderColor,
-                            color: textColor ?? '#a1a1aa',
-                            fontSize: 14,
-                            minWidth: 90,
-                            fontWeight: isActive ? '600' : '400',
-                          },
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
+                </TouchableOpacity>
               </View>
-            );
-          })()}
-
-          {/* Equipment Variant */}
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <Text style={labelStyle}>Type / Variant</Text>
-              <Text style={{ color: '#52525b', fontSize: 11 }}>optional · e.g. Seated, Smith, Wide Grip</Text>
+              {showCustomEquipmentInput && (
+                <TextInput
+                  value={customEquipmentText}
+                  onChangeText={setCustomEquipmentText}
+                  placeholder="e.g. Resistance Band"
+                  placeholderTextColor="#3f3f46"
+                  autoFocus
+                  style={inputStyle}
+                />
+              )}
             </View>
-            <TextInput
-              value={equipmentVariant}
-              onChangeText={setEquipmentVariant}
-              placeholder="e.g. Seated"
-              placeholderTextColor="#3f3f46"
-              style={inputStyle}
-            />
-          </View>
+          )}
+
+          {/* Equipment + Variant (edit: pills + copy button) */}
+          {isEditing && (
+            <View style={{ gap: 10 }}>
+              <Text style={labelStyle}>Equipment &amp; Variant</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: '#27272a' }}>
+                  <Text style={{ color: '#a1a1aa', fontSize: 13 }}>{formatEquipmentLabel(equipment)}</Text>
+                </View>
+                {equipmentVariant.trim() ? (
+                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: '#27272a' }}>
+                    <Text style={{ color: '#a1a1aa', fontSize: 13 }}>{equipmentVariant.trim()}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                onPress={() => navigateToCopy('')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} color="#ea580c" />
+                <Text style={{ color: '#ea580c', fontSize: 13, fontWeight: '600' }}>
+                  Create copy with different equipment
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Equipment Variant (create only) */}
+          {!isEditing && (
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                <Text style={labelStyle}>Type / Variant</Text>
+                <Text style={{ color: '#52525b', fontSize: 11 }}>optional · e.g. Seated, Smith, Wide Grip</Text>
+              </View>
+              <TextInput
+                value={equipmentVariant}
+                onChangeText={setEquipmentVariant}
+                placeholder="e.g. Seated"
+                placeholderTextColor="#3f3f46"
+                style={inputStyle}
+              />
+            </View>
+          )}
 
           {/* Muscle Emphasis */}
           <View style={{ gap: 8 }}>

@@ -32,7 +32,6 @@ type EventRow = {
 };
 type ExerciseRow = {
   id: string;
-  baseId: string;
   name: string;
   equipment: string;
   equipmentVariant: string | null;
@@ -71,7 +70,6 @@ export const initDB = () => {
 
     CREATE TABLE IF NOT EXISTS exercises (
       id TEXT PRIMARY KEY NOT NULL,
-      baseId TEXT NOT NULL,
       name TEXT NOT NULL,
       equipment TEXT,
       equipmentVariant TEXT,
@@ -141,6 +139,7 @@ export const initDB = () => {
   try {
     db.execSync('ALTER TABLE exercises ADD COLUMN weightStack TEXT DEFAULT NULL');
   } catch {}
+  try { db.execSync('ALTER TABLE exercises DROP COLUMN baseId'); } catch {}
   // db.execSync(`UPDATE events SET rep_type = 'half' WHERE rep_type IN ('top half', 'bot half', 'top 1/2', 'bot 1/2')`);
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -416,11 +415,10 @@ export const ExerciseDAL = {
 
     for (const ex of baseExercises) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO exercises (id, baseId, name, equipment, muscleEmphasis, description, videoUrl, isCustom)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+        `INSERT OR IGNORE INTO exercises (id, name, equipment, muscleEmphasis, description, videoUrl, isCustom)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
         [
           ex.id,
-          ex.baseId,
           ex.name,
           ex.equipment ?? '',
           JSON.stringify(ex.muscleEmphasis ?? []),
@@ -477,10 +475,10 @@ export const ExerciseDAL = {
     }));
   },
 
-  async getByBaseId(baseId: string): Promise<Exercise[]> {
+  async getByName(name: string): Promise<Exercise[]> {
     const rows = await db.getAllAsync<ExerciseRow>(
-      'SELECT * FROM exercises WHERE baseId = ? ORDER BY equipment COLLATE NOCASE ASC',
-      [baseId]
+      'SELECT * FROM exercises WHERE name = ? COLLATE NOCASE ORDER BY equipment COLLATE NOCASE ASC',
+      [name]
     );
     return rows.map((r) => ({
       ...r,
@@ -497,11 +495,10 @@ export const ExerciseDAL = {
 
   async save(exercise: Omit<Exercise, 'isCustom'>) {
     await db.runAsync(
-      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, weightMode, weightStep, weightStack, isCustom)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO exercises (id, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, weightMode, weightStep, weightStack, isCustom)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         exercise.id,
-        exercise.baseId,
         exercise.name,
         exercise.equipment ?? '',
         exercise.equipmentVariant ?? null,

@@ -115,13 +115,6 @@ export function variantLabel(ex: Exercise): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${fmtEquipment(ex.equipment)}`.trim();
   }
-  const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
-  if (suffix) {
-    return suffix
-      .replace('ez_bar', 'EZ Bar')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
   return fmtEquipment(ex.equipment);
 }
 
