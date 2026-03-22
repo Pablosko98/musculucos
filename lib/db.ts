@@ -457,6 +457,26 @@ export const ExerciseDAL = {
     );
   },
 
+  async getByIds(ids: string[]): Promise<Exercise[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(', ');
+    const rows = await db.getAllAsync<ExerciseRow>(
+      `SELECT * FROM exercises WHERE id IN (${placeholders})`,
+      ids
+    );
+    return rows.map((r) => ({
+      ...r,
+      muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [],
+      isFavourite: r.isFavourite ?? 0,
+      defaultRestSeconds: r.defaultRestSeconds ?? null,
+      baseWeightKg: r.baseWeightKg ?? null,
+      equipmentVariant: r.equipmentVariant ?? null,
+      weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
+      weightStep: r.weightStep ?? null,
+      weightStack: r.weightStack ? (JSON.parse(r.weightStack) as number[]) : null,
+    }));
+  },
+
   async getByBaseId(baseId: string): Promise<Exercise[]> {
     const rows = await db.getAllAsync<ExerciseRow>(
       'SELECT * FROM exercises WHERE baseId = ? ORDER BY equipment COLLATE NOCASE ASC',

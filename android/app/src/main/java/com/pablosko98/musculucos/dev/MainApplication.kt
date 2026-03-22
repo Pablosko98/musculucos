@@ -1,4 +1,4 @@
-package com.pablosko98.musculucos.preview
+package com.pablosko98.musculucos.dev
 
 import android.app.Application
 import android.content.res.Configuration

@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
@@ -558,6 +559,8 @@ export default function CreateExercise() {
   const [weightStep, setWeightStep] = useState('');
   const [weightStackItems, setWeightStackItems] = useState<string[]>([]);
   const [showAdvancedStack, setShowAdvancedStack] = useState(false);
+  const [showStackEditor, setShowStackEditor] = useState(false);
+  const stackInputRefs = useRef<(TextInput | null)[]>([]);
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -1104,26 +1107,6 @@ export default function CreateExercise() {
               previewPrev = String(Math.max(0, Math.round((baseVal - effectiveStep) * 100) / 100));
             }
 
-            const handleStackItemChange = (idx: number, text: string) => {
-              setWeightStackItems((prev) => {
-                const next = [...prev];
-                next[idx] = text.replace(/[^0-9.]/g, '');
-                return next;
-              });
-            };
-
-            const addStackItem = () => {
-              setWeightStackItems((prev) => {
-                const last = prev.length > 0 ? parseFloat(prev[prev.length - 1]) : 0;
-                const newVal = isNaN(last) ? 0 : Math.round((last + effectiveStep) * 100) / 100;
-                return [...prev, String(newVal)];
-              });
-            };
-
-            const removeStackItem = (idx: number) => {
-              setWeightStackItems((prev) => prev.filter((_, i) => i !== idx));
-            };
-
             return (
               <View style={{ gap: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
@@ -1131,145 +1114,85 @@ export default function CreateExercise() {
                   <Text style={optStyle}>used by + / − buttons</Text>
                 </View>
 
-                {/* Step row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <TextInput
-                    value={weightStep}
-                    onChangeText={(t) => setWeightStep(t.replace(/[^0-9.]/g, ''))}
-                    placeholder="2.5"
-                    placeholderTextColor="#3f3f46"
-                    keyboardType="decimal-pad"
-                    editable={!showAdvancedStack}
-                    style={[
-                      inputStyle,
-                      { width: 90 },
-                      showAdvancedStack && { opacity: 0.35 },
-                    ]}
-                  />
-                  <Text style={{ color: showAdvancedStack ? '#3f3f46' : '#71717a', fontSize: 15 }}>
-                    kg per press
-                  </Text>
-                </View>
-
-                {/* Preview hint */}
-                <Text style={{ color: '#52525b', fontSize: 12 }}>
-                  {baseWeightKg.trim()
-                    ? `From ${baseVal} kg  ↑ ${previewNext} kg  ↓ ${previewPrev} kg`
-                    : showAdvancedStack && weightStackItems.length >= 2
-                      ? `${weightStackItems.length} values in stack`
-                      : `± ${effectiveStep} kg per press`}
-                </Text>
-
-                {/* Advanced toggle */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {/* Step / Custom segmented toggle */}
+                <View style={{ flexDirection: 'row', backgroundColor: '#18181b', borderRadius: 8, padding: 2 }}>
                   <TouchableOpacity
                     onPress={() => {
                       if (showAdvancedStack) {
                         setShowAdvancedStack(false);
+                        setShowStackEditor(false);
                         setWeightStackItems([]);
-                      } else {
-                        setWeightStackItems(generateWeightStack(effectiveStep));
-                        setShowAdvancedStack(true);
                       }
                     }}
-                    style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
-                    <Text style={{ color: showAdvancedStack ? '#ef4444' : '#71717a', fontSize: 13, fontWeight: '500' }}>
-                      {showAdvancedStack ? '✕ Reset to step' : '⚡ Custom weight stack'}
+                    style={{
+                      flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6,
+                      backgroundColor: !showAdvancedStack ? '#27272a' : 'transparent',
+                    }}>
+                    <Text style={{ color: !showAdvancedStack ? '#e4e4e7' : '#52525b', fontSize: 13, fontWeight: !showAdvancedStack ? '600' : '400' }}>
+                      Step
                     </Text>
                   </TouchableOpacity>
-
-                  {showAdvancedStack && (
-                    <TouchableOpacity
-                      onPress={() => setWeightStackItems(generateWeightStack(effectiveStep))}
-                      style={{ paddingVertical: 4 }}>
-                      <Text style={{ color: '#71717a', fontSize: 12 }}>↺ Regenerate from step</Text>
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!showAdvancedStack) {
+                        setWeightStackItems(generateWeightStack(effectiveStep));
+                        setShowAdvancedStack(true);
+                        setShowStackEditor(true);
+                      }
+                    }}
+                    style={{
+                      flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6,
+                      backgroundColor: showAdvancedStack ? '#27272a' : 'transparent',
+                    }}>
+                    <Text style={{ color: showAdvancedStack ? '#e4e4e7' : '#52525b', fontSize: 13, fontWeight: showAdvancedStack ? '600' : '400' }}>
+                      Custom
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
-                {/* Advanced stack editor */}
+                {/* Step mode */}
+                {!showAdvancedStack && (
+                  <>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TextInput
+                        value={weightStep}
+                        onChangeText={(t) => setWeightStep(t.replace(/[^0-9.]/g, ''))}
+                        placeholder="2.5"
+                        placeholderTextColor="#3f3f46"
+                        keyboardType="decimal-pad"
+                        style={[inputStyle, { width: 90 }]}
+                      />
+                      <Text style={{ color: '#71717a', fontSize: 15 }}>kg per press</Text>
+                    </View>
+                    <Text style={{ color: '#52525b', fontSize: 12 }}>
+                      {baseWeightKg.trim()
+                        ? `From ${baseVal} kg  ↑ ${previewNext} kg  ↓ ${previewPrev} kg`
+                        : `± ${effectiveStep} kg per press`}
+                    </Text>
+                  </>
+                )}
+
+                {/* Custom mode — summary (taps to open modal) */}
                 {showAdvancedStack && (
-                  <View
+                  <TouchableOpacity
+                    onPress={() => setShowStackEditor(true)}
+                    activeOpacity={0.7}
                     style={{
-                      backgroundColor: '#111114',
-                      borderRadius: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#1c1c1f',
+                      borderRadius: 10,
                       borderWidth: 1,
                       borderColor: '#27272a',
-                      overflow: 'hidden',
+                      paddingHorizontal: 14,
+                      paddingVertical: 11,
                     }}>
-                    <View
-                      style={{
-                        backgroundColor: '#1c1f28',
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#27272a',
-                      }}>
-                      <Text style={{ color: '#52525b', fontSize: 11 }}>
-                        These are plate / selector weights — equipment weight is added separately above
-                      </Text>
-                    </View>
-
-                    <ScrollView
-                      style={{ maxHeight: 224 }}
-                      contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 10, gap: 6 }}
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled">
-                      {weightStackItems.map((val, idx) => (
-                        <View
-                          key={idx}
-                          style={{
-                            width: 62,
-                            borderRadius: 8,
-                            borderWidth: 1.5,
-                            borderColor: '#2d2d30',
-                            backgroundColor: '#1c1c1f',
-                            overflow: 'hidden',
-                          }}>
-                          <TextInput
-                            value={val}
-                            onChangeText={(t) => handleStackItemChange(idx, t)}
-                            keyboardType="decimal-pad"
-                            selectTextOnFocus
-                            style={{
-                              color: '#e4e4e7',
-                              fontSize: 14,
-                              fontWeight: '600',
-                              textAlign: 'center',
-                              paddingTop: 7,
-                              paddingBottom: 2,
-                              paddingHorizontal: 4,
-                            }}
-                          />
-                          <Text style={{ color: '#52525b', fontSize: 9, textAlign: 'center', paddingBottom: 5 }}>
-                            kg
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => removeStackItem(idx)}
-                            style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}
-                            hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
-                            <Text style={{ color: '#3f3f46', fontSize: 10, lineHeight: 12 }}>✕</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-
-                      <TouchableOpacity
-                        onPress={addStackItem}
-                        style={{
-                          width: 62,
-                          height: 48,
-                          borderRadius: 8,
-                          borderWidth: 1.5,
-                          borderColor: '#2d2d30',
-                          borderStyle: 'dashed',
-                          backgroundColor: '#18181b',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                        <Text style={{ color: '#52525b', fontSize: 20, lineHeight: 22 }}>+</Text>
-                      </TouchableOpacity>
-                    </ScrollView>
-                  </View>
+                    <Text style={{ color: '#a1a1aa', fontSize: 13, fontWeight: '500' }}>
+                      {weightStackItems.length} custom values
+                    </Text>
+                    <Text style={{ color: '#71717a', fontSize: 13 }}>Arrange ›</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             );
@@ -1324,6 +1247,130 @@ export default function CreateExercise() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom weight stack modal */}
+      <Modal
+        visible={showStackEditor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStackEditor(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}>
+            <View
+              style={{
+                backgroundColor: '#18181b',
+                borderRadius: 16,
+                // 4 cols × 66px + 3 gaps × 8px + 2 × 12px padding
+                width: 4 * 66 + 3 * 8 + 2 * 12,
+                maxHeight: '80%',
+              }}>
+              {/* Modal header */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#27272a',
+                }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const effectiveStep = parseFloat(weightStep) || 2.5;
+                    setWeightStackItems(generateWeightStack(effectiveStep));
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ color: '#52525b', fontSize: 13 }}>↺ Regenerate</Text>
+                </TouchableOpacity>
+                <Text style={{ color: '#a1a1aa', fontSize: 13, fontWeight: '600' }}>
+                  Custom values
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowStackEditor(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 }}
+                keyboardShouldPersistTaps="handled">
+                {weightStackItems.map((val, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => stackInputRefs.current[idx]?.focus()}
+                    activeOpacity={0.8}
+                    style={{
+                      width: 66,
+                      borderRadius: 8,
+                      borderWidth: 1.5,
+                      borderColor: '#2d2d30',
+                      backgroundColor: '#1c1c1f',
+                      overflow: 'hidden',
+                    }}>
+                    <TextInput
+                      ref={(r) => { stackInputRefs.current[idx] = r; }}
+                      value={val}
+                      onChangeText={(t) => {
+                        setWeightStackItems((prev) => {
+                          const next = [...prev];
+                          next[idx] = t.replace(/[^0-9.]/g, '');
+                          return next;
+                        });
+                      }}
+                      keyboardType="decimal-pad"
+                      selectTextOnFocus
+                      style={{
+                        color: '#e4e4e7',
+                        fontSize: 14,
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        paddingTop: 8,
+                        paddingBottom: 2,
+                        paddingHorizontal: 4,
+                      }}
+                    />
+                    <Text style={{ color: '#52525b', fontSize: 9, textAlign: 'center', paddingBottom: 6 }}>
+                      kg
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setWeightStackItems((prev) => prev.filter((_, i) => i !== idx))}
+                      style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}
+                      hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+                      <Text style={{ color: '#3f3f46', fontSize: 10, lineHeight: 12 }}>✕</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={() => {
+                    setWeightStackItems((prev) => {
+                      const effectiveStep = parseFloat(weightStep) || 2.5;
+                      const last = prev.length > 0 ? parseFloat(prev[prev.length - 1]) : 0;
+                      const newVal = isNaN(last) ? 0 : Math.round((last + effectiveStep) * 100) / 100;
+                      return [...prev, String(newVal)];
+                    });
+                  }}
+                  style={{
+                    width: 66,
+                    height: 52,
+                    borderRadius: 8,
+                    borderWidth: 1.5,
+                    borderColor: '#2d2d30',
+                    borderStyle: 'dashed',
+                    backgroundColor: '#18181b',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Text style={{ color: '#52525b', fontSize: 20, lineHeight: 22 }}>+</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }

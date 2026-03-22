@@ -1,5 +1,18 @@
 import { ExpoConfig } from 'expo/config';
-import { ConfigPlugin, withAndroidManifest } from 'expo/config-plugins';
+import { ConfigPlugin, withAndroidManifest, withProjectBuildGradle } from 'expo/config-plugins';
+
+const withNotifeeGradle: ConfigPlugin = (config) =>
+  withProjectBuildGradle(config, (mod) => {
+    const contents = mod.modResults.contents;
+    const mavenLine = `maven { url "$rootDir/../node_modules/@notifee/react-native/android/libs" }`;
+    if (!contents.includes(mavenLine)) {
+      mod.modResults.contents = contents.replace(
+        /maven \{ url 'https:\/\/www\.jitpack\.io' \}/,
+        `maven { url 'https://www.jitpack.io' }\n    ${mavenLine}`
+      );
+    }
+    return mod;
+  });
 
 const withNotifee: ConfigPlugin = (config) =>
   withAndroidManifest(config, (mod) => {
@@ -65,6 +78,7 @@ const config: ExpoConfig = {
     ],
     'expo-font',
     withNotifee,
+    withNotifeeGradle,
   ],
   experiments: {
     typedRoutes: true,

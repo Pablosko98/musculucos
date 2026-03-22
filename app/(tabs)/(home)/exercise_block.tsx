@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,7 +17,7 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useNavigation } from 'expo-router';
+import { router, useNavigation, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { produce } from 'immer';
 import { Text } from '@/components/ui/text';
@@ -51,15 +51,21 @@ const DEFAULT_WEIGHT_STEP = 2.5;
 function stepWeight(current: number, direction: 1 | -1, exercise?: Exercise | null): number {
   const stack = exercise?.weightStack;
   if (stack && stack.length >= 2) {
-    const sorted = [...stack].sort((a, b) => a - b);
-    if (direction === 1) {
-      return sorted.find((v) => v > current) ?? current;
-    } else {
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        if (sorted[i] < current) return sorted[i];
-      }
-      return current;
+    // Preserve user-defined order — no sorting
+    const idx = stack.indexOf(current);
+    if (idx !== -1) {
+      const nextIdx = idx + direction;
+      return nextIdx >= 0 && nextIdx < stack.length ? stack[nextIdx] : current;
     }
+    // Not in stack: snap to closest by value, then step
+    let closestIdx = 0;
+    let closestDiff = Math.abs(stack[0] - current);
+    for (let i = 1; i < stack.length; i++) {
+      const diff = Math.abs(stack[i] - current);
+      if (diff < closestDiff) { closestDiff = diff; closestIdx = i; }
+    }
+    const snapIdx = Math.max(0, Math.min(stack.length - 1, closestIdx + direction));
+    return stack[snapIdx];
   }
   const step = exercise?.weightStep ?? DEFAULT_WEIGHT_STEP;
   return Math.max(0, current + direction * step);
@@ -364,9 +370,18 @@ export default function ExerciseBlock() {
     return unsub;
   }, [navigation, dateString]);
 
-  const exerciseMap = useMemo(
-    () => new Map<string, Exercise>((initialBlock?.exercises ?? []).map((ex) => [ex.id, ex])),
-    [initialBlock]
+  const [exerciseMap, setExerciseMap] = useState<Map<string, Exercise>>(
+    () => new Map<string, Exercise>((initialBlock?.exercises ?? []).map((ex) => [ex.id, ex]))
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const ids = initialBlock?.exerciseIds ?? [];
+      if (ids.length === 0) return;
+      ExerciseDAL.getByIds(ids).then((exercises) => {
+        setExerciseMap(new Map(exercises.map((ex) => [ex.id, ex])));
+      });
+    }, [initialBlock?.exerciseIds])
   );
 
   const activeExercise = exerciseMap.get(activeExerciseId);
