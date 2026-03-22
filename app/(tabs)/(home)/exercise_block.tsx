@@ -449,6 +449,12 @@ export default function ExerciseBlock() {
     });
   }, []);
 
+  // Scroll to bottom on mount so the latest sets are visible
+  useEffect(() => {
+    const timer = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Scroll editing item into view when keyboard opens
   useEffect(() => {
     if (!editing) return;

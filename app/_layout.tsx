@@ -13,12 +13,31 @@ import { initDB } from '@/lib/db';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { restTimer } from '@/lib/rest-timer';
+import { setNotificationCallbacks } from '@/lib/notifications';
 import { Text } from '@/components/ui/text';
 import { Timer } from 'lucide-react-native';
 
 export {
   ErrorBoundary,
 } from 'expo-router';
+
+function useNotificationHandlers() {
+  const pathname = usePathname();
+  useEffect(() => {
+    setNotificationCallbacks({
+      onPress: () => {
+        if (pathname.includes('exercise_block')) return;
+        restTimer.navigate();
+        router.push('/exercise_block');
+      },
+      onFinish: () => {
+        const elapsed = restTimer.elapsed();
+        restTimer.finalizeForBlock(elapsed);
+        restTimer.clear();
+      },
+    });
+  }, [pathname]);
+}
 
 function RestBanner() {
   const pathname = usePathname();
@@ -78,6 +97,7 @@ function RestBanner() {
 
 function AppShell() {
   const insets = useSafeAreaInsets();
+  useNotificationHandlers();
   return (
     <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
       <RestBanner />
