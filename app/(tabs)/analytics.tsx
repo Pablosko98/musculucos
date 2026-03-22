@@ -28,7 +28,7 @@ export default function Analytics() {
   const [exLoading, setExLoading] = useState(true);
 
   // Muscles tab
-  const [period, setPeriod] = useState<Period>(PERIODS[1]);
+  const [period, setPeriod] = useState<Period>(PERIODS[0]);
   const [metric, setMetric] = useState<Metric>('frequency');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [muscleHeads, setMuscleHeads] = useState<MuscleHead[]>([]);

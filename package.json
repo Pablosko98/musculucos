@@ -7,10 +7,14 @@
     "android": "expo start -c --android",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
-    "clean": "rm -rf .expo node_modules"
+    "clean": "rm -rf .expo node_modules",
+    "android:dev": "rm -rf android/build android/app/build && npx expo run:android",
+    "android:preview": "APP_VARIANT=preview npx expo prebuild --clean --platform android && rm -rf android/build android/app/build && APP_VARIANT=preview npx expo run:android --variant release",
+    "android:switch-dev": "npx expo prebuild --platform android"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
+    "@notifee/react-native": "^9.1.8",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/native": "^7.0.0",
     "@rn-primitives/accordion": "^1.2.0",

@@ -1,60 +1,54 @@
 import { Platform } from 'react-native';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-let Notifications: typeof import('expo-notifications') | null = null;
+let notifee: typeof import('@notifee/react-native').default | null = null;
+let AndroidImportance: typeof import('@notifee/react-native').AndroidImportance | null = null;
 try {
-  Notifications = require('expo-notifications');
-  Notifications!.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: false,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
-  });
-  if (Platform.OS === 'android') {
-    Notifications!.setNotificationChannelAsync('rest-timer', {
-      name: 'Rest Timer',
-      importance: Notifications!.AndroidImportance.HIGH,
-      sound: null,
-    });
-  }
+  const mod = require('@notifee/react-native');
+  notifee = mod.default;
+  AndroidImportance = mod.AndroidImportance;
 } catch {
   // Native module not available in this build
 }
 
-const NOTIF_ID = 'rest-timer';
 const CHANNEL_ID = 'rest-timer';
-let _permGranted: boolean | null = null;
+const NOTIF_ID = 'rest-timer';
+let _ready = false;
 
-async function ensurePermission(): Promise<boolean> {
-  if (!Notifications) return false;
-  if (_permGranted !== null) return _permGranted;
-  const { status } = await Notifications.requestPermissionsAsync();
-  _permGranted = status === 'granted';
-  return _permGranted;
+async function ensureReady(): Promise<boolean> {
+  if (!notifee) return false;
+  if (_ready) return true;
+  if (Platform.OS === 'android') {
+    const settings = await notifee.requestPermission();
+    if (settings.authorizationStatus < 1) return false;
+    await notifee.createChannel({
+      id: CHANNEL_ID,
+      name: 'Rest Timer',
+      importance: AndroidImportance!.DEFAULT,
+      sound: '',
+    });
+  }
+  _ready = true;
+  return true;
 }
 
-export async function postRestNotification(elapsedSeconds = 0, blockName = ''): Promise<void> {
-  if (!Notifications || !(await ensurePermission())) return;
-
-  const mins = Math.floor(elapsedSeconds / 60);
-  const secs = elapsedSeconds % 60;
-  const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: NOTIF_ID,
-    content: {
-      title: blockName ? `Resting · ${blockName}` : 'Resting',
-      body: timeStr,
-      ...(Platform.OS === 'android' && {
-        android: { sticky: true, color: '#a855f7', channelId: CHANNEL_ID },
-      }),
+export async function postRestNotification(startMs: number, blockName = ''): Promise<void> {
+  if (!(await ensureReady())) return;
+  await notifee.displayNotification({
+    id: NOTIF_ID,
+    title: blockName ? `Resting · ${blockName}` : 'Resting',
+    android: {
+      channelId: CHANNEL_ID,
+      ongoing: true,
+      onlyAlertOnce: true,
+      showChronometer: true,
+      chronometerDirection: 'up',
+      timestamp: startMs,
+      color: '#a855f7',
     },
-    trigger: null,
   });
 }
 
 export async function dismissRestNotification(): Promise<void> {
-  if (!Notifications) return;
-  await Notifications.dismissNotificationAsync(NOTIF_ID);
+  if (!notifee) return;
+  await notifee.cancelNotification(NOTIF_ID);
 }

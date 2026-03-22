@@ -74,9 +74,15 @@ export const initDB = () => {
       baseId TEXT NOT NULL,
       name TEXT NOT NULL,
       equipment TEXT,
+      equipmentVariant TEXT,
       muscleEmphasis TEXT,
       description TEXT,
       videoUrl TEXT,
+      defaultRestSeconds INTEGER,
+      baseWeightKg REAL,
+      weightMode TEXT,
+      weightStep REAL,
+      weightStack TEXT,
       isCustom INTEGER NOT NULL DEFAULT 0,
       isFavourite INTEGER NOT NULL DEFAULT 0
     );
@@ -122,10 +128,10 @@ export const initDB = () => {
   `);
 
   // ── Migrations ────────────────────────────────────────────────────────────
-  // try { db.execSync('ALTER TABLE exercises ADD COLUMN isFavourite INTEGER NOT NULL DEFAULT 0'); } catch {}
-  // try { db.execSync('ALTER TABLE exercises ADD COLUMN defaultRestSeconds INTEGER'); } catch {}
-  // try { db.execSync('ALTER TABLE exercises ADD COLUMN baseWeightKg REAL'); } catch {}
-  // try { db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT'); } catch {}
+  try { db.execSync('ALTER TABLE exercises ADD COLUMN isFavourite INTEGER NOT NULL DEFAULT 0'); } catch {}
+  try { db.execSync('ALTER TABLE exercises ADD COLUMN defaultRestSeconds INTEGER'); } catch {}
+  try { db.execSync('ALTER TABLE exercises ADD COLUMN baseWeightKg REAL'); } catch {}
+  try { db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT'); } catch {}
   try {
     db.execSync('ALTER TABLE exercises ADD COLUMN weightMode TEXT DEFAULT NULL');
   } catch {}

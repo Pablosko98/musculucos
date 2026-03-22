@@ -30,7 +30,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
-      backgroundColor: '#09090b',
+      backgroundColor: '#ffffff',
     },
     package: `com.pablosko98.musculucos${bundleSuffix}`,
   },

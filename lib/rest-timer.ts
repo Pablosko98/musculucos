@@ -5,18 +5,11 @@ export type ActiveRest = { blockId: string; blockName: string; dateString: strin
 let _activeRest: ActiveRest | null = null;
 let _navCallback: (() => void) | null = null;
 let _finalizeCallback: ((elapsed: number) => void) | null = null;
-let _notifInterval: ReturnType<typeof setInterval> | null = null;
 
 export const restTimer = {
   start(blockId: string, dateString: string, targetSeconds = 60, blockName = '') {
     _activeRest = { blockId, blockName, dateString, startMs: Date.now(), targetSeconds };
-    if (_notifInterval) clearInterval(_notifInterval);
-    postRestNotification(0, blockName).catch(() => {});
-    _notifInterval = setInterval(() => {
-      if (!_activeRest) return;
-      const elapsed = Math.floor((Date.now() - _activeRest.startMs) / 1000);
-      postRestNotification(elapsed, _activeRest.blockName).catch(() => {});
-    }, 1000);
+    postRestNotification(_activeRest.startMs, blockName).catch(() => {});
   },
 
   setNavCallback(fn: (() => void) | null) {
@@ -57,7 +50,6 @@ export const restTimer = {
     _activeRest = null;
     _navCallback = null;
     _finalizeCallback = null;
-    if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
     dismissRestNotification().catch(() => {});
   },
 };
