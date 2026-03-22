@@ -407,8 +407,9 @@ function SlotRow({
         borderColor: '#27272a',
       }}>
       {slot.exerciseGroups.map((group, gi) => {
-        const primaryEx = allExercises.get(group[0]);
+        const primaryEx = allExercises.get(group[0] ?? '');
         const allOptions = group.map((id) => allExercises.get(id)).filter(Boolean) as Exercise[];
+        const isEmpty = group.length === 0;
         return (
           <View key={gi} style={{ marginBottom: gi < slot.exerciseGroups.length - 1 ? 10 : 0 }}>
             {slot.exerciseGroups.length > 1 && (
@@ -419,10 +420,10 @@ function SlotRow({
                 </Text>
               </View>
             )}
-            <Text style={{ color: 'white', fontSize: 15, fontWeight: '700', marginBottom: 6 }}>
-              {primaryEx ? primaryEx.name : group[0] ?? '—'}
+            <Text style={{ color: isEmpty ? '#52525b' : 'white', fontSize: 15, fontWeight: '700', marginBottom: isEmpty ? 0 : 6, fontStyle: isEmpty ? 'italic' : 'normal' }}>
+              {isEmpty ? 'Tap to select exercise…' : (primaryEx ? primaryEx.name : group[0])}
             </Text>
-            {allOptions.length > 0 && (
+            {!isEmpty && allOptions.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
                 {allOptions.map((ex, optIdx) => {
                   const isPrimary = optIdx === 0;
@@ -610,42 +611,35 @@ function RoutineEditor({
   const [editingSlot, setEditingSlot] = useState<RoutineExercise | null>(null);
   const [slotEditorOpen, setSlotEditorOpen] = useState(false);
   const [addSlotPickerOpen, setAddSlotPickerOpen] = useState(false);
-  const [supersetMode, setSupersetMode] = useState(false);
-  const [supersetStaged, setSupersetStaged] = useState<string[]>([]);
-  const [supersetPickerOpen, setSupersetPickerOpen] = useState(false);
 
+  // Handles both updating existing slots and adding new ones (by id presence)
   const handleSaveSlot = (updated: RoutineExercise) => {
-    setSlots((prev) =>
-      prev.map((s) => (s.id === updated.id ? updated : s))
-    );
+    setSlots((prev) => {
+      const exists = prev.some((s) => s.id === updated.id);
+      if (exists) return prev.map((s) => (s.id === updated.id ? updated : s));
+      return [...prev, { ...updated, order: prev.length }];
+    });
   };
 
   const handleAddSlot = (ex: Exercise) => {
-    if (supersetMode) {
-      setSupersetStaged((prev) => [...prev, ex.id]);
-      setSupersetPickerOpen(true);
-    } else {
-      const newSlot: RoutineExercise = {
-        id: `re_${Date.now()}`,
-        routineId: routine.id,
-        order: slots.length,
-        exerciseGroups: [[ex.id]],
-      };
-      setSlots((prev) => [...prev, newSlot]);
-    }
-  };
-
-  const handleFinishSuperset = () => {
-    if (supersetStaged.length === 0) return;
     const newSlot: RoutineExercise = {
       id: `re_${Date.now()}`,
       routineId: routine.id,
       order: slots.length,
-      exerciseGroups: supersetStaged.map((id) => [id]),
+      exerciseGroups: [[ex.id]],
     };
     setSlots((prev) => [...prev, newSlot]);
-    setSupersetMode(false);
-    setSupersetStaged([]);
+  };
+
+  const handleAddSuperset = () => {
+    const newSlot: RoutineExercise = {
+      id: `re_${Date.now()}`,
+      routineId: routine.id,
+      order: slots.length,
+      exerciseGroups: [[], []],
+    };
+    setEditingSlot(newSlot);
+    setSlotEditorOpen(true);
   };
 
   const handleSave = () => {
@@ -752,109 +746,42 @@ function RoutineEditor({
         ))}
 
         {/* Add exercise controls */}
-        {supersetMode ? (
-          <View
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 40 }}>
+          <TouchableOpacity
+            onPress={() => setAddSlotPickerOpen(true)}
             style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
               backgroundColor: '#18181b',
-              borderRadius: 14,
-              padding: 14,
+              borderRadius: 12,
+              padding: 12,
               borderWidth: 1,
-              borderColor: '#f97316',
-              marginBottom: 12,
+              borderColor: '#27272a',
             }}>
-            <Text style={{ color: '#f97316', fontWeight: '700', marginBottom: 8 }}>
-              Superset mode — {supersetStaged.length} exercise{supersetStaged.length !== 1 ? 's' : ''} staged
-            </Text>
-            {supersetStaged.map((id, i) => {
-              const ex = allExercises.get(id);
-              return (
-                <Text key={id} style={{ color: '#d4d4d8', fontSize: 13, marginBottom: 4 }}>
-                  {i + 1}. {ex?.name ?? id} · {ex ? exerciseLabel(ex) : ''}
-                </Text>
-              );
-            })}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <TouchableOpacity
-                onPress={() => setSupersetPickerOpen(true)}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#27272a',
-                  borderRadius: 10,
-                  padding: 10,
-                  alignItems: 'center',
-                }}>
-                <Text style={{ color: 'white', fontWeight: '600', fontSize: 13 }}>+ Exercise</Text>
-              </TouchableOpacity>
-              {supersetStaged.length >= 2 && (
-                <TouchableOpacity
-                  onPress={handleFinishSuperset}
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#f97316',
-                    borderRadius: 10,
-                    padding: 10,
-                    alignItems: 'center',
-                  }}>
-                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 13 }}>Add Superset</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() => {
-                  setSupersetMode(false);
-                  setSupersetStaged([]);
-                }}
-                style={{
-                  backgroundColor: '#27272a',
-                  borderRadius: 10,
-                  padding: 10,
-                  paddingHorizontal: 14,
-                  alignItems: 'center',
-                }}>
-                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 13 }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 40 }}>
-            <TouchableOpacity
-              onPress={() => setAddSlotPickerOpen(true)}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: '#18181b',
-                borderRadius: 12,
-                padding: 12,
-                borderWidth: 1,
-                borderColor: '#27272a',
-              }}>
-              <Plus size={16} color="#ea580c" />
-              <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>Add Exercise</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                setSupersetMode(true);
-                setSupersetPickerOpen(true);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                backgroundColor: '#18181b',
-                borderRadius: 12,
-                padding: 12,
-                paddingHorizontal: 14,
-                borderWidth: 1,
-                borderColor: '#27272a',
-              }}>
-              <Link size={14} color="#f97316" />
-              <Text style={{ color: '#f97316', fontWeight: '600', fontSize: 14 }}>Superset</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+            <Plus size={16} color="#ea580c" />
+            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>Add Exercise</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleAddSuperset}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              backgroundColor: '#18181b',
+              borderRadius: 12,
+              padding: 12,
+              paddingHorizontal: 14,
+              borderWidth: 1,
+              borderColor: '#27272a',
+            }}>
+            <Plus size={14} color="#f97316" />
+            <Text style={{ color: '#f97316', fontWeight: '600', fontSize: 14 }}>Add Superset</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <SlotEditorModal
@@ -869,14 +796,6 @@ function RoutineEditor({
         open={addSlotPickerOpen}
         onClose={() => setAddSlotPickerOpen(false)}
         onSelect={handleAddSlot}
-      />
-      <ExercisePicker
-        open={supersetPickerOpen}
-        onClose={() => setSupersetPickerOpen(false)}
-        onSelect={(ex) => {
-          setSupersetStaged((prev) => [...prev, ex.id]);
-          setSupersetPickerOpen(false);
-        }}
       />
     </KeyboardAvoidingView>
   );
