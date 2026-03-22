@@ -401,11 +401,15 @@ export default function Exercises() {
     return groups;
   }, [allExercises, search, activeGroup, activeSub, activeEquipment, showFavsOnly]);
 
-  // Scroll to newly created exercise when navigated here with focusName
+  // Scroll to newly created exercise when navigated here with focusName.
+  // Use a ref so we only scroll once per focusName — not on every filter change.
+  const scrolledForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!focusName || loading || filteredGroups.length === 0) return;
+    if (scrolledForRef.current === focusName) return; // already scrolled for this focusName
     const idx = filteredGroups.findIndex((g) => g.key === focusName.toLowerCase().trim());
     if (idx < 0) return;
+    scrolledForRef.current = focusName;
     setTimeout(() => {
       try {
         flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });

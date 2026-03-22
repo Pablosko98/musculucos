@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ExerciseDAL, RoutineDAL } from '@/lib/db';
-import { type Exercise, HEAD_LABELS } from '@/lib/exercises';
+import { type Exercise } from '@/lib/exercises';
 import type { Routine, RoutineExercise } from '@/lib/types';
-import { Search, X, ChevronLeft, Plus, Trash2, Link } from 'lucide-react-native';
+import { X, ChevronLeft, Plus, Link } from 'lucide-react-native';
+import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -32,220 +33,6 @@ function fmt(s: string) {
 function exerciseLabel(ex: Exercise): string {
   const base = ex.equipmentVariant ? `${fmt(ex.equipmentVariant)} ${fmt(ex.equipment)}` : fmt(ex.equipment);
   return base.trim();
-}
-
-// ─── Compact exercise picker (used inside routine builder) ───────────────────
-
-function ExercisePicker({
-  open,
-  onClose,
-  onSelect,
-  excludeIds,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (ex: Exercise) => void;
-  excludeIds?: Set<string>;
-}) {
-  const [search, setSearch] = useState('');
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [groupMap, setGroupMap] = useState<Record<string, { groupId: string; groupLabel: string }>>({});
-
-  useEffect(() => {
-    if (!open) return;
-    Promise.all([ExerciseDAL.getAll(), ExerciseDAL.getMuscleGroupMap()]).then(([exs, map]) => {
-      setExercises(exs);
-      setGroupMap(map);
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      setSearch('');
-      setSelectedGroup(null);
-    }
-  }, [open]);
-
-  // Group exercises by movement name
-  const grouped = useMemo(() => {
-    const map = new Map<string, Exercise[]>();
-    for (const ex of exercises) {
-      const key = ex.name.toLowerCase();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ex);
-    }
-    return Array.from(map.entries()).map(([, variants]) => ({
-      name: variants[0].name,
-      variants,
-      muscles: Array.from(
-        new Set(
-          variants.flatMap((v) =>
-            v.muscleEmphasis.filter((m) => m.role === 'primary').map((m) => m.muscle)
-          )
-        )
-      ),
-    }));
-  }, [exercises]);
-
-  const availableGroups = useMemo(() => {
-    const ids = new Set<string>();
-    for (const g of grouped) {
-      for (const v of g.variants) {
-        for (const em of v.muscleEmphasis) {
-          if (em.role === 'primary') {
-            const gid = groupMap[em.muscle]?.groupId ?? em.muscle;
-            ids.add(gid);
-          }
-        }
-      }
-    }
-    return Array.from(ids).sort();
-  }, [grouped, groupMap]);
-
-  const filtered = useMemo(() => {
-    let result = grouped;
-    if (search) result = result.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
-    if (selectedGroup) {
-      result = result.filter((g) =>
-        g.variants.some((v) =>
-          v.muscleEmphasis.some(
-            (em) => em.role === 'primary' && (groupMap[em.muscle]?.groupId ?? em.muscle) === selectedGroup
-          )
-        )
-      );
-    }
-    return result;
-  }, [grouped, search, selectedGroup, groupMap]);
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent
-        className="gap-0 p-0"
-        style={{
-          backgroundColor: '#09090b',
-          width,
-          height: screenHeight * 0.88,
-          marginTop: 'auto',
-          padding: 0,
-          gap: 0,
-        }}>
-        <View style={{ flex: 1 }}>
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: '#262626',
-            }}>
-            <DialogTitle style={{ color: 'white', flex: 1 }}>Select Exercise</DialogTitle>
-            <TouchableOpacity onPress={onClose}>
-              <X size={20} color="#71717a" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Search */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#18181b',
-              marginHorizontal: 16,
-              marginVertical: 10,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-            }}>
-            <Search size={16} color="#71717a" />
-            <TextInput
-              placeholder="Search…"
-              placeholderTextColor="#52525b"
-              value={search}
-              onChangeText={setSearch}
-              style={{ flex: 1, color: 'white', paddingVertical: 10, paddingLeft: 8, fontSize: 15 }}
-            />
-            {search !== '' && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <X size={16} color="#71717a" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Muscle group chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 6, paddingBottom: 8 }}>
-            <TouchableOpacity
-              onPress={() => setSelectedGroup(null)}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 999,
-                backgroundColor: !selectedGroup ? '#ea580c' : '#27272a',
-              }}>
-              <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>All</Text>
-            </TouchableOpacity>
-            {availableGroups.map((gid) => (
-              <TouchableOpacity
-                key={gid}
-                onPress={() => setSelectedGroup(selectedGroup === gid ? null : gid)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: selectedGroup === gid ? '#ea580c' : '#27272a',
-                }}>
-                <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>{fmt(gid)}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Exercise list */}
-          <ScrollView style={{ flex: 1 }}>
-            {filtered.map((group) => (
-              <View
-                key={group.name}
-                style={{ borderBottomWidth: 1, borderBottomColor: '#18181b', paddingVertical: 12, paddingHorizontal: 16 }}>
-                <Text style={{ color: 'white', fontSize: 16, fontWeight: '600', marginBottom: 4 }}>
-                  {group.name}
-                </Text>
-                <Text style={{ color: '#52525b', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-                  {group.muscles.map(fmt).join(' · ')}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {group.variants.map((v) => {
-                    const excluded = excludeIds?.has(v.id);
-                    return (
-                      <TouchableOpacity
-                        key={v.id}
-                        disabled={excluded}
-                        onPress={() => {
-                          onSelect(v);
-                          onClose();
-                        }}
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderRadius: 999,
-                          backgroundColor: excluded ? '#1c1c1e' : '#27272a',
-                          opacity: excluded ? 0.4 : 1,
-                        }}>
-                        <Text style={{ color: excluded ? '#52525b' : '#d4d4d8', fontSize: 12, fontWeight: '600' }}>
-                          {exerciseLabel(v)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 // ─── Slot Editor ──────────────────────────────────────────────────────────────
@@ -365,11 +152,13 @@ function SlotGroupEditor({
         </Text>
       </TouchableOpacity>
 
-      <ExercisePicker
+      <ExercisePickerSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
+        title="Select Exercise"
         onSelect={(ex) => onChange([...options, ex.id])}
         excludeIds={usedIds}
+        createContext={{ type: 'callback', onCreated: (ex) => onChange([...options, ex.id]) }}
       />
     </View>
   );
@@ -579,12 +368,12 @@ function SlotEditorModal({
             </Button>
           </View>
 
-          <ExercisePicker
+          <ExercisePickerSheet
             open={addGroupPickerOpen}
             onClose={() => setAddGroupPickerOpen(false)}
-            onSelect={(ex) => {
-              setGroups((prev) => [...prev, [ex.id]]);
-            }}
+            title="Add Exercise to Superset"
+            onSelect={(ex) => { setGroups((prev) => [...prev, [ex.id]]); }}
+            createContext={{ type: 'callback', onCreated: (ex) => setGroups((prev) => [...prev, [ex.id]]) }}
           />
         </View>
       </DialogContent>
@@ -792,10 +581,12 @@ function RoutineEditor({
         onSave={handleSaveSlot}
       />
 
-      <ExercisePicker
+      <ExercisePickerSheet
         open={addSlotPickerOpen}
         onClose={() => setAddSlotPickerOpen(false)}
+        title="Add Exercise"
         onSelect={handleAddSlot}
+        createContext={{ type: 'callback', onCreated: handleAddSlot }}
       />
     </KeyboardAvoidingView>
   );

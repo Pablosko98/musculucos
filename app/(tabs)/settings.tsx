@@ -302,11 +302,12 @@ export default function Settings() {
             </View>
           </View>
 
-          <View style={{ borderTopWidth: 1, borderTopColor: '#27272a', paddingTop: 12, gap: 12 }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: '#27272a', padding: 16, gap: 12 }}>
             <View>
               <Text style={{ color: '#fff', fontWeight: '600' }}>Default weight mode</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Per side: enter weight for one side — total is doubled (e.g. dumbbells). Can be overridden per exercise.
+                Per side: enter weight for one side — total is doubled (e.g. dumbbells). Can be
+                overridden per exercise.
               </Text>
             </View>
             <View
@@ -498,9 +499,7 @@ export default function Settings() {
                       {formatDate(entry.createdTime)}
                     </Text>
                     {i === 0 && (
-                      <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>
-                        Latest
-                      </Text>
+                      <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>Latest</Text>
                     )}
                   </TouchableOpacity>
                 ))

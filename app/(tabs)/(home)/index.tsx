@@ -6,7 +6,6 @@ import Carousel from 'react-native-reanimated-carousel';
 import { useRef, useEffect, useCallback, useReducer, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { setActiveBlock } from '@/lib/block-state';
 import { restTimer } from '@/lib/rest-timer';
 import { consumePendingWorkoutDate } from '@/lib/navigation-state';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -177,13 +176,6 @@ export function addExercise(dateString: string, selectedExercises: Exercise[]) {
     blocks: [...(existing?.blocks ?? []), newBlock],
   };
   queryClient.setQueryData(workoutKey(dateString), updated);
-  setActiveBlock({
-    block: newBlock,
-    dateString,
-    saveEditedBlock,
-    onDeleteBlock: (blockId) => deleteBlock(dateString, blockId),
-  });
-  router.push('/exercise_block');
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 

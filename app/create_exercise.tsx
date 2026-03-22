@@ -21,7 +21,7 @@ import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ExerciseDAL, db } from '@/lib/db';
-import { setPendingExerciseAdd } from '@/lib/pending-exercise-add';
+import { setPendingExerciseAdd, takePendingExerciseCallback } from '@/lib/pending-exercise-add';
 import { MUSCLE_GROUP_MAP, HEAD_LABELS } from '@/lib/exercises';
 import type { MuscleEmphasis, MuscleRole } from '@/lib/exercises';
 import { ChevronLeft, Trash2, Plus, X, Star } from 'lucide-react-native';
@@ -707,7 +707,11 @@ export default function CreateExercise() {
             ]
           );
         }
-        if (shouldAutoAdd) setPendingExerciseAdd([exerciseId!], dateString!);
+        if (shouldAutoAdd) {
+          setPendingExerciseAdd([exerciseId!], dateString!);
+          const _cb = takePendingExerciseCallback();
+          if (_cb) _cb([exerciseId!]);
+        }
       } else {
         // Create — opaque ID
         const all = await ExerciseDAL.getAll();
@@ -743,8 +747,14 @@ export default function CreateExercise() {
           await ExerciseDAL.saveCustomEquipment(resolvedEquipment);
         }
         await ExerciseDAL.save({ id, ...payload, isFavourite: isFavourite ? 1 : 0 });
-        if (shouldAutoAdd) setPendingExerciseAdd([id], dateString!);
-        router.replace({ pathname: '/(tabs)/exercises', params: { focusName: trimmedName } });
+        if (shouldAutoAdd) {
+          setPendingExerciseAdd([id], dateString!);
+          const _cb = takePendingExerciseCallback();
+          if (_cb) _cb([id]);
+          router.back();
+        } else {
+          router.replace({ pathname: '/(tabs)/exercises', params: { focusName: trimmedName } });
+        }
         return;
       }
       router.back();
