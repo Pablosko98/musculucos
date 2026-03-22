@@ -1,4 +1,17 @@
 import { ExpoConfig } from 'expo/config';
+import { ConfigPlugin, withAndroidManifest } from 'expo/config-plugins';
+
+const withNotifee: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (mod) => {
+    const manifest = mod.modResults.manifest;
+    // Add FOREGROUND_SERVICE permission
+    const perms = manifest['uses-permission'] ?? [];
+    if (!perms.some((p: any) => p.$?.['android:name'] === 'android.permission.FOREGROUND_SERVICE')) {
+      perms.push({ $: { 'android:name': 'android.permission.FOREGROUND_SERVICE' } });
+    }
+    manifest['uses-permission'] = perms;
+    return mod;
+  });
 
 const variant = process.env.APP_VARIANT ?? 'development';
 const isDev = variant === 'development';
@@ -51,6 +64,7 @@ const config: ExpoConfig = {
       },
     ],
     'expo-font',
+    withNotifee,
   ],
   experiments: {
     typedRoutes: true,

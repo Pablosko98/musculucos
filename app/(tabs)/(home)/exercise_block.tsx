@@ -738,6 +738,7 @@ export default function ExerciseBlock() {
           }
         }
       });
+      setLocalBlock(finalized);
       saveEditedBlock?.(dateString, finalized);
     });
     restTimer.start(localBlock.id, dateString, currentDefaultRest, localBlock.name);

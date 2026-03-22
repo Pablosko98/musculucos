@@ -15,7 +15,6 @@ try {
 const CHANNEL_ID = 'rest-timer';
 const NOTIF_ID = 'rest-timer';
 let _ready = false;
-let _updateInterval: ReturnType<typeof setInterval> | null = null;
 
 async function ensureReady(): Promise<boolean> {
   if (!notifee) return false;
@@ -65,25 +64,19 @@ if (notifee && EventType) {
   });
 }
 
-function formatElapsed(ms: number): string {
-  const totalSecs = Math.floor(ms / 1000);
-  const mins = Math.floor(totalSecs / 60);
-  const secs = totalSecs % 60;
-  return mins > 0 ? `${mins}m ${String(secs).padStart(2, '0')}s` : `${secs}s`;
-}
-
-async function displayNotif(startMs: number, blockName: string): Promise<void> {
-  if (!notifee) return;
-  const elapsed = formatElapsed(Date.now() - startMs);
+export async function postRestNotification(startMs: number, blockName = ''): Promise<void> {
+  if (!(await ensureReady()) || !notifee) return;
   await notifee.displayNotification({
     id: NOTIF_ID,
     title: blockName ? `Resting · ${blockName}` : 'Resting',
-    body: elapsed,
     android: {
       channelId: CHANNEL_ID,
       ongoing: true,
       autoCancel: false,
       onlyAlertOnce: true,
+      showChronometer: true,
+      chronometerDirection: 'up',
+      timestamp: startMs,
       color: '#a855f7',
       pressAction: { id: 'default' },
       actions: [
@@ -96,17 +89,7 @@ async function displayNotif(startMs: number, blockName: string): Promise<void> {
   });
 }
 
-export async function postRestNotification(startMs: number, blockName = ''): Promise<void> {
-  if (!(await ensureReady())) return;
-  if (_updateInterval) clearInterval(_updateInterval);
-  await displayNotif(startMs, blockName);
-  _updateInterval = setInterval(() => {
-    displayNotif(startMs, blockName).catch(() => {});
-  }, 1000);
-}
-
 export async function dismissRestNotification(): Promise<void> {
-  if (_updateInterval) { clearInterval(_updateInterval); _updateInterval = null; }
   if (!notifee) return;
   await notifee.cancelNotification(NOTIF_ID);
 }
