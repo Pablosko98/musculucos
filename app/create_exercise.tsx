@@ -97,6 +97,12 @@ function nextRole(role: MuscleRole): MuscleRole {
   return ROLES[(ROLES.indexOf(role) + 1) % ROLES.length];
 }
 
+function generateWeightStack(step: number): string[] {
+  const safeStep = Math.max(0.25, step);
+  const count = Math.floor(100 / safeStep) + 1;
+  return Array.from({ length: count }, (_, i) => String(Math.round(i * safeStep * 100) / 100));
+}
+
 function deriveVariantFromId(id: string, baseId: string, equipment: string): string {
   if (!id.startsWith(`${baseId}_`)) return '';
   const suffix = id.slice(baseId.length + 1);
@@ -549,6 +555,9 @@ export default function CreateExercise() {
   const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>(null);
   const [baseWeightKg, setBaseWeightKg] = useState('');
   const [weightMode, setWeightMode] = useState<'total' | 'per_side'>('total');
+  const [weightStep, setWeightStep] = useState('');
+  const [weightStackItems, setWeightStackItems] = useState<string[]>([]);
+  const [showAdvancedStack, setShowAdvancedStack] = useState(false);
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -599,6 +608,11 @@ export default function CreateExercise() {
           setBaseWeightKg(ex.baseWeightKg != null ? String(ex.baseWeightKg) : '');
           originalBaseWeightRef.current = ex.baseWeightKg ?? null;
           setWeightMode(ex.weightMode === 'per_side' ? 'per_side' : 'total');
+          setWeightStep(ex.weightStep != null ? String(ex.weightStep) : '');
+          if (ex.weightStack && ex.weightStack.length > 0) {
+            setWeightStackItems(ex.weightStack.map(String));
+            setShowAdvancedStack(true);
+          }
           setDescription(ex.description ?? '');
           setVideoUrl(ex.videoUrl ?? '');
           setIsCustom((ex.isCustom ?? 0) === 1);
@@ -655,6 +669,11 @@ export default function CreateExercise() {
         role: e.role,
       }));
       const parsedBaseWeight = baseWeightKg.trim() ? parseFloat(baseWeightKg) : null;
+      const parsedWeightStep = weightStep.trim() ? parseFloat(weightStep) : null;
+      const parsedWeightStack: number[] | null =
+        showAdvancedStack && weightStackItems.length >= 2
+          ? weightStackItems.map((s) => parseFloat(s)).filter((n) => !isNaN(n) && n >= 0)
+          : null;
       const trimmedName = name.trim();
 
       // Persist any new custom equipment to DB (available for future exercises)
@@ -675,6 +694,8 @@ export default function CreateExercise() {
           baseWeightKg: parsedBaseWeight,
           equipmentVariant: variantValue,
           weightMode,
+          weightStep: parsedWeightStep,
+          weightStack: parsedWeightStack,
         });
         const oldBase = originalBaseWeightRef.current ?? 0;
         const newBase = parsedBaseWeight ?? 0;
@@ -712,6 +733,8 @@ export default function CreateExercise() {
             defaultRestSeconds,
             baseWeightKg: parsedBaseWeight,
             weightMode,
+            weightStep: parsedWeightStep,
+            weightStack: parsedWeightStack,
             isFavourite: 0,
           });
         }
@@ -733,6 +756,8 @@ export default function CreateExercise() {
             defaultRestSeconds,
             baseWeightKg: parsedBaseWeight,
             weightMode,
+            weightStep: parsedWeightStep,
+            weightStack: parsedWeightStack,
             isFavourite: isFavourite ? 1 : 0,
           });
           createdIds.push(id);
@@ -1061,6 +1086,194 @@ export default function CreateExercise() {
               })}
             </View>
           </View>
+
+          {/* Weight Increment */}
+          {(() => {
+            const effectiveStep = parseFloat(weightStep) || 2.5;
+            const baseVal = parseFloat(baseWeightKg) || 0;
+            let previewPrev: string;
+            let previewNext: string;
+            if (showAdvancedStack && weightStackItems.length >= 2) {
+              const nums = weightStackItems.map((s) => parseFloat(s)).filter((n) => !isNaN(n) && n >= 0).sort((a, b) => a - b);
+              const afterBase = nums.find((v) => v > baseVal);
+              const beforeBase = [...nums].reverse().find((v) => v < baseVal);
+              previewNext = afterBase != null ? String(afterBase) : '—';
+              previewPrev = beforeBase != null ? String(beforeBase) : '—';
+            } else {
+              previewNext = String(Math.round((baseVal + effectiveStep) * 100) / 100);
+              previewPrev = String(Math.max(0, Math.round((baseVal - effectiveStep) * 100) / 100));
+            }
+
+            const handleStackItemChange = (idx: number, text: string) => {
+              setWeightStackItems((prev) => {
+                const next = [...prev];
+                next[idx] = text.replace(/[^0-9.]/g, '');
+                return next;
+              });
+            };
+
+            const addStackItem = () => {
+              setWeightStackItems((prev) => {
+                const last = prev.length > 0 ? parseFloat(prev[prev.length - 1]) : 0;
+                const newVal = isNaN(last) ? 0 : Math.round((last + effectiveStep) * 100) / 100;
+                return [...prev, String(newVal)];
+              });
+            };
+
+            const removeStackItem = (idx: number) => {
+              setWeightStackItems((prev) => prev.filter((_, i) => i !== idx));
+            };
+
+            return (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  <Text style={labelStyle}>Weight Increment</Text>
+                  <Text style={optStyle}>used by + / − buttons</Text>
+                </View>
+
+                {/* Step row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TextInput
+                    value={weightStep}
+                    onChangeText={(t) => setWeightStep(t.replace(/[^0-9.]/g, ''))}
+                    placeholder="2.5"
+                    placeholderTextColor="#3f3f46"
+                    keyboardType="decimal-pad"
+                    editable={!showAdvancedStack}
+                    style={[
+                      inputStyle,
+                      { width: 90 },
+                      showAdvancedStack && { opacity: 0.35 },
+                    ]}
+                  />
+                  <Text style={{ color: showAdvancedStack ? '#3f3f46' : '#71717a', fontSize: 15 }}>
+                    kg per press
+                  </Text>
+                </View>
+
+                {/* Preview hint */}
+                <Text style={{ color: '#52525b', fontSize: 12 }}>
+                  {baseWeightKg.trim()
+                    ? `From ${baseVal} kg  ↑ ${previewNext} kg  ↓ ${previewPrev} kg`
+                    : showAdvancedStack && weightStackItems.length >= 2
+                      ? `${weightStackItems.length} values in stack`
+                      : `± ${effectiveStep} kg per press`}
+                </Text>
+
+                {/* Advanced toggle */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (showAdvancedStack) {
+                        setShowAdvancedStack(false);
+                        setWeightStackItems([]);
+                      } else {
+                        setWeightStackItems(generateWeightStack(effectiveStep));
+                        setShowAdvancedStack(true);
+                      }
+                    }}
+                    style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
+                    <Text style={{ color: showAdvancedStack ? '#ef4444' : '#71717a', fontSize: 13, fontWeight: '500' }}>
+                      {showAdvancedStack ? '✕ Reset to step' : '⚡ Custom weight stack'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showAdvancedStack && (
+                    <TouchableOpacity
+                      onPress={() => setWeightStackItems(generateWeightStack(effectiveStep))}
+                      style={{ paddingVertical: 4 }}>
+                      <Text style={{ color: '#71717a', fontSize: 12 }}>↺ Regenerate from step</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Advanced stack editor */}
+                {showAdvancedStack && (
+                  <View
+                    style={{
+                      backgroundColor: '#111114',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#27272a',
+                      overflow: 'hidden',
+                    }}>
+                    <View
+                      style={{
+                        backgroundColor: '#1c1f28',
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#27272a',
+                      }}>
+                      <Text style={{ color: '#52525b', fontSize: 11 }}>
+                        These are plate / selector weights — equipment weight is added separately above
+                      </Text>
+                    </View>
+
+                    <ScrollView
+                      style={{ maxHeight: 224 }}
+                      contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 10, gap: 6 }}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled">
+                      {weightStackItems.map((val, idx) => (
+                        <View
+                          key={idx}
+                          style={{
+                            width: 62,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            borderColor: '#2d2d30',
+                            backgroundColor: '#1c1c1f',
+                            overflow: 'hidden',
+                          }}>
+                          <TextInput
+                            value={val}
+                            onChangeText={(t) => handleStackItemChange(idx, t)}
+                            keyboardType="decimal-pad"
+                            selectTextOnFocus
+                            style={{
+                              color: '#e4e4e7',
+                              fontSize: 14,
+                              fontWeight: '600',
+                              textAlign: 'center',
+                              paddingTop: 7,
+                              paddingBottom: 2,
+                              paddingHorizontal: 4,
+                            }}
+                          />
+                          <Text style={{ color: '#52525b', fontSize: 9, textAlign: 'center', paddingBottom: 5 }}>
+                            kg
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => removeStackItem(idx)}
+                            style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}
+                            hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+                            <Text style={{ color: '#3f3f46', fontSize: 10, lineHeight: 12 }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+
+                      <TouchableOpacity
+                        onPress={addStackItem}
+                        style={{
+                          width: 62,
+                          height: 48,
+                          borderRadius: 8,
+                          borderWidth: 1.5,
+                          borderColor: '#2d2d30',
+                          borderStyle: 'dashed',
+                          backgroundColor: '#18181b',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                        <Text style={{ color: '#52525b', fontSize: 20, lineHeight: 22 }}>+</Text>
+                      </TouchableOpacity>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
 
           {/* Description */}
           <View style={{ gap: 8 }}>

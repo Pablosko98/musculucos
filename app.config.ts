@@ -1,6 +1,6 @@
 import { ExpoConfig } from 'expo/config';
 
-const variant = process.env.APP_VARIANT;
+const variant = process.env.APP_VARIANT ?? 'development';
 const isDev = variant === 'development';
 const isPreview = variant === 'preview';
 

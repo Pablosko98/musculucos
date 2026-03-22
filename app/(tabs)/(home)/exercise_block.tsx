@@ -46,7 +46,24 @@ import { restTimer } from '@/lib/rest-timer';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const WEIGHT_STEP = 2.5;
+const DEFAULT_WEIGHT_STEP = 2.5;
+
+function stepWeight(current: number, direction: 1 | -1, exercise?: Exercise | null): number {
+  const stack = exercise?.weightStack;
+  if (stack && stack.length >= 2) {
+    const sorted = [...stack].sort((a, b) => a - b);
+    if (direction === 1) {
+      return sorted.find((v) => v > current) ?? current;
+    } else {
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i] < current) return sorted[i];
+      }
+      return current;
+    }
+  }
+  const step = exercise?.weightStep ?? DEFAULT_WEIGHT_STEP;
+  return Math.max(0, current + direction * step);
+}
 const REP_TYPES = ['warmup', 'full', 'half', 'assisted'];
 const DEFAULT_RESTS: Record<string, number> = {
   leg_press: 180,
@@ -1086,7 +1103,7 @@ export default function ExerciseBlock() {
                 <Pressable
                   onPress={() =>
                     setInputWeight((prev) =>
-                      Math.max(0, (parseFloat(prev) || 0) - WEIGHT_STEP).toString()
+                      stepWeight(parseFloat(prev) || 0, -1, activeExercise).toString()
                     )
                   }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
@@ -1123,7 +1140,7 @@ export default function ExerciseBlock() {
                 </View>
                 <Pressable
                   onPress={() =>
-                    setInputWeight((prev) => ((parseFloat(prev) || 0) + WEIGHT_STEP).toString())
+                    setInputWeight((prev) => stepWeight(parseFloat(prev) || 0, 1, activeExercise).toString())
                   }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Plus size={18} color="#71717a" />

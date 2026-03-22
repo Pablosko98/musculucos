@@ -42,6 +42,8 @@ type ExerciseRow = {
   defaultRestSeconds: number | null;
   baseWeightKg: number | null;
   weightMode: string | null;
+  weightStep: number | null;
+  weightStack: string | null;
   isCustom: number;
   isFavourite: number;
 };
@@ -126,6 +128,12 @@ export const initDB = () => {
   // try { db.execSync('ALTER TABLE exercises ADD COLUMN equipmentVariant TEXT'); } catch {}
   try {
     db.execSync('ALTER TABLE exercises ADD COLUMN weightMode TEXT DEFAULT NULL');
+  } catch {}
+  try {
+    db.execSync('ALTER TABLE exercises ADD COLUMN weightStep REAL DEFAULT NULL');
+  } catch {}
+  try {
+    db.execSync('ALTER TABLE exercises ADD COLUMN weightStack TEXT DEFAULT NULL');
   } catch {}
   // db.execSync(`UPDATE events SET rep_type = 'half' WHERE rep_type IN ('top half', 'bot half', 'top 1/2', 'bot 1/2')`);
   // ─────────────────────────────────────────────────────────────────────────
@@ -266,6 +274,8 @@ export const WorkoutDAL = {
           ...r,
           muscleEmphasis: r.muscleEmphasis ? JSON.parse(r.muscleEmphasis) : [],
           weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
+          weightStep: r.weightStep ?? null,
+          weightStack: r.weightStack ? (JSON.parse(r.weightStack) as number[]) : null,
         },
       ])
     );
@@ -427,6 +437,8 @@ export const ExerciseDAL = {
       baseWeightKg: r.baseWeightKg ?? null,
       equipmentVariant: r.equipmentVariant ?? null,
       weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
+      weightStep: r.weightStep ?? null,
+      weightStack: r.weightStack ? (JSON.parse(r.weightStack) as number[]) : null,
     }));
   },
 
@@ -452,13 +464,15 @@ export const ExerciseDAL = {
       baseWeightKg: r.baseWeightKg ?? null,
       equipmentVariant: r.equipmentVariant ?? null,
       weightMode: (r.weightMode as 'total' | 'per_side' | null) ?? null,
+      weightStep: r.weightStep ?? null,
+      weightStack: r.weightStack ? (JSON.parse(r.weightStack) as number[]) : null,
     }));
   },
 
   async save(exercise: Omit<Exercise, 'isCustom'>) {
     await db.runAsync(
-      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, weightMode, isCustom)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO exercises (id, baseId, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl, defaultRestSeconds, baseWeightKg, weightMode, weightStep, weightStack, isCustom)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         exercise.id,
         exercise.baseId,
@@ -471,6 +485,8 @@ export const ExerciseDAL = {
         exercise.defaultRestSeconds ?? null,
         exercise.baseWeightKg ?? null,
         exercise.weightMode ?? null,
+        exercise.weightStep ?? null,
+        exercise.weightStack ? JSON.stringify(exercise.weightStack) : null,
       ]
     );
   },
@@ -489,6 +505,8 @@ export const ExerciseDAL = {
         | 'defaultRestSeconds'
         | 'baseWeightKg'
         | 'weightMode'
+        | 'weightStep'
+        | 'weightStack'
       >
     >
   ) {
@@ -502,7 +520,9 @@ export const ExerciseDAL = {
            videoUrl = COALESCE(?, videoUrl),
            defaultRestSeconds = ?,
            baseWeightKg = ?,
-           weightMode = COALESCE(?, weightMode)
+           weightMode = COALESCE(?, weightMode),
+           weightStep = ?,
+           weightStack = ?
        WHERE id = ?`,
       [
         updates.name ?? null,
@@ -515,6 +535,8 @@ export const ExerciseDAL = {
         updates.defaultRestSeconds ?? null,
         updates.baseWeightKg ?? null,
         updates.weightMode ?? null,
+        updates.weightStep ?? null,
+        updates.weightStack ? JSON.stringify(updates.weightStack) : null,
         id,
       ]
     );
