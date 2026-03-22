@@ -539,32 +539,50 @@ const EmphasisBuilder = memo(EmphasisBuilderBase);
 
 export default function CreateExercise() {
   const insets = useSafeAreaInsets();
-  const { exerciseId, autoAdd, dateString, prefillName, prefillEquipment, prefillData } = useLocalSearchParams<{
-    exerciseId?: string;
-    autoAdd?: string;
-    dateString?: string;
-    prefillName?: string;
-    prefillEquipment?: string;
-    prefillData?: string;
-  }>();
+  const { exerciseId, autoAdd, dateString, prefillName, prefillEquipment, prefillData } =
+    useLocalSearchParams<{
+      exerciseId?: string;
+      autoAdd?: string;
+      dateString?: string;
+      prefillName?: string;
+      prefillEquipment?: string;
+      prefillData?: string;
+    }>();
   const isEditing = !!exerciseId;
   const shouldAutoAdd = autoAdd === 'true' && !!dateString;
 
   // Parse any prefilled exercise data (carries over muscles, rest, weight, etc. when copying)
-  const pd = !isEditing && prefillData
-    ? (() => { try { return JSON.parse(prefillData) as Record<string, unknown>; } catch { return null; } })()
-    : null;
+  const pd =
+    !isEditing && prefillData
+      ? (() => {
+          try {
+            return JSON.parse(prefillData) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
 
   const [name, setName] = useState(prefillName ?? '');
   const [equipment, setEquipment] = useState(prefillEquipment ?? '');
   const [equipmentVariant, setEquipmentVariant] = useState('');
-  const [emphasis, setEmphasis] = useState<Emphasis[]>((pd?.emphasis as Emphasis[]) ?? [{ muscle: '', role: 'primary' }]);
-  const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>((pd?.defaultRestSeconds as number) ?? null);
+  const [emphasis, setEmphasis] = useState<Emphasis[]>(
+    (pd?.emphasis as Emphasis[]) ?? [{ muscle: '', role: 'primary' }]
+  );
+  const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>(
+    (pd?.defaultRestSeconds as number) ?? null
+  );
   const [baseWeightKg, setBaseWeightKg] = useState((pd?.baseWeightKg as string) ?? '');
-  const [weightMode, setWeightMode] = useState<'total' | 'per_side' | null>((pd?.weightMode as 'total' | 'per_side') ?? null);
+  const [weightMode, setWeightMode] = useState<'total' | 'per_side' | null>(
+    (pd?.weightMode as 'total' | 'per_side') ?? null
+  );
   const [weightStep, setWeightStep] = useState((pd?.weightStep as string) ?? '');
-  const [weightStackItems, setWeightStackItems] = useState<string[]>((pd?.weightStackItems as string[]) ?? []);
-  const [showAdvancedStack, setShowAdvancedStack] = useState((pd?.showAdvancedStack as boolean) ?? false);
+  const [weightStackItems, setWeightStackItems] = useState<string[]>(
+    (pd?.weightStackItems as string[]) ?? []
+  );
+  const [showAdvancedStack, setShowAdvancedStack] = useState(
+    (pd?.showAdvancedStack as boolean) ?? false
+  );
   const [showStackEditor, setShowStackEditor] = useState(false);
   const stackInputRefs = useRef<(TextInput | null)[]>([]);
   const [description, setDescription] = useState((pd?.description as string) ?? '');
@@ -597,7 +615,11 @@ export default function CreateExercise() {
           setEquipmentVariant(ex.equipmentVariant ?? '');
           setEmphasis(
             ex.muscleEmphasis.length > 0
-              ? ex.muscleEmphasis.map((m) => ({ muscle: m.muscle, head: m.head, role: m.role as MuscleRole }))
+              ? ex.muscleEmphasis.map((m) => ({
+                  muscle: m.muscle,
+                  head: m.head,
+                  role: m.role as MuscleRole,
+                }))
               : [{ muscle: '', role: 'primary' as MuscleRole }]
           );
           setDefaultRestSeconds(ex.defaultRestSeconds ?? null);
@@ -646,7 +668,9 @@ export default function CreateExercise() {
       Alert.alert('Name required', 'Please enter an exercise name.');
       return;
     }
-    const resolvedEquipment = showCustomEquipmentInput ? slugify(customEquipmentText.trim()) : equipment;
+    const resolvedEquipment = showCustomEquipmentInput
+      ? slugify(customEquipmentText.trim())
+      : equipment;
     if (!resolvedEquipment) {
       Alert.alert('Equipment required', 'Please select an equipment type.');
       return;
@@ -702,7 +726,8 @@ export default function CreateExercise() {
               { text: 'No', style: 'cancel' },
               {
                 text: 'Yes, update all',
-                onPress: () => ExerciseDAL.adjustSetWeights(exerciseId!, delta).catch(console.error),
+                onPress: () =>
+                  ExerciseDAL.adjustSetWeights(exerciseId!, delta).catch(console.error),
               },
             ]
           );
@@ -734,7 +759,10 @@ export default function CreateExercise() {
                 text: 'Go to Exercise',
                 onPress: () => {
                   router.back();
-                  router.push({ pathname: '/create_exercise', params: { exerciseId: conflict.id } });
+                  router.push({
+                    pathname: '/create_exercise',
+                    params: { exerciseId: conflict.id },
+                  });
                 },
               },
             ]
@@ -766,16 +794,25 @@ export default function CreateExercise() {
   };
 
   const handleDelete = async () => {
-    // Check if this exercise is referenced in any saved workout blocks
-    const rows = await db.getAllAsync<{ count: number }>(
-      `SELECT COUNT(*) as count FROM blocks WHERE exerciseIds LIKE ?`,
+    // Count blocks referencing this exercise, split by logged (has events) vs todo (no events)
+    const rows = await db.getAllAsync<{ blockId: string; hasEvents: number }>(
+      `SELECT b.id as blockId, CASE WHEN COUNT(e.id) > 0 THEN 1 ELSE 0 END as hasEvents
+       FROM blocks b LEFT JOIN events e ON e.blockId = b.id
+       WHERE b.exerciseIds LIKE ?
+       GROUP BY b.id`,
       [`%${exerciseId}%`]
     );
-    const workoutCount = rows[0]?.count ?? 0;
+    const loggedCount = rows.filter((r) => r.hasEvents === 1).length;
+    const todoCount = rows.filter((r) => r.hasEvents === 0).length;
+
+    const parts: string[] = [];
+    if (loggedCount > 0)
+      parts.push(`logged in ${loggedCount} workout${loggedCount === 1 ? '' : 's'}`);
+    if (todoCount > 0) parts.push(`pending in ${todoCount} workout${todoCount === 1 ? '' : 's'}`);
 
     const message =
-      workoutCount > 0
-        ? `"${name}" is logged in ${workoutCount} workout${workoutCount === 1 ? '' : 's'}. Deleting it will leave those sessions without exercise info.`
+      parts.length > 0
+        ? `"${name}" is ${parts.join(' and ')}. Deleting it will leave those sessions without exercise info.`
         : `Delete "${name}"? This cannot be undone.`;
 
     Alert.alert('Delete Exercise', message, [
@@ -818,7 +855,7 @@ export default function CreateExercise() {
           borderBottomColor: '#18181b',
         }}>
         <TouchableOpacity
-          onPress={() => isEditing ? router.replace('/(tabs)/exercises') : router.back()}
+          onPress={() => (isEditing ? router.replace('/(tabs)/exercises') : router.back())}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={24} color="#a1a1aa" />
         </TouchableOpacity>
@@ -835,11 +872,7 @@ export default function CreateExercise() {
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={{ marginRight: isEditing ? 16 : 0 }}>
-          <Star
-            size={20}
-            color="#f59e0b"
-            fill={isFavourite ? '#f59e0b' : 'transparent'}
-          />
+          <Star size={20} color="#f59e0b" fill={isFavourite ? '#f59e0b' : 'transparent'} />
         </TouchableOpacity>
         {isEditing && (
           <TouchableOpacity
@@ -874,7 +907,10 @@ export default function CreateExercise() {
             <View style={{ gap: 8 }}>
               <Text style={labelStyle}>Equipment</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {[...EQUIPMENT_OPTIONS, ...persistedCustomEquipment.filter((eq) => !EQUIPMENT_OPTIONS.includes(eq))].map((eq) => {
+                {[
+                  ...EQUIPMENT_OPTIONS,
+                  ...persistedCustomEquipment.filter((eq) => !EQUIPMENT_OPTIONS.includes(eq)),
+                ].map((eq) => {
                   const active = equipment === eq;
                   return (
                     <TouchableOpacity
@@ -886,21 +922,36 @@ export default function CreateExercise() {
                       }}
                       style={[
                         chipStyle,
-                        { backgroundColor: active ? '#ea580c' : '#27272a', borderColor: active ? '#ea580c' : '#3f3f46' },
+                        {
+                          backgroundColor: active ? '#ea580c' : '#27272a',
+                          borderColor: active ? '#ea580c' : '#3f3f46',
+                        },
                       ]}>
-                      <Text style={{ color: active ? '#fff' : '#a1a1aa', fontSize: 14, fontWeight: active ? '600' : '400' }}>
+                      <Text
+                        style={{
+                          color: active ? '#fff' : '#a1a1aa',
+                          fontSize: 14,
+                          fontWeight: active ? '600' : '400',
+                        }}>
                         {formatEquipmentLabel(eq)}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
                 <TouchableOpacity
-                  onPress={() => { setShowCustomEquipmentInput(true); setEquipment(''); }}
+                  onPress={() => {
+                    setShowCustomEquipmentInput(true);
+                    setEquipment('');
+                  }}
                   style={[
                     chipStyle,
-                    { backgroundColor: showCustomEquipmentInput ? '#ea580c' : '#27272a', borderColor: showCustomEquipmentInput ? '#ea580c' : '#3f3f46' },
+                    {
+                      backgroundColor: showCustomEquipmentInput ? '#ea580c' : '#27272a',
+                      borderColor: showCustomEquipmentInput ? '#ea580c' : '#3f3f46',
+                    },
                   ]}>
-                  <Text style={{ color: showCustomEquipmentInput ? '#fff' : '#71717a', fontSize: 14 }}>
+                  <Text
+                    style={{ color: showCustomEquipmentInput ? '#fff' : '#71717a', fontSize: 14 }}>
                     + Custom
                   </Text>
                 </TouchableOpacity>
@@ -923,12 +974,28 @@ export default function CreateExercise() {
             <View style={{ gap: 10 }}>
               <Text style={labelStyle}>Equipment &amp; Variant</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: '#27272a' }}>
-                  <Text style={{ color: '#a1a1aa', fontSize: 13 }}>{formatEquipmentLabel(equipment)}</Text>
+                <View
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 7,
+                    backgroundColor: '#27272a',
+                  }}>
+                  <Text style={{ color: '#a1a1aa', fontSize: 13 }}>
+                    {formatEquipmentLabel(equipment)}
+                  </Text>
                 </View>
                 {equipmentVariant.trim() ? (
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: '#27272a' }}>
-                    <Text style={{ color: '#a1a1aa', fontSize: 13 }}>{equipmentVariant.trim()}</Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 7,
+                      backgroundColor: '#27272a',
+                    }}>
+                    <Text style={{ color: '#a1a1aa', fontSize: 13 }}>
+                      {equipmentVariant.trim()}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -948,7 +1015,9 @@ export default function CreateExercise() {
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                 <Text style={labelStyle}>Type / Variant</Text>
-                <Text style={{ color: '#52525b', fontSize: 11 }}>optional · e.g. Seated, Smith, Wide Grip</Text>
+                <Text style={{ color: '#52525b', fontSize: 11 }}>
+                  optional · e.g. Seated, Smith, Wide Grip
+                </Text>
               </View>
               <TextInput
                 value={equipmentVariant}
@@ -1049,7 +1118,12 @@ export default function CreateExercise() {
                         borderColor: active ? '#ea580c' : '#3f3f46',
                       },
                     ]}>
-                    <Text style={{ color: active ? '#fff' : '#a1a1aa', fontSize: 14, fontWeight: active ? '600' : '400' }}>
+                    <Text
+                      style={{
+                        color: active ? '#fff' : '#a1a1aa',
+                        fontSize: 14,
+                        fontWeight: active ? '600' : '400',
+                      }}>
                       {mode === null ? 'Global' : mode === 'total' ? 'Total' : 'Per side'}
                     </Text>
                   </TouchableOpacity>
@@ -1065,7 +1139,10 @@ export default function CreateExercise() {
             let previewPrev: string;
             let previewNext: string;
             if (showAdvancedStack && weightStackItems.length >= 2) {
-              const nums = weightStackItems.map((s) => parseFloat(s)).filter((n) => !isNaN(n) && n >= 0).sort((a, b) => a - b);
+              const nums = weightStackItems
+                .map((s) => parseFloat(s))
+                .filter((n) => !isNaN(n) && n >= 0)
+                .sort((a, b) => a - b);
               const afterBase = nums.find((v) => v > baseVal);
               const beforeBase = [...nums].reverse().find((v) => v < baseVal);
               previewNext = afterBase != null ? String(afterBase) : '—';
@@ -1083,7 +1160,13 @@ export default function CreateExercise() {
                 </View>
 
                 {/* Step / Custom segmented toggle */}
-                <View style={{ flexDirection: 'row', backgroundColor: '#18181b', borderRadius: 8, padding: 2 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    backgroundColor: '#18181b',
+                    borderRadius: 8,
+                    padding: 2,
+                  }}>
                   <TouchableOpacity
                     onPress={() => {
                       if (showAdvancedStack) {
@@ -1093,10 +1176,18 @@ export default function CreateExercise() {
                       }
                     }}
                     style={{
-                      flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6,
+                      flex: 1,
+                      paddingVertical: 7,
+                      alignItems: 'center',
+                      borderRadius: 6,
                       backgroundColor: !showAdvancedStack ? '#27272a' : 'transparent',
                     }}>
-                    <Text style={{ color: !showAdvancedStack ? '#e4e4e7' : '#52525b', fontSize: 13, fontWeight: !showAdvancedStack ? '600' : '400' }}>
+                    <Text
+                      style={{
+                        color: !showAdvancedStack ? '#e4e4e7' : '#52525b',
+                        fontSize: 13,
+                        fontWeight: !showAdvancedStack ? '600' : '400',
+                      }}>
                       Step
                     </Text>
                   </TouchableOpacity>
@@ -1109,10 +1200,18 @@ export default function CreateExercise() {
                       }
                     }}
                     style={{
-                      flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6,
+                      flex: 1,
+                      paddingVertical: 7,
+                      alignItems: 'center',
+                      borderRadius: 6,
                       backgroundColor: showAdvancedStack ? '#27272a' : 'transparent',
                     }}>
-                    <Text style={{ color: showAdvancedStack ? '#e4e4e7' : '#52525b', fontSize: 13, fontWeight: showAdvancedStack ? '600' : '400' }}>
+                    <Text
+                      style={{
+                        color: showAdvancedStack ? '#e4e4e7' : '#52525b',
+                        fontSize: 13,
+                        fontWeight: showAdvancedStack ? '600' : '400',
+                      }}>
                       Custom
                     </Text>
                   </TouchableOpacity>
@@ -1225,7 +1324,13 @@ export default function CreateExercise() {
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: 'rgba(0,0,0,0.65)',
+            }}>
             <View
               style={{
                 backgroundColor: '#18181b',
@@ -1264,7 +1369,12 @@ export default function CreateExercise() {
               </View>
 
               <ScrollView
-                contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 }}
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  padding: 12,
+                  gap: 8,
+                }}
                 keyboardShouldPersistTaps="handled">
                 {weightStackItems.map((val, idx) => (
                   <TouchableOpacity
@@ -1280,7 +1390,9 @@ export default function CreateExercise() {
                       overflow: 'hidden',
                     }}>
                     <TextInput
-                      ref={(r) => { stackInputRefs.current[idx] = r; }}
+                      ref={(r) => {
+                        stackInputRefs.current[idx] = r;
+                      }}
                       value={val}
                       onChangeText={(t) => {
                         setWeightStackItems((prev) => {
@@ -1301,12 +1413,28 @@ export default function CreateExercise() {
                         paddingHorizontal: 4,
                       }}
                     />
-                    <Text style={{ color: '#52525b', fontSize: 9, textAlign: 'center', paddingBottom: 6 }}>
+                    <Text
+                      style={{
+                        color: '#52525b',
+                        fontSize: 9,
+                        textAlign: 'center',
+                        paddingBottom: 6,
+                      }}>
                       kg
                     </Text>
                     <TouchableOpacity
-                      onPress={() => setWeightStackItems((prev) => prev.filter((_, i) => i !== idx))}
-                      style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() =>
+                        setWeightStackItems((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        width: 14,
+                        height: 14,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                       hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}>
                       <Text style={{ color: '#3f3f46', fontSize: 10, lineHeight: 12 }}>✕</Text>
                     </TouchableOpacity>
@@ -1317,7 +1445,9 @@ export default function CreateExercise() {
                     setWeightStackItems((prev) => {
                       const effectiveStep = parseFloat(weightStep) || 2.5;
                       const last = prev.length > 0 ? parseFloat(prev[prev.length - 1]) : 0;
-                      const newVal = isNaN(last) ? 0 : Math.round((last + effectiveStep) * 100) / 100;
+                      const newVal = isNaN(last)
+                        ? 0
+                        : Math.round((last + effectiveStep) * 100) / 100;
                       return [...prev, String(newVal)];
                     });
                   }}
