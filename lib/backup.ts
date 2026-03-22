@@ -1,8 +1,10 @@
 import { db } from './db';
 
-const BACKUP_FILENAME = 'musculucos_backup.json';
+const BACKUP_FOLDER_NAME = 'musculucos_backups';
+const BACKUP_FILE_PREFIX = 'musculucos_backup_';
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
+const MAX_BACKUPS = 10;
 
 export type BackupData = {
   version: number;
@@ -96,20 +98,70 @@ export async function importData(backup: BackupData): Promise<void> {
 
 // ── Drive helpers ─────────────────────────────────────────────────────────────
 
-async function findBackupFile(accessToken: string): Promise<string | null> {
-  const q = encodeURIComponent(`name='${BACKUP_FILENAME}' and trashed=false`);
+async function findOrCreateBackupFolder(accessToken: string): Promise<string> {
+  const q = encodeURIComponent(
+    `name='${BACKUP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  );
   const res = await fetch(`${DRIVE_FILES_URL}?q=${q}&fields=files(id)`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const json = await res.json();
-  return json.files?.[0]?.id ?? null;
+
+  if (json.files?.[0]?.id) return json.files[0].id;
+
+  // Create the folder
+  const createRes = await fetch(DRIVE_FILES_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: BACKUP_FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder',
+    }),
+  });
+
+  if (!createRes.ok) {
+    const err = await createRes.text();
+    throw new Error(`Failed to create backup folder: ${err}`);
+  }
+
+  const folder = await createRes.json();
+  return folder.id;
+}
+
+async function listBackupFiles(
+  accessToken: string,
+  folderId: string
+): Promise<Array<{ id: string; name: string; createdTime: string }>> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const res = await fetch(
+    `${DRIVE_FILES_URL}?q=${q}&orderBy=createdTime+desc&fields=files(id,name,createdTime)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const json = await res.json();
+  return json.files ?? [];
+}
+
+async function deleteFile(accessToken: string, fileId: string): Promise<void> {
+  await fetch(`${DRIVE_FILES_URL}/${fileId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }
 
 export async function uploadToDrive(accessToken: string, data: BackupData): Promise<void> {
-  const body = JSON.stringify(data);
-  const metadata = JSON.stringify({ name: BACKUP_FILENAME, mimeType: 'application/json' });
+  const folderId = await findOrCreateBackupFolder(accessToken);
 
-  const existingId = await findBackupFile(accessToken);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `${BACKUP_FILE_PREFIX}${timestamp}.json`;
+  const body = JSON.stringify(data);
+  const metadata = JSON.stringify({
+    name: filename,
+    mimeType: 'application/json',
+    parents: [folderId],
+  });
 
   const boundary = 'backup_boundary';
   const multipart =
@@ -117,12 +169,8 @@ export async function uploadToDrive(accessToken: string, data: BackupData): Prom
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n` +
     `--${boundary}--`;
 
-  const url = existingId
-    ? `${DRIVE_UPLOAD_URL}/${existingId}?uploadType=multipart`
-    : `${DRIVE_UPLOAD_URL}?uploadType=multipart`;
-
-  const res = await fetch(url, {
-    method: existingId ? 'PATCH' : 'POST',
+  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart`, {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': `multipart/related; boundary=${boundary}`,
@@ -134,27 +182,45 @@ export async function uploadToDrive(accessToken: string, data: BackupData): Prom
     const err = await res.text();
     throw new Error(`Drive upload failed: ${err}`);
   }
+
+  // Prune old backups beyond MAX_BACKUPS
+  const files = await listBackupFiles(accessToken, folderId);
+  const toDelete = files.slice(MAX_BACKUPS);
+  await Promise.all(toDelete.map((f) => deleteFile(accessToken, f.id)));
+}
+
+export type BackupEntry = { id: string; name: string; createdTime: string };
+
+export async function listBackups(accessToken: string): Promise<BackupEntry[]> {
+  const folderId = await findOrCreateBackupFolder(accessToken);
+  return listBackupFiles(accessToken, folderId);
 }
 
 export async function downloadFromDrive(accessToken: string): Promise<BackupData> {
-  const fileId = await findBackupFile(accessToken);
-  if (!fileId) throw new Error('No backup found on Google Drive.');
+  const files = await listBackups(accessToken);
+  if (files.length === 0) throw new Error('No backup found on Google Drive.');
+  return downloadFromDriveById(accessToken, files[0].id);
+}
 
+export async function downloadFromDriveById(
+  accessToken: string,
+  fileId: string
+): Promise<BackupData> {
   const res = await fetch(`${DRIVE_FILES_URL}/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-
   if (!res.ok) throw new Error(`Drive download failed: ${res.status}`);
-
   return res.json();
 }
 
-export async function getBackupInfo(accessToken: string): Promise<{ modifiedTime: string } | null> {
-  const q = encodeURIComponent(`name='${BACKUP_FILENAME}' and trashed=false`);
-  const res = await fetch(`${DRIVE_FILES_URL}?q=${q}&fields=files(id,modifiedTime)`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const json = await res.json();
-  const file = json.files?.[0];
-  return file ? { modifiedTime: file.modifiedTime } : null;
+export async function getBackupInfo(
+  accessToken: string
+): Promise<{ modifiedTime: string; count: number } | null> {
+  const folderId = await findOrCreateBackupFolder(accessToken).catch(() => null);
+  if (!folderId) return null;
+
+  const files = await listBackupFiles(accessToken, folderId);
+  if (files.length === 0) return null;
+
+  return { modifiedTime: files[0].createdTime, count: files.length };
 }

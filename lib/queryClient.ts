@@ -11,3 +11,12 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Tracks which date ranges the home screen has prefetched.
+// Kept here so restore can clear it alongside the query cache.
+export const prefetchedRanges = new Set<string>();
+
+export function clearAllCaches() {
+  queryClient.clear();
+  prefetchedRanges.clear();
+}

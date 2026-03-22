@@ -11,11 +11,19 @@ try {
       shouldSetBadge: false,
     }),
   });
+  if (Platform.OS === 'android') {
+    Notifications!.setNotificationChannelAsync('rest-timer', {
+      name: 'Rest Timer',
+      importance: Notifications!.AndroidImportance.HIGH,
+      sound: null,
+    });
+  }
 } catch {
   // Native module not available in this build
 }
 
 const NOTIF_ID = 'rest-timer';
+const CHANNEL_ID = 'rest-timer';
 let _permGranted: boolean | null = null;
 
 async function ensurePermission(): Promise<boolean> {
@@ -39,7 +47,7 @@ export async function postRestNotification(elapsedSeconds = 0, blockName = ''): 
       title: blockName ? `Resting · ${blockName}` : 'Resting',
       body: timeStr,
       ...(Platform.OS === 'android' && {
-        android: { ongoing: true, color: '#a855f7' },
+        android: { sticky: true, color: '#a855f7', channelId: CHANNEL_ID },
       }),
     },
     trigger: null,

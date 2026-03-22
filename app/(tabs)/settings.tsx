@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { PrefsDAL } from '@/lib/db';
 import {
@@ -11,12 +11,15 @@ import {
   type GoogleUser,
 } from '@/lib/googleAuth';
 import {
-  downloadFromDrive,
+  type BackupEntry,
+  downloadFromDriveById,
   exportData,
   getBackupInfo,
   importData,
+  listBackups,
   uploadToDrive,
 } from '@/lib/backup';
+import { clearAllCaches } from '@/lib/queryClient';
 
 // Replace with your actual Web Client ID from Google Cloud Console
 const WEB_CLIENT_ID = '245792984579-bsq4di63h6clvuv85bk11e706pp2u5ku.apps.googleusercontent.com';
@@ -26,7 +29,11 @@ configureGoogleSignIn(WEB_CLIENT_ID);
 export default function Settings() {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [backupCount, setBackupCount] = useState<number | null>(null);
   const [loading, setLoading] = useState<'backup' | 'restore' | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerEntries, setPickerEntries] = useState<BackupEntry[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
   const [bodyGender, setBodyGender] = useState<'male' | 'female'>('male');
   const [weightPrefill, setWeightPrefill] = useState<'last_set' | 'first_set'>('last_set');
   const [defaultWeightMode, setDefaultWeightMode] = useState<'total' | 'per_side'>('total');
@@ -61,7 +68,10 @@ export default function Settings() {
       const result = await signInWithGoogle();
       setUser(result.user);
       const info = await getBackupInfo(result.accessToken);
-      if (info) setLastBackup(info.modifiedTime);
+      if (info) {
+        setLastBackup(info.modifiedTime);
+        setBackupCount(info.count);
+      }
     } catch (e: any) {
       Alert.alert('Sign-in failed', e?.message ?? JSON.stringify(e));
     }
@@ -71,32 +81,67 @@ export default function Settings() {
     await signOutGoogle();
     setUser(null);
     setLastBackup(null);
+    setBackupCount(null);
   }
 
   async function handleBackup() {
     const token = await ensureSignedIn();
     if (!token) return;
-    setLoading('backup');
-    try {
-      const data = await exportData();
-      await uploadToDrive(token, data);
-      const info = await getBackupInfo(token);
-      if (info) setLastBackup(info.modifiedTime);
-      Alert.alert('Backup complete', 'Your data has been saved to Google Drive.');
-    } catch (e: any) {
-      Alert.alert('Backup failed', e.message);
-    } finally {
-      setLoading(null);
-    }
+
+    Alert.alert(
+      'Back Up Now?',
+      'A new backup will be created on Google Drive. Old backups are kept (up to 10).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Back Up',
+          onPress: async () => {
+            setLoading('backup');
+            try {
+              const data = await exportData();
+              await uploadToDrive(token, data);
+              const info = await getBackupInfo(token);
+              if (info) {
+                setLastBackup(info.modifiedTime);
+                setBackupCount(info.count);
+              }
+              Alert.alert('Backup complete', 'Your data has been saved to Google Drive.');
+            } catch (e: any) {
+              Alert.alert('Backup failed', e.message);
+            } finally {
+              setLoading(null);
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleRestore() {
     const token = await ensureSignedIn();
     if (!token) return;
 
+    setPickerLoading(true);
+    setPickerVisible(true);
+    try {
+      const entries = await listBackups(token);
+      setPickerEntries(entries);
+    } catch (e: any) {
+      setPickerVisible(false);
+      Alert.alert('Failed to load backups', e.message);
+    } finally {
+      setPickerLoading(false);
+    }
+  }
+
+  async function confirmRestore(entry: BackupEntry) {
+    setPickerVisible(false);
+    const token = await ensureSignedIn();
+    if (!token) return;
+
     Alert.alert(
-      'Restore from Drive?',
-      'This will overwrite all local workout data with your Drive backup. This cannot be undone.',
+      'Restore this backup?',
+      `${formatDate(entry.createdTime)}\n\nThis will overwrite all local workout data. This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -105,8 +150,9 @@ export default function Settings() {
           onPress: async () => {
             setLoading('restore');
             try {
-              const backup = await downloadFromDrive(token);
+              const backup = await downloadFromDriveById(token, entry.id);
               await importData(backup);
+              clearAllCaches();
               Alert.alert('Restore complete', 'Your data has been restored from Google Drive.');
             } catch (e: any) {
               Alert.alert('Restore failed', e.message);
@@ -374,6 +420,7 @@ export default function Settings() {
             {lastBackup && (
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
                 Last backup: {formatDate(lastBackup)}
+                {backupCount != null ? ` · ${backupCount}/10 saved` : ''}
               </Text>
             )}
           </TouchableOpacity>
@@ -392,6 +439,76 @@ export default function Settings() {
           </TouchableOpacity>
         </View>
       </View>
+      {/* Backup picker modal */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerVisible(false)}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+          }}>
+          <View
+            style={{
+              backgroundColor: '#18181b',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: '60%',
+            }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#27272a',
+              }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
+                Choose a backup
+              </Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                <Text style={{ color: '#71717a', fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView>
+              {pickerLoading ? (
+                <Text style={{ color: '#71717a', padding: 24, textAlign: 'center' }}>
+                  Loading backups…
+                </Text>
+              ) : pickerEntries.length === 0 ? (
+                <Text style={{ color: '#71717a', padding: 24, textAlign: 'center' }}>
+                  No backups found.
+                </Text>
+              ) : (
+                pickerEntries.map((entry, i) => (
+                  <TouchableOpacity
+                    key={entry.id}
+                    onPress={() => confirmRestore(entry)}
+                    style={{
+                      padding: 16,
+                      borderBottomWidth: i < pickerEntries.length - 1 ? 1 : 0,
+                      borderBottomColor: '#27272a',
+                    }}>
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>
+                      {formatDate(entry.createdTime)}
+                    </Text>
+                    {i === 0 && (
+                      <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>
+                        Latest
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

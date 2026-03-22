@@ -14,7 +14,7 @@ import { addDays, differenceInDays, format, startOfDay } from 'date-fns';
 import type { ICarouselInstance } from 'react-native-reanimated-carousel';
 
 import { WorkoutDAL, db, initDB } from '@/lib/db';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, prefetchedRanges } from '@/lib/queryClient';
 import type { Workout, Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
 import AddExercise from '../../add_exercise';
@@ -27,9 +27,6 @@ const ITEM_COUNT = 2000;
 const INITIAL_INDEX = ITEM_COUNT / 2;
 const CAROUSEL_DATA = [...new Array(ITEM_COUNT).keys()];
 
-// Track which date ranges have been fetched to avoid duplicate DB queries
-const _fetched = new Set<string>();
-
 function workoutKey(date: string) {
   return ['workout', date] as const;
 }
@@ -40,8 +37,8 @@ async function prefetchRange(centerDate: Date) {
   const startDate = format(addDays(centerDate, -range), 'yyyy-MM-dd');
   const endDate = format(addDays(centerDate, range), 'yyyy-MM-dd');
   const rangeKey = `${startDate}_${endDate}`;
-  if (_fetched.has(rangeKey)) return;
-  _fetched.add(rangeKey);
+  if (prefetchedRanges.has(rangeKey)) return;
+  prefetchedRanges.add(rangeKey);
   try {
     const rows = await db.getAllAsync<{ date: string }>(
       'SELECT date FROM workouts WHERE date BETWEEN ? AND ?',
@@ -66,7 +63,7 @@ async function prefetchRange(centerDate: Date) {
       })
     );
   } catch (err) {
-    _fetched.delete(rangeKey);
+    prefetchedRanges.delete(rangeKey);
     console.error('Failed to prefetch range:', err);
   }
 }

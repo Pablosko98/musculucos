@@ -9,6 +9,9 @@
       "android": {
         "buildType": "apk"
       },
+      "env": {
+        "APP_VARIANT": "development"
+      },
       "ios": {
         "simulator": true
       }
@@ -17,6 +20,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "preview"
       }
     },
     "production": {}
