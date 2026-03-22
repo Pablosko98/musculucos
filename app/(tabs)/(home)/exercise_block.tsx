@@ -665,10 +665,15 @@ export default function ExerciseBlock() {
     setBarWeightInput(exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '');
   }, [activeExerciseId]);
 
-  // Tick every second to drive the live rest counter
+  // Tick every second to drive the live rest counter; also fire once when
+  // the timer transitions active→inactive so the row clears even if the
+  // finalise callback didn't trigger a state update (e.g. background event).
   useEffect(() => {
+    let wasActive = restTimer.isActiveBlock(localBlock.id);
     const interval = setInterval(() => {
-      if (restTimer.isActiveBlock(localBlock.id)) setTick((t) => t + 1);
+      const isActive = restTimer.isActiveBlock(localBlock.id);
+      if (isActive || wasActive) setTick((t) => t + 1);
+      wasActive = isActive;
     }, 1000);
     return () => clearInterval(interval);
   }, [localBlock.id]);

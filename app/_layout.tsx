@@ -31,7 +31,7 @@ function useNotificationHandlers() {
         router.push('/exercise_block');
       },
       onFinish: () => {
-        const elapsed = restTimer.elapsed();
+        const elapsed = Math.max(restTimer.elapsed(), 1);
         restTimer.finalizeForBlock(elapsed);
         restTimer.clear();
       },
