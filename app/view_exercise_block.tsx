@@ -71,9 +71,11 @@ function ViewExerciseBlock({
     const totalRest = exerciseBlock.events
       .filter((e): e is import('@/lib/types').RestEvent => e.type === 'rest')
       .reduce((sum, e) => sum + e.durationSeconds, 0);
-    const variantLabels = (exerciseBlock.exercises ?? [])
-      .filter((ex) => ex.equipment)
-      .map((ex) => variantLabel(ex));
+    const variantLabels = [...new Set(
+      (exerciseBlock.exercises ?? [])
+        .filter((ex) => ex.equipment)
+        .map((ex) => variantLabel(ex))
+    )];
     return { sets: workingSetEvents.length, volume, totalRest, variantLabels };
   }, [exerciseBlock]);
 
@@ -107,9 +109,9 @@ function ViewExerciseBlock({
         <Activity size={20} color="#22c55e" />
       </View>
       <View className="flex-row flex-wrap gap-2">
-        {blockSummary.variantLabels.map((label) => (
+        {blockSummary.variantLabels.map((label, i) => (
           <View
-            key={label}
+            key={`${label}-${i}`}
             className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1">
             <Text className="text-[9px] font-black uppercase tracking-widest text-blue-400">
               {label}

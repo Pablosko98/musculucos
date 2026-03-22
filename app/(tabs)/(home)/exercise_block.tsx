@@ -385,6 +385,9 @@ export default function ExerciseBlock() {
 
   const activeExercise = exerciseMap.get(activeExerciseId);
   const exerciseDefaultBase = activeExercise?.baseWeightKg ?? 0;
+  const isSuperset = localBlock.exerciseIds.length > 1;
+  const activeExerciseIndex = localBlock.exerciseIds.indexOf(activeExerciseId);
+  const isLastInRound = isSuperset && activeExerciseIndex === localBlock.exerciseIds.length - 1;
   // Hierarchy: workout override → exercise default → global default
   const isPerSide =
     localPerSide ??
@@ -579,11 +582,10 @@ export default function ExerciseBlock() {
     });
     setLocalBlock(nextBlock);
     saveEditedBlock?.(dateString, nextBlock);
-    if (activeExerciseId === initialBlock?.exerciseIds?.[0] && initialBlock?.exerciseIds?.[1]) {
-      handleChangeActiveExercise(initialBlock.exerciseIds[1], nextBlock);
-    } else {
-      handleChangeActiveExercise(initialBlock?.exerciseIds?.[0] ?? activeExerciseId, nextBlock);
-    }
+    const ids = localBlock.exerciseIds;
+    const curIdx = ids.indexOf(activeExerciseId);
+    const nextIdx = (curIdx + 1) % Math.max(ids.length, 1);
+    handleChangeActiveExercise(ids[nextIdx] ?? activeExerciseId, nextBlock);
   };
 
   const deleteCurrent = () => {
@@ -749,11 +751,10 @@ export default function ExerciseBlock() {
       saveEditedBlock?.(dateString, finalized);
     });
     restTimer.start(localBlock.id, dateString, currentDefaultRest, localBlock.name);
-    if (activeExerciseId === initialBlock?.exerciseIds?.[0] && initialBlock?.exerciseIds?.[1]) {
-      handleChangeActiveExercise(initialBlock.exerciseIds[1], nextBlock);
-    } else {
-      handleChangeActiveExercise(initialBlock?.exerciseIds?.[0] ?? activeExerciseId, nextBlock);
-    }
+    const ids = localBlock.exerciseIds;
+    const curIdx = ids.indexOf(activeExerciseId);
+    const nextIdx = (curIdx + 1) % Math.max(ids.length, 1);
+    handleChangeActiveExercise(ids[nextIdx] ?? activeExerciseId, nextBlock);
   };
 
   const renderEvent = useCallback(
@@ -974,7 +975,9 @@ export default function ExerciseBlock() {
               textTransform: 'uppercase',
               letterSpacing: 1.2,
             }}>
-            Active Exercise
+            {isSuperset
+              ? `Superset · ${activeExerciseIndex + 1} of ${localBlock.exerciseIds.length}`
+              : 'Active Exercise'}
           </Text>
           <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900', lineHeight: 24 }}>
             {activeExercise?.name || localBlock.name}
@@ -1102,7 +1105,7 @@ export default function ExerciseBlock() {
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}>
-                {exerciseMap.get(id) ? variantLabel(exerciseMap.get(id)!) : id}
+                {exerciseMap.get(id) ? exerciseMap.get(id)!.name : id}
               </Text>
             </Pressable>
           ))}
@@ -1319,9 +1322,17 @@ export default function ExerciseBlock() {
                   onPress={deleteCurrent}>
                   <Trash2 color="white" />
                 </Button>
-              ) : (
+              ) : isSuperset && !isLastInRound ? (
+                /* Superset mid-round: log set and advance to next exercise */
+                <Button
+                  className="h-16 flex-1 flex-row gap-2 rounded-[24px] bg-blue-600"
+                  onPress={handleAddNewSet}>
+                  <Text className="text-sm font-black text-white">Next Exercise</Text>
+                  <ChevronRight color="white" size={18} strokeWidth={3} />
+                </Button>
+              ) : isSuperset && isLastInRound ? (
+                /* Superset last exercise: finish round */
                 <>
-                  {/* Secondary: log set without rest (drop sets / supersets) */}
                   <Button
                     variant="outline"
                     className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
@@ -1329,7 +1340,23 @@ export default function ExerciseBlock() {
                     <Plus color="#71717a" strokeWidth={3} size={18} />
                     <Text className="text-[8px] font-black uppercase text-zinc-600">no rest</Text>
                   </Button>
-                  {/* Primary: log set + start rest timer */}
+                  <Button
+                    className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
+                    onPress={handleAddSetWithTimer}>
+                    <Timer color="white" size={16} />
+                    <Text className="text-sm font-black text-white">Done Round</Text>
+                  </Button>
+                </>
+              ) : (
+                /* Standard block */
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
+                    onPress={handleAddNewSet}>
+                    <Plus color="#71717a" strokeWidth={3} size={18} />
+                    <Text className="text-[8px] font-black uppercase text-zinc-600">no rest</Text>
+                  </Button>
                   <Button
                     className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
                     onPress={handleAddSetWithTimer}>
