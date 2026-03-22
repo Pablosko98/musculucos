@@ -28,8 +28,8 @@ import {
   ChevronDown,
   ChevronUp,
   Minus,
+  Pencil,
   Plus,
-  Scale,
   Square,
   Timer,
   Trash2,
@@ -328,7 +328,6 @@ export default function ExerciseBlock() {
   const [editRestValue, setEditRestValue] = useState(0);
   const [localPerSide, setLocalPerSide] = useState<boolean | null>(null);
   const [globalWeightMode, setGlobalWeightMode] = useState<'total' | 'per_side'>('total');
-  const [barWeightInput, setBarWeightInput] = useState('');
 
   // History state
   const [historyData, setHistoryData] = useState<HistoryWorkout[]>([]);
@@ -386,9 +385,6 @@ export default function ExerciseBlock() {
 
   const activeExercise = exerciseMap.get(activeExerciseId);
   const exerciseDefaultBase = activeExercise?.baseWeightKg ?? 0;
-  const parsedBarInput = barWeightInput.trim() !== '' ? parseFloat(barWeightInput) : NaN;
-  const effectiveBaseWeight = !isNaN(parsedBarInput) ? parsedBarInput : exerciseDefaultBase;
-  const isLocalBarOverride = !isNaN(parsedBarInput) && parsedBarInput !== exerciseDefaultBase;
   // Exercise-level 'per_side' overrides global; 'total' or null falls back to global
   const isPerSide =
     localPerSide ??
@@ -490,7 +486,7 @@ export default function ExerciseBlock() {
       localBlock,
       historyData,
       prefillMode,
-      effectiveBaseWeight,
+      exerciseDefaultBase,
       weightMultiplier
     );
     setInputWeight(weight);
@@ -509,7 +505,7 @@ export default function ExerciseBlock() {
           if (sub) {
             sub.weightKg =
               Math.round(
-                ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+                ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
               ) / 100;
             sub.reps = parseInt(inputReps) || 0;
             sub.rep_type = repType;
@@ -518,7 +514,7 @@ export default function ExerciseBlock() {
       });
       setLocalBlock(nextBlock);
     }
-  }, [inputWeight, inputReps, repType, barWeightInput, localPerSide]);
+  }, [inputWeight, inputReps, repType, localPerSide]);
 
   const handleFinishEditing = () => {
     saveEditedBlock?.(dateString, localBlock);
@@ -531,7 +527,6 @@ export default function ExerciseBlock() {
     setLocalPerSide(null);
     const ex = exerciseMap.get(id);
     const newBase = ex?.baseWeightKg ?? 0;
-    setBarWeightInput(newBase > 0 ? String(newBase) : '');
     setCurrentDefaultRest(ex?.defaultRestSeconds ?? DEFAULT_RESTS[id] ?? DEFAULT_RESTS['default']);
     const block = blockOverride ?? localBlock;
     const newIsPerSide =
@@ -565,7 +560,7 @@ export default function ExerciseBlock() {
       exerciseId: activeExerciseId,
       weightKg:
         Math.round(
-          ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+          ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
         ) / 100,
       reps: parseInt(inputReps) || 0,
       rpe: 0,
@@ -661,9 +656,6 @@ export default function ExerciseBlock() {
     localBlockRef.current = localBlock;
   }, [localBlock]);
 
-  useEffect(() => {
-    setBarWeightInput(exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '');
-  }, [activeExerciseId]);
 
   // Tick every second to drive the live rest counter; also fire once when
   // the timer transitions active→inactive so the row clears even if the
@@ -714,7 +706,7 @@ export default function ExerciseBlock() {
       exerciseId: activeExerciseId,
       weightKg:
         Math.round(
-          ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+          ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
         ) / 100,
       reps: parseInt(inputReps) || 0,
       rpe: 0,
@@ -778,67 +770,76 @@ export default function ExerciseBlock() {
             drag();
           }}
           disabled={isActive}
-          className={`mb-4 ${isActive ? 'opacity-50' : ''}`}>
+          className={`mb-2 ${isActive ? 'opacity-50' : ''}`}>
           {item.type === 'set' ? (
-            <View className="rounded-[32px] border border-zinc-800 bg-zinc-900 p-4">
-              <View className="mb-3 flex-row items-center justify-between px-1">
-                <Text className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                  Training Set
-                </Text>
-                <Text className="text-[10px] font-bold text-zinc-700">{item.datetime}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1, gap: 4 }}>
-                {item.subSets?.map((sub: SubSet, index: number) => {
-                  const isEditing = editing?.subSetId === sub.id;
-                  const exerciseMeta = sub.exercise ?? exerciseMap.get(sub.exerciseId);
-                  const displayWeight = isEditing ? inputWeight : sub.weightKg;
-                  const displayReps = isEditing ? inputReps : sub.reps;
-                  return (
-                    <Pressable
-                      key={sub.id}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        if (isEditing) {
-                          handleFinishEditing();
-                          return;
-                        }
-                        setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
-                        handleChangeActiveExercise(sub.exerciseId);
-                        setInputWeight(
-                          String(
-                            Math.max(
-                              ((sub.weightKg || 0) - effectiveBaseWeight) / weightMultiplier,
-                              0
-                            )
+            (() => {
+              const multiSet = (item.subSets?.length ?? 0) > 1;
+              const subSetCards = item.subSets?.map((sub: SubSet, index: number) => {
+                const isEditing = editing?.subSetId === sub.id;
+                const exerciseMeta = sub.exercise ?? exerciseMap.get(sub.exerciseId);
+                const displayWeight = isEditing ? inputWeight : sub.weightKg;
+                const displayReps = isEditing ? inputReps : sub.reps;
+                return (
+                  <Pressable
+                    key={sub.id}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      if (isEditing) {
+                        handleFinishEditing();
+                        return;
+                      }
+                      setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
+                      handleChangeActiveExercise(sub.exerciseId);
+                      setInputWeight(
+                        String(
+                          Math.max(
+                            ((sub.weightKg || 0) - exerciseDefaultBase) / weightMultiplier,
+                            0
                           )
-                        );
-                        setInputReps(sub.reps.toString());
-                        setRepType(sub.rep_type || 'full');
-                      }}
-                      style={{ flex: 1, minWidth: 140 }}
-                      className={`rounded-2xl border px-4 py-3 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
-                      <View className="mb-1 flex-row items-center justify-between gap-4">
-                        <Text
-                          numberOfLines={1}
-                          className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                          {exerciseMeta?.name || sub.exerciseId}
-                        </Text>
-                        <Text
-                          className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                          | {sub.rep_type}{' '}
-                        </Text>
-                      </View>
+                        )
+                      );
+                      setInputReps(sub.reps.toString());
+                      setRepType(sub.rep_type || 'full');
+                    }}
+                    style={{ flex: 1, minWidth: 120 }}
+                    className={`rounded-2xl border px-3 py-2 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
                       <Text
-                        className={`text-lg font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
-                        <Text className="text-green-500">{index + 1}. </Text>
-                        {displayWeight}
-                        <Text className="text-xs text-zinc-500">kg</Text> × {displayReps}
+                        numberOfLines={1}
+                        className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                        {exerciseMeta?.name || sub.exerciseId}
                       </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+                      <Text
+                        className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                        {sub.rep_type}
+                      </Text>
+                    </View>
+                    <Text
+                      className={`text-base font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
+                      <Text className="text-green-500">{index + 1}. </Text>
+                      {displayWeight}
+                      <Text className="text-xs text-zinc-500">kg</Text> × {displayReps}
+                    </Text>
+                  </Pressable>
+                );
+              });
+              if (!multiSet) {
+                return <View style={{ flexDirection: 'row' }}>{subSetCards}</View>;
+              }
+              return (
+                <View
+                  style={{
+                    borderWidth: 0.5,
+                    borderColor: '#27272a',
+                    borderRadius: 20,
+                    overflow: 'hidden',
+                  }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, padding: 6 }}>
+                    {subSetCards}
+                  </View>
+                </View>
+              );
+            })()
           ) : restTimer.isActiveBlock(localBlock.id) && item.durationSeconds === 0 ? (
             // ── Active rest row ──
             <View className="overflow-hidden rounded-2xl border border-purple-500/40 bg-purple-900/20">
@@ -918,9 +919,9 @@ export default function ExerciseBlock() {
                 setEditingRestId(item.id);
                 setEditRestValue(item.durationSeconds);
               }}
-              className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 p-3">
-              <Zap size={12} color="#a855f7" />
-              <Text className="text-xs font-black uppercase text-purple-400">
+              className="flex-row items-center justify-center gap-1.5 rounded-xl border border-purple-500/20 bg-purple-900/10 py-2">
+              <Zap size={10} color="#a855f7" />
+              <Text className="text-[10px] font-black uppercase text-purple-400">
                 {formatDuration(item.durationSeconds)} Rest
               </Text>
             </Pressable>
@@ -939,8 +940,7 @@ export default function ExerciseBlock() {
       localBlock,
       tick,
       currentDefaultRest,
-      effectiveBaseWeight,
-      barWeightInput,
+      exerciseDefaultBase,
       localPerSide,
       weightMultiplier,
     ]
@@ -990,9 +990,10 @@ export default function ExerciseBlock() {
             </Text>
           )}
         </View>
-        {activeExercise?.videoUrl ? (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
-            onPress={() => Linking.openURL(activeExercise.videoUrl!)}
+            onPress={() => router.push(`/create_exercise?exerciseId=${activeExerciseId}`)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{
               height: 44,
               width: 44,
@@ -1000,12 +1001,28 @@ export default function ExerciseBlock() {
               justifyContent: 'center',
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: 'rgba(220,38,38,0.2)',
-              backgroundColor: 'rgba(220,38,38,0.1)',
+              borderColor: 'rgba(113,113,122,0.25)',
+              backgroundColor: 'rgba(39,39,42,0.6)',
             }}>
-            <Youtube color="#dc2626" size={20} />
+            <Pencil color="#71717a" size={17} />
           </Pressable>
-        ) : null}
+          {activeExercise?.videoUrl ? (
+            <Pressable
+              onPress={() => Linking.openURL(activeExercise.videoUrl!)}
+              style={{
+                height: 44,
+                width: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(220,38,38,0.2)',
+                backgroundColor: 'rgba(220,38,38,0.1)',
+              }}>
+              <Youtube color="#dc2626" size={20} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {/* Tab bar */}
@@ -1113,7 +1130,7 @@ export default function ExerciseBlock() {
             keyExtractor={(item) => item.id}
             renderItem={renderEvent}
             containerStyle={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            contentContainerStyle={{ padding: 12, paddingBottom: 8 }}
           />
 
           {/* Bottom control panel */}
@@ -1219,9 +1236,9 @@ export default function ExerciseBlock() {
               </View>
             </View>
 
-            {(effectiveBaseWeight > 0 || isPerSide) && (
+            {(exerciseDefaultBase > 0 || isPerSide) && (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-                {effectiveBaseWeight > 0 && (
+                {exerciseDefaultBase > 0 && (
                   <View
                     style={{
                       flexDirection: 'row',
@@ -1229,34 +1246,19 @@ export default function ExerciseBlock() {
                       gap: 5,
                       borderRadius: 10,
                       borderWidth: 1,
-                      borderColor: isLocalBarOverride ? 'rgba(217,119,6,0.4)' : '#27272a',
-                      backgroundColor: isLocalBarOverride ? 'rgba(28,21,3,0.8)' : '#18181b',
+                      borderColor: '#27272a',
+                      backgroundColor: '#18181b',
                       paddingHorizontal: 8,
                       paddingVertical: 4,
                     }}>
-                    <Scale size={11} color={isLocalBarOverride ? '#d97706' : '#52525b'} />
                     <Text
                       style={{
-                        color: isLocalBarOverride ? '#d97706' : '#71717a',
+                        color: '#71717a',
                         fontSize: 12,
                         fontWeight: '700',
-                        marginLeft: 4,
                       }}>
-                      {effectiveBaseWeight}kg bar
+                      {exerciseDefaultBase}kg bar
                     </Text>
-                    {isLocalBarOverride && (
-                      <Text
-                        style={{
-                          color: '#d97706',
-                          fontSize: 9,
-                          fontWeight: '900',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          marginLeft: 3,
-                        }}>
-                        local
-                      </Text>
-                    )}
                   </View>
                 )}
                 {isPerSide && (
@@ -1294,19 +1296,10 @@ export default function ExerciseBlock() {
                     )}
                   </View>
                 )}
-                {isLocalBarOverride && (
-                  <Pressable
-                    onPress={() =>
-                      setBarWeightInput(exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '')
-                    }
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺ reset</Text>
-                  </Pressable>
-                )}
                 <View style={{ flex: 1 }} />
                 <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '700' }}>
                   {Math.round(
-                    ((parseFloat(inputWeight) || 0) * weightMultiplier + effectiveBaseWeight) * 100
+                    ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
                   ) / 100}
                   kg total
                 </Text>
@@ -1366,74 +1359,6 @@ export default function ExerciseBlock() {
                       </Text>
                     </Pressable>
                   ))}
-                </View>
-
-                {/* Bar weight — local override */}
-                <View
-                  style={{
-                    borderTopWidth: 1,
-                    borderTopColor: '#27272a',
-                    marginTop: 12,
-                    paddingTop: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}>
-                  <Scale size={12} color="#52525b" />
-                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600' }}>
-                    Bar weight
-                  </Text>
-                  <View
-                    style={{
-                      flex: 1,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: isLocalBarOverride ? 'rgba(217,119,6,0.4)' : '#27272a',
-                      backgroundColor: '#09090b',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      gap: 6,
-                    }}>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      value={barWeightInput}
-                      onChangeText={setBarWeightInput}
-                      placeholder={exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : '0'}
-                      placeholderTextColor="#3f3f46"
-                      style={{
-                        flex: 1,
-                        color: isLocalBarOverride ? '#d97706' : '#71717a',
-                        fontSize: 13,
-                        fontWeight: '700',
-                      }}
-                    />
-                    <Text style={{ color: '#3f3f46', fontSize: 11 }}>kg</Text>
-                    {isLocalBarOverride && (
-                      <Text
-                        style={{
-                          color: '#d97706',
-                          fontSize: 9,
-                          fontWeight: '900',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.4,
-                        }}>
-                        local
-                      </Text>
-                    )}
-                  </View>
-                  {isLocalBarOverride && (
-                    <Pressable
-                      onPress={() =>
-                        setBarWeightInput(
-                          exerciseDefaultBase > 0 ? String(exerciseDefaultBase) : ''
-                        )
-                      }
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
-                    </Pressable>
-                  )}
                 </View>
 
                 {/* Per side toggle */}
