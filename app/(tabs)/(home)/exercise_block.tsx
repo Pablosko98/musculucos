@@ -385,7 +385,7 @@ export default function ExerciseBlock() {
 
   const activeExercise = exerciseMap.get(activeExerciseId);
   const exerciseDefaultBase = activeExercise?.baseWeightKg ?? 0;
-  // Exercise-level 'per_side' overrides global; 'total' or null falls back to global
+  // Hierarchy: workout override → exercise default → global default
   const isPerSide =
     localPerSide ??
     (activeExercise?.weightMode === 'per_side'
@@ -530,12 +530,7 @@ export default function ExerciseBlock() {
     setCurrentDefaultRest(ex?.defaultRestSeconds ?? DEFAULT_RESTS[id] ?? DEFAULT_RESTS['default']);
     const block = blockOverride ?? localBlock;
     const newIsPerSide =
-      localPerSide ??
-      (ex?.weightMode === 'per_side'
-        ? true
-        : ex?.weightMode === 'total'
-          ? false
-          : globalWeightMode === 'per_side');
+      ex?.weightMode === 'per_side' ? true : ex?.weightMode === 'total' ? false : globalWeightMode === 'per_side';
     const newMultiplier = newIsPerSide ? 2 : 1;
     const { weight, reps } = getDefaultInputs(
       id,
@@ -1291,7 +1286,7 @@ export default function ExerciseBlock() {
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
                         }}>
-                        local
+                        override
                       </Text>
                     )}
                   </View>
@@ -1405,7 +1400,7 @@ export default function ExerciseBlock() {
                           textTransform: 'uppercase',
                           letterSpacing: 0.4,
                         }}>
-                        local
+                        override
                       </Text>
                     )}
                   </Pressable>

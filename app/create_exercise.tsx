@@ -555,7 +555,7 @@ export default function CreateExercise() {
   const [emphasis, setEmphasis] = useState<Emphasis[]>([{ muscle: '', role: 'primary' }]);
   const [defaultRestSeconds, setDefaultRestSeconds] = useState<number | null>(null);
   const [baseWeightKg, setBaseWeightKg] = useState('');
-  const [weightMode, setWeightMode] = useState<'total' | 'per_side'>('total');
+  const [weightMode, setWeightMode] = useState<'total' | 'per_side' | null>(null);
   const [weightStep, setWeightStep] = useState('');
   const [weightStackItems, setWeightStackItems] = useState<string[]>([]);
   const [showAdvancedStack, setShowAdvancedStack] = useState(false);
@@ -610,7 +610,7 @@ export default function CreateExercise() {
           setDefaultRestSeconds(ex.defaultRestSeconds ?? null);
           setBaseWeightKg(ex.baseWeightKg != null ? String(ex.baseWeightKg) : '');
           originalBaseWeightRef.current = ex.baseWeightKg ?? null;
-          setWeightMode(ex.weightMode === 'per_side' ? 'per_side' : 'total');
+          setWeightMode(ex.weightMode ?? null);
           setWeightStep(ex.weightStep != null ? String(ex.weightStep) : '');
           if (ex.weightStack && ex.weightStack.length > 0) {
             setWeightStackItems(ex.weightStack.map(String));
@@ -1068,11 +1068,11 @@ export default function CreateExercise() {
               Per side: enter weight for one side (e.g. 12kg dumbbell → stores 24kg total)
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {(['total', 'per_side'] as const).map((mode) => {
+              {([null, 'total', 'per_side'] as const).map((mode) => {
                 const active = weightMode === mode;
                 return (
                   <TouchableOpacity
-                    key={mode}
+                    key={String(mode)}
                     onPress={() => setWeightMode(mode)}
                     style={[
                       chipStyle,
@@ -1082,7 +1082,7 @@ export default function CreateExercise() {
                       },
                     ]}>
                     <Text style={{ color: active ? '#fff' : '#a1a1aa', fontSize: 14, fontWeight: active ? '600' : '400' }}>
-                      {mode === 'total' ? 'Total weight' : 'Per side'}
+                      {mode === null ? 'Global' : mode === 'total' ? 'Total' : 'Per side'}
                     </Text>
                   </TouchableOpacity>
                 );
