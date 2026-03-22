@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { workouts } from './workouts';
 import { exercises as baseExercises, MUSCLE_GROUP_MAP, type Exercise } from './exercises';
-import type { Block, WorkoutEvent, Workout, SubSet } from './types';
+import type { Block, WorkoutEvent, Workout, SubSet, Routine, RoutineExercise } from './types';
 
 export const db = SQLite.openDatabaseSync('workouts.db');
 
@@ -16,6 +16,7 @@ type BlockRow = {
   exerciseIds: string;
   sets: number;
   datetime: string;
+  alternativeExerciseOptions: string | null;
 };
 type EventRow = {
   id: number;
@@ -123,6 +124,21 @@ export const initDB = () => {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS routines (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      [order] INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS routine_exercises (
+      id TEXT PRIMARY KEY NOT NULL,
+      routineId TEXT NOT NULL,
+      [order] INTEGER DEFAULT 0,
+      exerciseGroups TEXT NOT NULL,
+      FOREIGN KEY (routineId) REFERENCES routines (id) ON DELETE CASCADE
+    );
   `);
 
   // ── Migrations ────────────────────────────────────────────────────────────
@@ -140,6 +156,22 @@ export const initDB = () => {
     db.execSync('ALTER TABLE exercises ADD COLUMN weightStack TEXT DEFAULT NULL');
   } catch {}
   try { db.execSync('ALTER TABLE exercises DROP COLUMN baseId'); } catch {}
+  try { db.execSync('ALTER TABLE blocks ADD COLUMN alternativeExerciseOptions TEXT DEFAULT NULL'); } catch {}
+  // Backfill equipmentVariant for exercises that previously had none
+  try {
+    db.execSync(`
+      UPDATE exercises SET equipmentVariant = 'Wide Grip'  WHERE id = 'lat_pulldown_wide_cable'        AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Close Grip' WHERE id = 'lat_pulldown_close_grip_cable'  AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'V-Bar'      WHERE id = 'tricep_pushdown_vbar_cable'     AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Rope'       WHERE id = 'tricep_pushdown_rope_cable'     AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Rope'       WHERE id = 'overhead_tricep_ext_rope_cable' AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Lying'      WHERE id = 'leg_curl_lying_machine'         AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Seated'     WHERE id = 'leg_curl_seated_machine'        AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Standing'   WHERE id = 'calf_raise_standing_machine'    AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Seated'     WHERE id = 'calf_raise_seated_machine'      AND (equipmentVariant IS NULL OR equipmentVariant = '');
+      UPDATE exercises SET equipmentVariant = 'Goblet'     WHERE id = 'squat_goblet_dumbbell'          AND (equipmentVariant IS NULL OR equipmentVariant = '');
+    `);
+  } catch {}
   // db.execSync(`UPDATE events SET rep_type = 'half' WHERE rep_type IN ('top half', 'bot half', 'top 1/2', 'bot 1/2')`);
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -150,10 +182,15 @@ export const initDB = () => {
   // Clean up any rest events left at 0s by a force-quit during an active rest
   db.execSync(`DELETE FROM events WHERE type = 'rest' AND durationSeconds = 0`);
 
-  // Seed base exercises on first install (no-op if already seeded)
-  // Deferred so ExerciseDAL is defined by the time this runs
-  setTimeout(() => {
-    ExerciseDAL.seedBaseExercises().catch((e) => console.error('Exercise seed failed:', e));
+  // Seed base exercises on first install (no-op if already seeded).
+  // Run sequentially to avoid concurrent transaction conflicts.
+  setTimeout(async () => {
+    try {
+      await ExerciseDAL.seedBaseExercises();
+      await RoutineDAL.seedSampleRoutines();
+    } catch (e) {
+      console.error('Seed failed:', e);
+    }
   }, 0);
 };
 let saveQueue = Promise.resolve();
@@ -211,7 +248,7 @@ export const WorkoutDAL = {
           // 3. Loop through blocks and insert
           for (const block of workout.blocks) {
             await db.runAsync(
-              'INSERT INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+              'INSERT INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime, alternativeExerciseOptions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
               [
                 block.id,
                 workout.id,
@@ -221,6 +258,7 @@ export const WorkoutDAL = {
                 JSON.stringify(block.exerciseIds),
                 block.sets,
                 block.datetime,
+                block.alternativeExerciseOptions ? JSON.stringify(block.alternativeExerciseOptions) : null,
               ]
             );
 
@@ -347,6 +385,9 @@ export const WorkoutDAL = {
           resolvedExercises.length > 0
             ? resolvedExercises.map((e) => e.name).join(' / ')
             : block.name;
+        const alternativeExerciseOptions: string[][] | null = block.alternativeExerciseOptions
+          ? JSON.parse(block.alternativeExerciseOptions)
+          : null;
         return {
           ...block,
           name: freshName,
@@ -354,6 +395,7 @@ export const WorkoutDAL = {
           exerciseIds,
           exercises: resolvedExercises,
           events: formattedEvents,
+          alternativeExerciseOptions,
         };
       })
     );
@@ -782,6 +824,207 @@ export const PrefsDAL = {
   },
   async set(key: string, value: string): Promise<void> {
     await db.runAsync('INSERT OR REPLACE INTO prefs (key, value) VALUES (?, ?)', [key, value]);
+  },
+};
+
+// ─── RoutineDAL ───────────────────────────────────────────────────────────────
+
+type RoutineRow = { id: string; name: string; description: string | null; order: number };
+type RoutineExerciseRow = { id: string; routineId: string; order: number; exerciseGroups: string };
+
+export const RoutineDAL = {
+  async getAll(): Promise<Routine[]> {
+    const routineRows = await db.getAllAsync<RoutineRow>(
+      'SELECT * FROM routines ORDER BY [order] ASC'
+    );
+    if (routineRows.length === 0) return [];
+    const exRows = await db.getAllAsync<RoutineExerciseRow>(
+      'SELECT * FROM routine_exercises ORDER BY routineId, [order] ASC'
+    );
+    const exByRoutine = new Map<string, RoutineExercise[]>();
+    for (const r of exRows) {
+      if (!exByRoutine.has(r.routineId)) exByRoutine.set(r.routineId, []);
+      exByRoutine.get(r.routineId)!.push({
+        id: r.id,
+        routineId: r.routineId,
+        order: r.order,
+        exerciseGroups: JSON.parse(r.exerciseGroups),
+      });
+    }
+    return routineRows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description ?? '',
+      order: r.order,
+      exercises: exByRoutine.get(r.id) ?? [],
+    }));
+  },
+
+  async save(routine: Routine): Promise<void> {
+    await db.runAsync(
+      'INSERT OR REPLACE INTO routines (id, name, description, [order]) VALUES (?, ?, ?, ?)',
+      [routine.id, routine.name, routine.description ?? '', routine.order]
+    );
+    await db.runAsync('DELETE FROM routine_exercises WHERE routineId = ?', [routine.id]);
+    for (const ex of routine.exercises) {
+      await db.runAsync(
+        'INSERT INTO routine_exercises (id, routineId, [order], exerciseGroups) VALUES (?, ?, ?, ?)',
+        [ex.id, routine.id, ex.order, JSON.stringify(ex.exerciseGroups)]
+      );
+    }
+  },
+
+  async delete(id: string): Promise<void> {
+    await db.runAsync('DELETE FROM routines WHERE id = ?', [id]);
+  },
+
+  async seedSampleRoutines(): Promise<void> {
+    const existing = await db.getFirstAsync('SELECT id FROM routines LIMIT 1');
+    if (existing) return;
+
+    const push: Routine = {
+      id: 'routine_push',
+      name: 'Push',
+      description: 'Chest, shoulders & triceps',
+      order: 0,
+      exercises: [
+        {
+          id: 're_push_1',
+          routineId: 'routine_push',
+          order: 0,
+          exerciseGroups: [
+            ['incline_press_barbell', 'incline_press_dumbbell', 'bench_press_barbell', 'bench_press_dumbbell'],
+          ],
+        },
+        {
+          id: 're_push_2',
+          routineId: 'routine_push',
+          order: 1,
+          exerciseGroups: [
+            ['chest_fly_cable', 'chest_fly_dumbbell', 'pec_deck_machine'],
+          ],
+        },
+        {
+          id: 're_push_3',
+          routineId: 'routine_push',
+          order: 2,
+          exerciseGroups: [
+            ['tricep_pushdown_rope_cable', 'tricep_pushdown_vbar_cable'],
+          ],
+        },
+        {
+          id: 're_push_4',
+          routineId: 'routine_push',
+          order: 3,
+          exerciseGroups: [
+            ['overhead_tricep_ext_rope_cable', 'overhead_tricep_ext_dumbbell', 'skull_crusher_ez_bar'],
+          ],
+        },
+        {
+          id: 're_push_5',
+          routineId: 'routine_push',
+          order: 4,
+          exerciseGroups: [
+            ['lateral_raise_dumbbell', 'lateral_raise_cable'],
+          ],
+        },
+        {
+          id: 're_push_6',
+          routineId: 'routine_push',
+          order: 5,
+          exerciseGroups: [
+            ['overhead_press_barbell', 'overhead_press_dumbbell', 'overhead_press_machine'],
+          ],
+        },
+      ],
+    };
+
+    const pull: Routine = {
+      id: 'routine_pull',
+      name: 'Pull',
+      description: 'Back & biceps',
+      order: 1,
+      exercises: [
+        {
+          id: 're_pull_1',
+          routineId: 'routine_pull',
+          order: 0,
+          exerciseGroups: [
+            ['lat_pulldown_wide_cable', 'lat_pulldown_close_grip_cable'],
+          ],
+        },
+        {
+          id: 're_pull_2',
+          routineId: 'routine_pull',
+          order: 1,
+          exerciseGroups: [
+            ['seated_cable_row', 'bent_over_row_barbell', 't_bar_row_machine'],
+          ],
+        },
+        {
+          id: 're_pull_3',
+          routineId: 'routine_pull',
+          order: 2,
+          exerciseGroups: [
+            ['preacher_curl_ez_bar', 'preacher_curl_dumbbell'],
+          ],
+        },
+        {
+          id: 're_pull_4',
+          routineId: 'routine_pull',
+          order: 3,
+          exerciseGroups: [
+            ['hammer_curl_dumbbell', 'hammer_curl_cable'],
+          ],
+        },
+      ],
+    };
+
+    const legs: Routine = {
+      id: 'routine_legs',
+      name: 'Legs',
+      description: 'Quads, hamstrings & calves',
+      order: 2,
+      exercises: [
+        {
+          id: 're_legs_1',
+          routineId: 'routine_legs',
+          order: 0,
+          exerciseGroups: [
+            ['leg_press_machine'],
+            ['calf_raise_standing_machine', 'calf_raise_seated_machine'],
+          ],
+        },
+        {
+          id: 're_legs_2',
+          routineId: 'routine_legs',
+          order: 1,
+          exerciseGroups: [
+            ['romanian_deadlift_barbell', 'romanian_deadlift_dumbbell'],
+          ],
+        },
+        {
+          id: 're_legs_3',
+          routineId: 'routine_legs',
+          order: 2,
+          exerciseGroups: [
+            ['leg_curl_lying_machine', 'leg_curl_seated_machine'],
+          ],
+        },
+        {
+          id: 're_legs_4',
+          routineId: 'routine_legs',
+          order: 3,
+          exerciseGroups: [
+            ['leg_extension_machine'],
+          ],
+        },
+      ],
+    };
+
+    for (const routine of [push, pull, legs]) {
+      await RoutineDAL.save(routine);
+    }
   },
 };
 

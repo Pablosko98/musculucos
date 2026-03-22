@@ -3,6 +3,26 @@ import type { Exercise } from './exercises';
 export type RepType = 'warmup' | 'full' | 'half' | 'assisted';
 export type BlockType = 'standard' | 'superset';
 
+// ─── Routine Types ────────────────────────────────────────────────────────────
+
+// One "slot" in a routine = one block when added to a workout.
+// exerciseGroups[i] = ordered list of [primaryId, alt1Id, alt2Id, ...] for each
+// exercise in the slot. Length 1 = regular set; length 2+ = superset.
+export type RoutineExercise = {
+  id: string;
+  routineId: string;
+  order: number;
+  exerciseGroups: string[][];
+};
+
+export type Routine = {
+  id: string;
+  name: string;
+  description: string;
+  order: number;
+  exercises: RoutineExercise[];
+};
+
 export type SubSet = {
   id: string;
   blockId: string;
@@ -45,6 +65,9 @@ export type Block = {
   sets: number;
   datetime: string;
   events: WorkoutEvent[];
+  // Per-exercise alternative options from a routine; index matches exerciseIds.
+  // Each entry is [primaryId, alt1Id, alt2Id, ...] for that exercise slot.
+  alternativeExerciseOptions?: string[][] | null;
 };
 
 export type Workout = {

@@ -13,7 +13,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { addDays, differenceInDays, format, startOfDay } from 'date-fns';
 import type { ICarouselInstance } from 'react-native-reanimated-carousel';
 
-import { WorkoutDAL, db, initDB } from '@/lib/db';
+import { WorkoutDAL, ExerciseDAL, db, initDB } from '@/lib/db';
 import { queryClient, prefetchedRanges } from '@/lib/queryClient';
 import type { Workout, Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
@@ -110,11 +110,55 @@ export function deleteBlock(dateString: string, blockId: string) {
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 
+export function doLaterBlock(dateString: string, blockId: string) {
+  const workout = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+  if (!workout) return;
+  const block = workout.blocks.find((b) => b.id === blockId);
+  if (!block) return;
+  const others = workout.blocks.filter((b) => b.id !== blockId);
+  const updated: Workout = {
+    ...workout,
+    blocks: [...others, { ...block, order: others.length }].map((b, i) => ({ ...b, order: i })),
+  };
+  queryClient.setQueryData(workoutKey(dateString), updated);
+  WorkoutDAL.saveFullWorkout(updated).catch(console.error);
+}
+
+export async function switchAlternative(
+  dateString: string,
+  blockId: string,
+  exerciseIndex: number,
+  newExerciseId: string
+) {
+  const workout = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+  if (!workout) return;
+  const block = workout.blocks.find((b) => b.id === blockId);
+  if (!block) return;
+  const [newExercise] = await ExerciseDAL.getByIds([newExerciseId]);
+  if (!newExercise) return;
+  const newExerciseIds = [...block.exerciseIds];
+  newExerciseIds[exerciseIndex] = newExerciseId;
+  const newExercises = [...block.exercises];
+  newExercises[exerciseIndex] = newExercise;
+  const updatedBlock: Block = {
+    ...block,
+    exerciseIds: newExerciseIds,
+    exercises: newExercises,
+    name: newExercises.map((e) => e.name).join(' / '),
+  };
+  const updated: Workout = {
+    ...workout,
+    blocks: workout.blocks.map((b) => (b.id === blockId ? updatedBlock : b)),
+  };
+  queryClient.setQueryData(workoutKey(dateString), updated);
+  WorkoutDAL.saveFullWorkout(updated).catch(console.error);
+}
+
 export function addExercise(dateString: string, selectedExercises: Exercise[]) {
   if (!selectedExercises || selectedExercises.length === 0) return;
   const existing = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
   const workoutId = existing?.id ?? `workout-${Date.now()}`;
-  const newBlock = {
+  const newBlock: Block = {
     id: `block-${Date.now()}`,
     workoutId,
     order: existing ? existing.blocks.length : 0,
@@ -143,6 +187,29 @@ export function addExercise(dateString: string, selectedExercises: Exercise[]) {
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 
+export function addRoutineBlocks(dateString: string, newBlocks: Block[]) {
+  if (!newBlocks || newBlocks.length === 0) return;
+  const existing = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+  const workoutId = existing?.id ?? `workout-${Date.now()}`;
+  const startOrder = existing?.blocks.length ?? 0;
+  const assignedBlocks = newBlocks.map((b, i) => ({
+    ...b,
+    workoutId,
+    order: startOrder + i,
+    id: `block_${Date.now()}_${i}`,
+  }));
+  const updated: Workout = {
+    durationSeconds: 0,
+    notes: '',
+    ...existing,
+    id: workoutId,
+    date: dateString,
+    blocks: [...(existing?.blocks ?? []), ...assignedBlocks],
+  };
+  queryClient.setQueryData(workoutKey(dateString), updated);
+  WorkoutDAL.saveFullWorkout(updated).catch(console.error);
+}
+
 // ─── WorkoutCard ──────────────────────────────────────────────────────────────
 // useQuery returns cached data synchronously if available → zero flash.
 
@@ -159,6 +226,21 @@ function WorkoutCard({ index }: { index: number }) {
   });
 
   const hasBlocks = !!dailyWorkout && dailyWorkout.blocks.length > 0;
+
+  // Active (has events) blocks first sorted by first-event datetime ascending
+  // (oldest completion at top, newest at bottom of done section), then ghosts.
+  const sortedBlocks = hasBlocks
+    ? [
+        ...dailyWorkout.blocks
+          .filter((b) => b.events.length > 0)
+          .sort((a, b) => {
+            const aTime = a.events[0]?.datetime ?? '';
+            const bTime = b.events[0]?.datetime ?? '';
+            return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+          }),
+        ...dailyWorkout.blocks.filter((b) => b.events.length === 0),
+      ]
+    : [];
 
   const relativeLabel =
     dayDiff === 0
@@ -193,7 +275,7 @@ function WorkoutCard({ index }: { index: number }) {
 
         <ScrollView className="flex-1 px-4">
           {hasBlocks ? (
-            dailyWorkout.blocks.map((block: any) => (
+            sortedBlocks.map((block: any) => (
               <ViewExerciseBlock
                 key={block.id}
                 exerciseBlock={block}
@@ -201,6 +283,11 @@ function WorkoutCard({ index }: { index: number }) {
                 dateString={dateString}
                 exerciseList={block.exercises ?? []}
                 onDeleteBlock={(blockId) => deleteBlock(dateString, blockId)}
+                onDoLater={(blockId) => doLaterBlock(dateString, blockId)}
+                onDismiss={(blockId) => deleteBlock(dateString, blockId)}
+                onSwitchAlternative={(blockId, exerciseIndex, newExerciseId) =>
+                  switchAlternative(dateString, blockId, exerciseIndex, newExerciseId)
+                }
               />
             ))
           ) : (
@@ -215,7 +302,7 @@ function WorkoutCard({ index }: { index: number }) {
             dateString={dateString}
             onAdd={(exercises) => addExercise(dateString, exercises)}
           />
-          <AddRoutine onAdd={() => {}} />
+          <AddRoutine onAdd={(blocks) => addRoutineBlocks(dateString, blocks)} />
         </View>
       </Card>
     </View>

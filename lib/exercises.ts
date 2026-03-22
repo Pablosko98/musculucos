@@ -186,6 +186,7 @@ export const exercises: Exercise[] = [
     id: 'lat_pulldown_wide_cable',
     name: 'Lat Pulldown',
     equipment: 'cable',
+    equipmentVariant: 'Wide Grip',
     description: 'Wide overhand grip. Emphasises lat width.',
     muscleEmphasis: [
       { muscle: 'back', head: 'lats', role: 'primary' },
@@ -197,6 +198,7 @@ export const exercises: Exercise[] = [
     id: 'lat_pulldown_close_grip_cable',
     name: 'Lat Pulldown',
     equipment: 'cable',
+    equipmentVariant: 'Close Grip',
     description: 'Neutral/close grip. Longer ROM and more biceps recruitment.',
     muscleEmphasis: [
       { muscle: 'back', head: 'lats', role: 'primary' },
@@ -498,6 +500,7 @@ export const exercises: Exercise[] = [
     id: 'tricep_pushdown_vbar_cable',
     name: 'Tricep Pushdown',
     equipment: 'cable',
+    equipmentVariant: 'V-Bar',
     description: 'V-bar attachment. Arms at sides → lateral and medial head dominant.',
     muscleEmphasis: [
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
@@ -509,6 +512,7 @@ export const exercises: Exercise[] = [
     id: 'tricep_pushdown_rope_cable',
     name: 'Tricep Pushdown',
     equipment: 'cable',
+    equipmentVariant: 'Rope',
     description: 'Rope attachment. Flare hands at bottom increases lateral head contraction.',
     muscleEmphasis: [
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
@@ -519,6 +523,7 @@ export const exercises: Exercise[] = [
     id: 'overhead_tricep_ext_rope_cable',
     name: 'Overhead Tricep Extension',
     equipment: 'cable',
+    equipmentVariant: 'Rope',
     description: 'Overhead = long head fully stretched. Most effective for long head mass.',
     muscleEmphasis: [
       { muscle: 'triceps', head: 'long_head', role: 'primary' },
@@ -587,6 +592,7 @@ export const exercises: Exercise[] = [
     id: 'squat_goblet_dumbbell',
     name: 'Squat',
     equipment: 'dumbbell',
+    equipmentVariant: 'Goblet',
     description: 'Goblet hold promotes upright torso → greater quad emphasis.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
@@ -640,6 +646,7 @@ export const exercises: Exercise[] = [
     id: 'leg_curl_lying_machine',
     name: 'Leg Curl',
     equipment: 'machine',
+    equipmentVariant: 'Lying',
     description: 'Prone (lying). Hip extended → biceps femoris (outer hamstring) dominant.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'hamstrings', role: 'primary' },
@@ -650,6 +657,7 @@ export const exercises: Exercise[] = [
     id: 'leg_curl_seated_machine',
     name: 'Leg Curl',
     equipment: 'machine',
+    equipmentVariant: 'Seated',
     description: 'Seated. Hip flexed → medial hamstrings more active and deeper stretch.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'hamstrings', role: 'primary' },
@@ -670,6 +678,7 @@ export const exercises: Exercise[] = [
     id: 'calf_raise_standing_machine',
     name: 'Calf Raise',
     equipment: 'machine',
+    equipmentVariant: 'Standing',
     description: 'Knee straight → gastrocnemius dominant (crosses knee and ankle).',
     muscleEmphasis: [
       { muscle: 'legs', head: 'calves', role: 'primary' },
@@ -681,6 +690,7 @@ export const exercises: Exercise[] = [
     id: 'calf_raise_seated_machine',
     name: 'Calf Raise',
     equipment: 'machine',
+    equipmentVariant: 'Seated',
     description: 'Knee bent → gastrocnemius is slack → soleus isolated.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'calves', role: 'primary' },
