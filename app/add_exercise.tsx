@@ -149,8 +149,15 @@ const EQUIPMENT_ORDER = [
   'kettlebell',
 ];
 
-export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: Exercise[]) => void; dateString: string }) {
+export default function AddExercise({
+  onAdd,
+  dateString,
+}: {
+  onAdd: (exercises: Exercise[]) => void;
+  dateString: string;
+}) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedSubFilter, setSelectedSubFilter] = useState<SubFilter | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
@@ -209,7 +216,9 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
       const pendingIds = takePendingExerciseAdd(dateString);
       if (!pendingIds || pendingIds.length === 0) return;
       ExerciseDAL.getAll().then((all) => {
-        const exercises = pendingIds.map((id) => all.find((e) => e.id === id)).filter(Boolean) as Exercise[];
+        const exercises = pendingIds
+          .map((id) => all.find((e) => e.id === id))
+          .filter(Boolean) as Exercise[];
         if (exercises.length > 0) onAdd(exercises);
       });
     }, [dateString, onAdd])
@@ -221,11 +230,14 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
     [dbExercises, groupMap]
   );
 
-  // Groups matching search only — base for deriving available filter options
-  const searchFiltered = useMemo(
-    () => allGroups.filter((g) => g.name.toLowerCase().includes(searchQuery.toLowerCase())),
-    [allGroups, searchQuery]
-  );
+  // Groups matching search + fav filter — base for deriving available filter options
+  const searchFiltered = useMemo(() => {
+    let result = allGroups.filter((g) => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (showFavsOnly) {
+      result = result.filter((g) => g.variants.some((v) => v.isFavourite === 1));
+    }
+    return result;
+  }, [allGroups, searchQuery, showFavsOnly]);
 
   // Muscle group chips: only show groups present in (search + equipment) filtered results
   const availableGroupIds = useMemo(
@@ -306,6 +318,7 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
   const resetAndClose = () => {
     setOpen(false);
     setSearchQuery('');
+    setShowFavsOnly(false);
     setStaged([]);
     setSelectedGroup(null);
     setSelectedSubFilter(null);
@@ -403,10 +416,25 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
                 onPress={() => {
                   setSelectedGroup(null);
                   setSelectedSubFilter(null);
+                  setShowFavsOnly(false);
                 }}
                 style={chipStyle}
-                className={!selectedGroup ? 'bg-orange-600' : 'bg-neutral-800'}>
+                className={!selectedGroup && !showFavsOnly ? 'bg-orange-600' : 'bg-neutral-800'}>
                 <Text className="text-xs font-semibold text-white">All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowFavsOnly(!showFavsOnly)}
+                style={[
+                  chipStyle,
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: showFavsOnly ? '#78350f' : '#3f3f46',
+                  },
+                ]}>
+                <Star size={10} color="#f59e0b" fill={showFavsOnly ? '#f59e0b' : 'transparent'} />
+                <Text className="text-xs font-semibold text-white">Fav</Text>
               </TouchableOpacity>
               {allFilterGroups
                 .filter((fg) => availableGroupIds.has(fg.groupId) || fg.groupId === selectedGroup)
@@ -489,9 +517,9 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
           {/* Exercise list */}
           <ScrollView style={{ flex: 1 }}>
             {filteredGroups.map((group) => {
-              const displayVariants = selectedEquipment
-                ? group.variants.filter((v) => v.equipment === selectedEquipment)
-                : group.variants;
+              const displayVariants = group.variants
+                .filter((v) => !selectedEquipment || v.equipment === selectedEquipment)
+                .filter((v) => !showFavsOnly || v.isFavourite === 1);
               const isGroupStaged = displayVariants.some((v) => staged.some((s) => s.id === v.id));
               return (
                 <TouchableOpacity
@@ -499,7 +527,10 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
                   activeOpacity={0.7}
                   onLongPress={() => {
                     if (displayVariants.length === 1) {
-                      pendingNav.current = { pathname: '/create_exercise', params: { exerciseId: displayVariants[0].id, autoAdd: 'true', dateString } };
+                      pendingNav.current = {
+                        pathname: '/create_exercise',
+                        params: { exerciseId: displayVariants[0].id, autoAdd: 'true', dateString },
+                      };
                       resetAndClose();
                     }
                   }}
@@ -516,9 +547,6 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
                       className={`text-lg font-medium ${isGroupStaged ? 'text-orange-400' : 'text-white'}`}>
                       {group.name}
                     </Text>
-                    {displayVariants.some((v) => v.isFavourite) && (
-                      <Star size={14} color="#f59e0b" fill="#f59e0b" />
-                    )}
                   </View>
                   <Text className="mb-3 mt-0.5 text-xs uppercase tracking-widest text-neutral-500">
                     {group.primaryMuscles.map(formatMuscle).join(' · ')}
@@ -531,7 +559,10 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
                           key={variant.id}
                           onPress={() => handleSelect(variant)}
                           onLongPress={() => {
-                            pendingNav.current = { pathname: '/create_exercise', params: { exerciseId: variant.id, autoAdd: 'true', dateString } };
+                            pendingNav.current = {
+                              pathname: '/create_exercise',
+                              params: { exerciseId: variant.id, autoAdd: 'true', dateString },
+                            };
                             resetAndClose();
                           }}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
@@ -553,7 +584,10 @@ export default function AddExercise({ onAdd, dateString }: { onAdd: (exercises: 
             <TouchableOpacity
               className="border-b border-neutral-900 px-5 py-4 active:bg-neutral-800"
               onPress={() => {
-                pendingNav.current = { pathname: '/create_exercise', params: { autoAdd: 'true', dateString } };
+                pendingNav.current = {
+                  pathname: '/create_exercise',
+                  params: { autoAdd: 'true', dateString },
+                };
                 resetAndClose();
               }}>
               <Text style={{ color: '#ea580c', fontWeight: '600' }}>+ Create new exercise</Text>

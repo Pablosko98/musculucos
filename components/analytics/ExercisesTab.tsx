@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Search, X } from 'lucide-react-native';
+import { Search, X, Star } from 'lucide-react-native';
 import type { Exercise } from '@/lib/exercises';
 import { EQUIPMENT_COLORS, variantLabel, fmtEquipment, fmt } from './analyticsUtils';
 
@@ -56,10 +56,14 @@ function GroupCard({
                   borderRadius: 8,
                   paddingHorizontal: 11,
                   paddingVertical: 5,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
                 }}>
                 <Text style={{ color: colors.text, fontSize: 13, fontWeight: '500' }}>
                   {variantLabel(v)}
                 </Text>
+                {!!v.isFavourite && <Star size={11} color="#f59e0b" fill="#f59e0b" />}
               </TouchableOpacity>
             );
           })}
@@ -83,10 +87,19 @@ export function ExercisesTab({
   onSelectVariant: (v: Exercise) => void;
 }) {
   const [search, setSearch] = useState('');
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
 
-  const filtered = search.trim()
-    ? groups.filter((g) => g.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : groups;
+  const filtered = useMemo(() => {
+    let result = search.trim()
+      ? groups.filter((g) => g.name.toLowerCase().includes(search.trim().toLowerCase()))
+      : groups;
+    if (showFavsOnly) {
+      result = result
+        .map((g) => ({ ...g, variants: g.variants.filter((v) => v.isFavourite === 1) }))
+        .filter((g) => g.variants.length > 0);
+    }
+    return result;
+  }, [groups, search, showFavsOnly]);
 
   return (
     <>
@@ -119,6 +132,28 @@ export function ExercisesTab({
           </TouchableOpacity>
         )}
       </View>
+      <TouchableOpacity
+        onPress={() => setShowFavsOnly(!showFavsOnly)}
+        activeOpacity={0.7}
+        style={{
+          marginHorizontal: 16,
+          marginBottom: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          alignSelf: 'flex-start',
+          paddingHorizontal: 12,
+          paddingVertical: 5,
+          borderRadius: 100,
+          backgroundColor: showFavsOnly ? '#78350f' : '#27272a',
+          borderWidth: 1,
+          borderColor: showFavsOnly ? '#f59e0b' : '#3f3f46',
+        }}>
+        <Star size={12} color="#f59e0b" fill={showFavsOnly ? '#f59e0b' : 'transparent'} />
+        <Text style={{ color: showFavsOnly ? '#fbbf24' : '#a1a1aa', fontSize: 13, fontWeight: showFavsOnly ? '600' : '400' }}>
+          Favourites
+        </Text>
+      </TouchableOpacity>
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.baseId}

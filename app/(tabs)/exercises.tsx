@@ -1,12 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  Animated,
-} from 'react-native';
+import { View, ScrollView, FlatList, TouchableOpacity, TextInput, Animated } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -27,12 +20,12 @@ const EQUIPMENT_LABELS: Record<string, string> = {
   ez_bar: 'EZ Bar',
 };
 const EQUIPMENT_COLORS: Record<string, { bg: string; text: string }> = {
-  barbell:    { bg: '#1c2e4a', text: '#60a5fa' },
-  dumbbell:   { bg: '#162d22', text: '#4ade80' },
-  cable:      { bg: '#2a1a3e', text: '#c084fc' },
-  machine:    { bg: '#2e1f0a', text: '#fb923c' },
+  barbell: { bg: '#1c2e4a', text: '#60a5fa' },
+  dumbbell: { bg: '#162d22', text: '#4ade80' },
+  cable: { bg: '#2a1a3e', text: '#c084fc' },
+  machine: { bg: '#2e1f0a', text: '#fb923c' },
   bodyweight: { bg: '#0f2e2e', text: '#2dd4bf' },
-  ez_bar:     { bg: '#2e1021', text: '#f472b6' },
+  ez_bar: { bg: '#2e1021', text: '#f472b6' },
 };
 const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs'];
 
@@ -60,7 +53,10 @@ function variantLabel(ex: Exercise): string {
   }
   const suffix = ex.id.startsWith(`${ex.baseId}_`) ? ex.id.slice(ex.baseId.length + 1) : '';
   if (suffix) {
-    return suffix.replace('ez_bar', 'EZ Bar').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return suffix
+      .replace('ez_bar', 'EZ Bar')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return fmtEquipment(ex.equipment);
 }
@@ -122,15 +118,13 @@ function FilterChip({
         backgroundColor: active ? accent : '#27272a',
         borderWidth: 1,
         borderColor: active ? accent : '#3f3f46',
-      }}
-    >
+      }}>
       <Text
         style={{
           color: active ? '#fff' : '#a1a1aa',
           fontSize: compact ? 13 : 14,
           fontWeight: active ? '600' : '400',
-        }}
-      >
+        }}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -156,8 +150,7 @@ function ExerciseGroupCard({
         borderWidth: 1,
         borderColor: '#27272a',
         overflow: 'hidden',
-      }}
-    >
+      }}>
       {/* Card header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 }}>
         <Text style={{ color: '#fafafa', fontSize: 17, fontWeight: '600', letterSpacing: -0.3 }}>
@@ -172,8 +165,7 @@ function ExerciseGroupCard({
                 paddingVertical: 2,
                 borderRadius: 100,
                 backgroundColor: '#27272a',
-              }}
-            >
+              }}>
               <Text style={{ color: '#71717a', fontSize: 11 }}>{fmtMuscle(m)}</Text>
             </View>
           ))}
@@ -199,23 +191,23 @@ function ExerciseGroupCard({
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
-            }}
-          >
-            {/* Equipment pill */}
-            <View
-              style={{
-                paddingHorizontal: 9,
-                paddingVertical: 4,
-                borderRadius: 7,
-                backgroundColor: colors.bg,
-                minWidth: 84,
-                alignItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500' }}>
-                {variantLabel(variant)}
-              </Text>
+            }}>
+            {/* Equipment pill + fav star */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+              <View
+                style={{
+                  paddingHorizontal: 9,
+                  paddingVertical: 4,
+                  borderRadius: 7,
+                  backgroundColor: colors.bg,
+                  minWidth: 84,
+                  alignItems: 'center',
+                }}>
+                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500' }}>
+                  {variantLabel(variant)}
+                </Text>
+              </View>
+              {!!variant.isFavourite && <Star size={13} color="#f59e0b" fill="#f59e0b" />}
             </View>
 
             {/* Stats */}
@@ -223,7 +215,7 @@ function ExerciseGroupCard({
               {trained ? (
                 <>
                   <Text style={{ color: '#f4f4f5', fontSize: 14, fontWeight: '500' }}>
-                    {formatBest(stat, variant.equipment)}
+                    Best: {formatBest(stat, variant.equipment)}
                   </Text>
                   <Text style={{ color: '#52525b', fontSize: 12, marginTop: 2 }}>
                     {stat.workoutCount} {stat.workoutCount === 1 ? 'session' : 'sessions'}
@@ -238,12 +230,8 @@ function ExerciseGroupCard({
               )}
             </View>
 
-            {/* Edit icon (custom only) or favourite indicator */}
-            {canEdit ? (
-              <Pencil size={15} color="#52525b" />
-            ) : !!variant.isFavourite ? (
-              <Star size={15} color="#f59e0b" fill="#f59e0b" />
-            ) : null}
+            {/* Edit icon (custom only) */}
+            {canEdit && <Pencil size={15} color="#52525b" />}
           </View>
         );
 
@@ -253,9 +241,7 @@ function ExerciseGroupCard({
               <View style={{ height: 1, backgroundColor: '#27272a', marginHorizontal: 16 }} />
             )}
             {canEdit ? (
-              <TouchableOpacity
-                activeOpacity={0.6}
-                onPress={() => onEditVariant!(variant.id)}>
+              <TouchableOpacity activeOpacity={0.6} onPress={() => onEditVariant!(variant.id)}>
                 {rowContent}
               </TouchableOpacity>
             ) : (
@@ -282,6 +268,7 @@ export default function Exercises() {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubMuscleFilter | null>(null);
   const [activeEquipment, setActiveEquipment] = useState<string | null>(null);
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
 
   const subAnim = useRef(new Animated.Value(0)).current;
   const subVisible = useRef(false);
@@ -313,7 +300,9 @@ export default function Exercises() {
           if (!cancelled) setLoading(false);
         }
       })();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [])
   );
 
@@ -331,9 +320,10 @@ export default function Exercises() {
   }, [activeGroup]);
 
   const muscleGroups = useMemo(
-    () => Object.entries(MUSCLE_GROUP_MAP)
-      .map(([id, { groupLabel }]) => ({ id, label: groupLabel }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
+    () =>
+      Object.entries(MUSCLE_GROUP_MAP)
+        .map(([id, { groupLabel }]) => ({ id, label: groupLabel }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
     []
   );
 
@@ -360,7 +350,9 @@ export default function Exercises() {
   const subOptions = allSubOptions[activeGroup ?? lastGroupRef.current ?? ''] ?? [];
 
   const equipmentOptions = useMemo(() => {
-    return Array.from(new Set(allExercises.map((e) => e.equipment))).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set(allExercises.map((e) => e.equipment))).sort((a, b) =>
+      a.localeCompare(b)
+    );
   }, [allExercises]);
 
   const filteredGroups = useMemo((): ExerciseGroup[] => {
@@ -375,33 +367,43 @@ export default function Exercises() {
 
     for (const [baseId, variants] of baseMap) {
       const matching = variants.filter((ex) => {
-        if (q && !ex.name.toLowerCase().includes(q) && !ex.equipment.toLowerCase().includes(q)) return false;
+        if (q && !ex.name.toLowerCase().includes(q) && !ex.equipment.toLowerCase().includes(q))
+          return false;
         if (activeGroup) {
-          if (!ex.muscleEmphasis.some((em) => em.role === 'primary' && em.muscle === activeGroup)) return false;
+          if (!ex.muscleEmphasis.some((em) => em.role === 'primary' && em.muscle === activeGroup))
+            return false;
         }
         if (activeSub) {
-          if (!ex.muscleEmphasis.some(
-            (em) =>
-              em.role === 'primary' &&
-              em.muscle === activeSub.muscle &&
-              (activeSub.head ? em.head === activeSub.head : true)
-          )) return false;
+          if (
+            !ex.muscleEmphasis.some(
+              (em) =>
+                em.role === 'primary' &&
+                em.muscle === activeSub.muscle &&
+                (activeSub.head ? em.head === activeSub.head : true)
+            )
+          )
+            return false;
         }
         if (activeEquipment && ex.equipment !== activeEquipment) return false;
+        if (showFavsOnly && !(ex.isFavourite === 1)) return false;
         return true;
       });
 
       if (matching.length === 0) continue;
 
       const primaryMuscles = Array.from(
-        new Set(variants.flatMap((v) => v.muscleEmphasis.filter((e) => e.role === 'primary').map((e) => e.muscle)))
+        new Set(
+          variants.flatMap((v) =>
+            v.muscleEmphasis.filter((e) => e.role === 'primary').map((e) => e.muscle)
+          )
+        )
       ).filter((m) => MUSCLE_GROUP_MAP[m]);
 
       groups.push({ baseId, name: variants[0].name, variants: matching, primaryMuscles });
     }
 
     return groups;
-  }, [allExercises, search, activeGroup, activeSub, activeEquipment]);
+  }, [allExercises, search, activeGroup, activeSub, activeEquipment, showFavsOnly]);
 
   const handleGroupPress = (id: string) => {
     const next = activeGroup === id ? null : id;
@@ -420,7 +422,6 @@ export default function Exercises() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#09090b', paddingTop: insets.top }}>
-
       {/* ── Header ── */}
       <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
         {searchOpen ? (
@@ -434,8 +435,7 @@ export default function Exercises() {
               paddingVertical: 10,
               borderWidth: 1,
               borderColor: '#3f3f46',
-            }}
-          >
+            }}>
             <Search size={17} color="#71717a" />
             <TextInput
               autoFocus
@@ -446,15 +446,19 @@ export default function Exercises() {
               style={{ flex: 1, color: '#fafafa', fontSize: 16, marginLeft: 8 }}
             />
             <TouchableOpacity
-              onPress={() => { setSearch(''); setSearchOpen(false); }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
+              onPress={() => {
+                setSearch('');
+                setSearchOpen(false);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={17} color="#71717a" />
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
+          <View
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text
+              style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
               Exercises
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -466,8 +470,7 @@ export default function Exercises() {
                   borderRadius: 10,
                   borderWidth: 1,
                   borderColor: '#27272a',
-                }}
-              >
+                }}>
                 <Plus size={19} color="#ea580c" />
               </TouchableOpacity>
               <TouchableOpacity
@@ -478,8 +481,7 @@ export default function Exercises() {
                   borderRadius: 10,
                   borderWidth: 1,
                   borderColor: '#27272a',
-                }}
-              >
+                }}>
                 <Search size={19} color="#a1a1aa" />
               </TouchableOpacity>
             </View>
@@ -511,7 +513,9 @@ export default function Exercises() {
         ListHeaderComponent={
           <View style={{ paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ color: '#52525b', fontSize: 13 }}>
-              {loading ? 'Loading…' : `${filteredGroups.length} ${filteredGroups.length === 1 ? 'exercise' : 'exercises'}`}
+              {loading
+                ? 'Loading…'
+                : `${filteredGroups.length} ${filteredGroups.length === 1 ? 'exercise' : 'exercises'}`}
             </Text>
             {crumbs.map((c, i) => (
               <React.Fragment key={i}>
@@ -536,8 +540,13 @@ export default function Exercises() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, gap: 7, flexDirection: 'row' }}
-        >
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: 4,
+            gap: 7,
+            flexDirection: 'row',
+          }}>
           <FilterChip
             label="Any"
             active={activeEquipment === null}
@@ -562,8 +571,12 @@ export default function Exercises() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4, gap: 7, flexDirection: 'row' }}
-          >
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingVertical: 4,
+              gap: 7,
+              flexDirection: 'row',
+            }}>
             <FilterChip
               label={`All ${MUSCLE_GROUP_MAP[activeGroup ?? lastGroupRef.current ?? '']?.groupLabel ?? ''}`}
               active={activeSub === null}
@@ -594,13 +607,28 @@ export default function Exercises() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4, paddingBottom: insets.bottom + 8, gap: 7, flexDirection: 'row' }}
-        >
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingVertical: 4,
+            paddingBottom: insets.bottom + 8,
+            gap: 7,
+            flexDirection: 'row',
+          }}>
           <FilterChip
             label="All"
-            active={activeGroup === null}
-            onPress={() => { setActiveGroup(null); setActiveSub(null); }}
+            active={activeGroup === null && !showFavsOnly}
+            onPress={() => {
+              setActiveGroup(null);
+              setActiveSub(null);
+              setShowFavsOnly(false);
+            }}
             accent="#ea580c"
+          />
+          <FilterChip
+            label="★ Fav"
+            active={showFavsOnly}
+            onPress={() => setShowFavsOnly(!showFavsOnly)}
+            accent="#f59e0b"
           />
           {muscleGroups.map((g) => (
             <FilterChip

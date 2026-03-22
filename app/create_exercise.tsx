@@ -23,7 +23,7 @@ import { ExerciseDAL, db } from '@/lib/db';
 import { setPendingExerciseAdd } from '@/lib/pending-exercise-add';
 import { MUSCLE_GROUP_MAP, HEAD_LABELS } from '@/lib/exercises';
 import type { MuscleEmphasis, MuscleRole } from '@/lib/exercises';
-import { ChevronLeft, Trash2, Plus, X } from 'lucide-react-native';
+import { ChevronLeft, Trash2, Plus, X, Star } from 'lucide-react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -552,6 +552,7 @@ export default function CreateExercise() {
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [isFavourite, setIsFavourite] = useState(false);
   // Custom equipment pill chain — each entry is a text input; always ends with ''
   const [customEquipmentTexts, setCustomEquipmentTexts] = useState<string[]>(['']);
   // Persisted custom equipment from DB (available across all exercises)
@@ -601,6 +602,7 @@ export default function CreateExercise() {
           setDescription(ex.description ?? '');
           setVideoUrl(ex.videoUrl ?? '');
           setIsCustom((ex.isCustom ?? 0) === 1);
+          setIsFavourite((ex.isFavourite ?? 0) === 1);
         }
       } finally {
         setLoading(false);
@@ -731,7 +733,7 @@ export default function CreateExercise() {
             defaultRestSeconds,
             baseWeightKg: parsedBaseWeight,
             weightMode,
-            isFavourite: 0,
+            isFavourite: isFavourite ? 1 : 0,
           });
           createdIds.push(id);
         }
@@ -807,6 +809,22 @@ export default function CreateExercise() {
         <Text style={{ flex: 1, color: '#fafafa', fontSize: 18, fontWeight: '600', marginLeft: 8 }}>
           {isEditing ? 'Edit Exercise' : 'New Exercise'}
         </Text>
+        <TouchableOpacity
+          onPress={async () => {
+            const next = !isFavourite;
+            setIsFavourite(next);
+            if (isEditing) {
+              await ExerciseDAL.setFavourite(exerciseId!, next);
+            }
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ marginRight: isEditing ? 16 : 0 }}>
+          <Star
+            size={20}
+            color="#f59e0b"
+            fill={isFavourite ? '#f59e0b' : 'transparent'}
+          />
+        </TouchableOpacity>
         {isEditing && (
           <TouchableOpacity
             onPress={handleDelete}
