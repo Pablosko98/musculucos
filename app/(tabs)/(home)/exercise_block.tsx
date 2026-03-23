@@ -842,7 +842,7 @@ export default function ExerciseBlock() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   className="flex-row items-center gap-1 rounded-xl border border-purple-500/30 bg-purple-900/30 px-3 py-1.5">
                   <Square size={10} color="#a855f7" fill="#a855f7" />
-                  <Text className="text-[10px] font-black uppercase text-purple-400">Stop</Text>
+                  <Text className="text-[10px] font-black uppercase text-purple-400">Done Resting</Text>
                 </Pressable>
               </View>
               <View style={{ height: 3, backgroundColor: 'rgba(168,85,247,0.15)' }}>

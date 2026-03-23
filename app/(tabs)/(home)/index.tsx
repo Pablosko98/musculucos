@@ -12,6 +12,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { addDays, differenceInDays, format, startOfDay } from 'date-fns';
 import type { ICarouselInstance } from 'react-native-reanimated-carousel';
 
+import { setActiveBlock } from '@/lib/block-state';
 import { WorkoutDAL, ExerciseDAL, db, initDB } from '@/lib/db';
 import { queryClient, prefetchedRanges } from '@/lib/queryClient';
 import type { Workout, Block } from '@/lib/types';
@@ -176,6 +177,13 @@ export function addExercise(dateString: string, selectedExercises: Exercise[]) {
     blocks: [...(existing?.blocks ?? []), newBlock],
   };
   queryClient.setQueryData(workoutKey(dateString), updated);
+  setActiveBlock({
+    block: newBlock,
+    dateString,
+    saveEditedBlock,
+    onDeleteBlock: (blockId) => deleteBlock(dateString, blockId),
+  });
+  router.push('/exercise_block');
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 
