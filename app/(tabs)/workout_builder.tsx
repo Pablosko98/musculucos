@@ -31,7 +31,9 @@ function fmt(s: string) {
 }
 
 function exerciseLabel(ex: Exercise): string {
-  const base = ex.equipmentVariant ? `${fmt(ex.equipmentVariant)} ${fmt(ex.equipment)}` : fmt(ex.equipment);
+  const base = ex.equipmentVariant
+    ? `${fmt(ex.equipmentVariant)} ${fmt(ex.equipment)}`
+    : fmt(ex.equipment);
   return base.trim();
 }
 
@@ -66,8 +68,21 @@ function SlotGroupEditor({
         marginBottom: 10,
       }}>
       {canRemoveGroup && (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+          }}>
+          <Text
+            style={{
+              color: '#71717a',
+              fontSize: 11,
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}>
             Exercise {groupIndex + 1}
           </Text>
           <TouchableOpacity onPress={onRemoveGroup}>
@@ -100,13 +115,23 @@ function SlotGroupEditor({
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <Text style={{ color: isPrimary ? '#93c5fd' : '#71717a', fontSize: 11, fontWeight: '800' }}>
+              <Text
+                style={{
+                  color: isPrimary ? '#93c5fd' : '#71717a',
+                  fontSize: 11,
+                  fontWeight: '800',
+                }}>
                 {i + 1}
               </Text>
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={{ color: isPrimary ? 'white' : '#a1a1aa', fontSize: 14, fontWeight: isPrimary ? '700' : '500' }}>
+              <Text
+                style={{
+                  color: isPrimary ? 'white' : '#a1a1aa',
+                  fontSize: 14,
+                  fontWeight: isPrimary ? '700' : '500',
+                }}>
                 {ex?.name ?? exId}
               </Text>
               {ex && (
@@ -124,7 +149,11 @@ function SlotGroupEditor({
                 if (isPrimary) {
                   Alert.alert('Change Primary', 'Remove this exercise?', [
                     { text: 'Cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => onChange(options.filter((_, idx) => idx !== 0)) },
+                    {
+                      text: 'Remove',
+                      style: 'destructive',
+                      onPress: () => onChange(options.filter((_, idx) => idx !== 0)),
+                    },
                   ]);
                 } else {
                   onChange(options.filter((_, idx) => idx !== i));
@@ -204,13 +233,27 @@ function SlotRow({
             {slot.exerciseGroups.length > 1 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                 <Link size={10} color="#f97316" />
-                <Text style={{ color: '#f97316', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                <Text
+                  style={{
+                    color: '#f97316',
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}>
                   {gi === 0 ? 'Superset' : 'with'}
                 </Text>
               </View>
             )}
-            <Text style={{ color: isEmpty ? '#52525b' : 'white', fontSize: 15, fontWeight: '700', marginBottom: isEmpty ? 0 : 6, fontStyle: isEmpty ? 'italic' : 'normal' }}>
-              {isEmpty ? 'Tap to select exercise…' : (primaryEx ? primaryEx.name : group[0])}
+            <Text
+              style={{
+                color: isEmpty ? '#52525b' : 'white',
+                fontSize: 15,
+                fontWeight: '700',
+                marginBottom: isEmpty ? 0 : 6,
+                fontStyle: isEmpty ? 'italic' : 'normal',
+              }}>
+              {isEmpty ? 'Tap to select exercise…' : primaryEx ? primaryEx.name : group[0]}
             </Text>
             {!isEmpty && allOptions.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
@@ -218,9 +261,7 @@ function SlotRow({
                   const isPrimary = optIdx === 0;
                   const label = exerciseLabel(ex);
                   // Show "Name · Equipment" if this alt has a different movement name
-                  const fullLabel = ex.name !== primaryEx?.name
-                    ? `${ex.name} · ${label}`
-                    : label;
+                  const fullLabel = ex.name !== primaryEx?.name ? `${ex.name} · ${label}` : label;
                   return (
                     <View
                       key={ex.id}
@@ -301,9 +342,14 @@ function SlotEditorModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}>
       <DialogContent
         className="gap-0 p-0"
+        showClose={false}
         style={{
           backgroundColor: '#09090b',
           width,
@@ -356,14 +402,14 @@ function SlotEditorModal({
                 marginBottom: 20,
               }}>
               <Link size={14} color="#71717a" />
-              <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '600' }}>Add Superset Exercise</Text>
+              <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '600' }}>
+                Add Superset Exercise
+              </Text>
             </TouchableOpacity>
           </ScrollView>
 
           <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#262626' }}>
-            <Button
-              onPress={handleSave}
-              style={{ backgroundColor: '#ea580c', borderRadius: 12 }}>
+            <Button onPress={handleSave} style={{ backgroundColor: '#ea580c', borderRadius: 12 }}>
               <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>Save</Text>
             </Button>
           </View>
@@ -372,8 +418,13 @@ function SlotEditorModal({
             open={addGroupPickerOpen}
             onClose={() => setAddGroupPickerOpen(false)}
             title="Add Exercise to Superset"
-            onSelect={(ex) => { setGroups((prev) => [...prev, [ex.id]]); }}
-            createContext={{ type: 'callback', onCreated: (ex) => setGroups((prev) => [...prev, [ex.id]]) }}
+            onSelect={(ex) => {
+              setGroups((prev) => [...prev, [ex.id]]);
+            }}
+            createContext={{
+              type: 'callback',
+              onCreated: (ex) => setGroups((prev) => [...prev, [ex.id]]),
+            }}
           />
         </View>
       </DialogContent>
@@ -401,12 +452,21 @@ function RoutineEditor({
   const [slotEditorOpen, setSlotEditorOpen] = useState(false);
   const [addSlotPickerOpen, setAddSlotPickerOpen] = useState(false);
 
-  // Handles both updating existing slots and adding new ones (by id presence)
+  // Handles both updating existing slots and adding new ones (by id presence),
+  // then immediately persists the routine.
   const handleSaveSlot = (updated: RoutineExercise) => {
     setSlots((prev) => {
       const exists = prev.some((s) => s.id === updated.id);
-      if (exists) return prev.map((s) => (s.id === updated.id ? updated : s));
-      return [...prev, { ...updated, order: prev.length }];
+      const newSlots = exists
+        ? prev.map((s) => (s.id === updated.id ? updated : s))
+        : [...prev, { ...updated, order: prev.length }];
+      onSave({
+        ...routine,
+        name: name.trim() || 'Unnamed Routine',
+        description: description.trim(),
+        exercises: newSlots.map((s, i) => ({ ...s, order: i })),
+      });
+      return newSlots;
     });
   };
 
@@ -461,10 +521,17 @@ function RoutineEditor({
         <TouchableOpacity onPress={onBack} style={{ padding: 4 }}>
           <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
-        <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', flex: 1 }}>Edit Routine</Text>
+        <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', flex: 1 }}>
+          Edit Routine
+        </Text>
         <TouchableOpacity
           onPress={handleSave}
-          style={{ backgroundColor: '#ea580c', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
+          style={{
+            backgroundColor: '#ea580c',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+          }}>
           <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Save</Text>
         </TouchableOpacity>
       </View>
@@ -474,7 +541,15 @@ function RoutineEditor({
         contentContainerStyle={{ padding: 16 }}
         keyboardShouldPersistTaps="handled">
         {/* Name */}
-        <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+        <Text
+          style={{
+            color: '#71717a',
+            fontSize: 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            marginBottom: 6,
+          }}>
           Name
         </Text>
         <TextInput
@@ -494,7 +569,15 @@ function RoutineEditor({
         />
 
         {/* Description */}
-        <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+        <Text
+          style={{
+            color: '#71717a',
+            fontSize: 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            marginBottom: 6,
+          }}>
           Description
         </Text>
         <TextInput
@@ -516,7 +599,15 @@ function RoutineEditor({
 
         {/* Exercise Slots */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, flex: 1 }}>
+          <Text
+            style={{
+              color: '#71717a',
+              fontSize: 11,
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              flex: 1,
+            }}>
             Exercises ({slots.length})
           </Text>
         </View>
@@ -577,7 +668,10 @@ function RoutineEditor({
         open={slotEditorOpen}
         slot={editingSlot}
         allExercises={allExercises}
-        onClose={() => { setSlotEditorOpen(false); setEditingSlot(null); }}
+        onClose={() => {
+          setSlotEditorOpen(false);
+          setEditingSlot(null);
+        }}
         onSave={handleSaveSlot}
       />
 
@@ -605,12 +699,10 @@ function RoutineCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const exerciseNames = routine.exercises
-    .slice(0, 4)
-    .map((slot) => {
-      const ex = allExercises.get(slot.exerciseGroups[0]?.[0] ?? '');
-      return ex?.name ?? '—';
-    });
+  const exerciseNames = routine.exercises.slice(0, 4).map((slot) => {
+    const ex = allExercises.get(slot.exerciseGroups[0]?.[0] ?? '');
+    return ex?.name ?? '—';
+  });
 
   return (
     <TouchableOpacity
@@ -634,7 +726,9 @@ function RoutineCard({
         {routine.name}
       </Text>
       {routine.description ? (
-        <Text style={{ color: '#71717a', fontSize: 13, marginBottom: 10 }}>{routine.description}</Text>
+        <Text style={{ color: '#71717a', fontSize: 13, marginBottom: 10 }}>
+          {routine.description}
+        </Text>
       ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {exerciseNames.map((name, i) => (
@@ -650,7 +744,13 @@ function RoutineCard({
           </View>
         ))}
         {routine.exercises.length > 4 && (
-          <View style={{ backgroundColor: '#1c1c1e', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+          <View
+            style={{
+              backgroundColor: '#1c1c1e',
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+            }}>
             <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600' }}>
               +{routine.exercises.length - 4} more
             </Text>
@@ -758,8 +858,12 @@ export default function WorkoutBuilder() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
         {routines.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 80 }}>
-            <Text style={{ color: '#3f3f46', fontSize: 16, fontWeight: '600' }}>No routines yet</Text>
-            <Text style={{ color: '#27272a', fontSize: 13, marginTop: 6 }}>Tap + to create one</Text>
+            <Text style={{ color: '#3f3f46', fontSize: 16, fontWeight: '600' }}>
+              No routines yet
+            </Text>
+            <Text style={{ color: '#27272a', fontSize: 13, marginTop: 6 }}>
+              Tap + to create one
+            </Text>
           </View>
         ) : (
           routines.map((r) => (

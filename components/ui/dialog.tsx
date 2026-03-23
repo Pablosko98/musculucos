@@ -51,10 +51,12 @@ function DialogContent({
   className,
   portalHost,
   children,
+  showClose = true,
   ...props
 }: DialogPrimitive.ContentProps &
   React.RefAttributes<DialogPrimitive.ContentRef> & {
     portalHost?: string;
+    showClose?: boolean;
   }) {
   return (
     <DialogPortal hostName={portalHost}>
@@ -69,7 +71,7 @@ function DialogContent({
           )}
           {...props}>
           <>{children}</>
-          <DialogPrimitive.Close
+          {showClose && <DialogPrimitive.Close
             className={cn(
               'absolute right-4 top-4 rounded opacity-70 active:opacity-100',
               Platform.select({
@@ -79,10 +81,10 @@ function DialogContent({
             hitSlop={12}>
             <Icon
               as={X}
-              className={cn('text-accent-foreground web:pointer-events-none size-4 shrink-0')}
+              className={cn('text-accent-foreground web:pointer-events-none size-6 shrink-0')}
             />
             <Text className="sr-only">Close</Text>
-          </DialogPrimitive.Close>
+          </DialogPrimitive.Close>}
         </DialogPrimitive.Content>
       </DialogOverlay>
     </DialogPortal>

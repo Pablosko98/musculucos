@@ -422,6 +422,7 @@ export function ExercisePickerSheet({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
         className="gap-0 p-0"
+        showClose={false}
         style={{
           backgroundColor: '#09090b',
           width,
