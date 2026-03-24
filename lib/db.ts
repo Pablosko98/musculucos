@@ -585,7 +585,7 @@ export const ExerciseDAL = {
            videoUrl = COALESCE(?, videoUrl),
            defaultRestSeconds = ?,
            baseWeightKg = ?,
-           weightMode = COALESCE(?, weightMode),
+           weightMode = CASE WHEN ? THEN ? ELSE weightMode END,
            weightStep = ?,
            weightStack = ?
        WHERE id = ?`,
@@ -599,6 +599,7 @@ export const ExerciseDAL = {
         updates.videoUrl ?? null,
         updates.defaultRestSeconds ?? null,
         updates.baseWeightKg ?? null,
+        'weightMode' in updates ? 1 : 0,
         updates.weightMode ?? null,
         updates.weightStep ?? null,
         updates.weightStack ? JSON.stringify(updates.weightStack) : null,

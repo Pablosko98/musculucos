@@ -64,7 +64,10 @@ function stepWeight(current: number, direction: 1 | -1, exercise?: Exercise | nu
     let closestDiff = Math.abs(stack[0] - current);
     for (let i = 1; i < stack.length; i++) {
       const diff = Math.abs(stack[i] - current);
-      if (diff < closestDiff) { closestDiff = diff; closestIdx = i; }
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        closestIdx = i;
+      }
     }
     const snapIdx = Math.max(0, Math.min(stack.length - 1, closestIdx + direction));
     return stack[snapIdx];
@@ -536,7 +539,11 @@ export default function ExerciseBlock() {
     setCurrentDefaultRest(ex?.defaultRestSeconds ?? DEFAULT_RESTS[id] ?? DEFAULT_RESTS['default']);
     const block = blockOverride ?? localBlock;
     const newIsPerSide =
-      ex?.weightMode === 'per_side' ? true : ex?.weightMode === 'total' ? false : globalWeightMode === 'per_side';
+      ex?.weightMode === 'per_side'
+        ? true
+        : ex?.weightMode === 'total'
+          ? false
+          : globalWeightMode === 'per_side';
     const newMultiplier = newIsPerSide ? 2 : 1;
     const { weight, reps } = getDefaultInputs(
       id,
@@ -655,7 +662,6 @@ export default function ExerciseBlock() {
   useEffect(() => {
     localBlockRef.current = localBlock;
   }, [localBlock]);
-
 
   // Tick every second to drive the live rest counter; also fire once when
   // the timer transitions active→inactive so the row clears even if the
@@ -836,7 +842,14 @@ export default function ExerciseBlock() {
                     }}
                     style={{ flex: 1, minWidth: 120 }}
                     className={`rounded-2xl border px-3 py-2 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 2 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 4,
+                        marginBottom: 2,
+                      }}>
                       <Text
                         numberOfLines={1}
                         className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -858,7 +871,8 @@ export default function ExerciseBlock() {
               });
               const setTime = item.datetime || '';
               const timeLabel = setTime ? (
-                <Text style={{ color: '#71717a', fontSize: 10, textAlign: 'right', marginBottom: 3 }}>
+                <Text
+                  style={{ color: '#71717a', fontSize: 10, textAlign: 'right', marginBottom: 3 }}>
                   {setTime}
                 </Text>
               ) : null;
@@ -879,9 +893,7 @@ export default function ExerciseBlock() {
                     overflow: 'hidden',
                   }}>
                   {timeLabel && (
-                    <View style={{ paddingRight: 10, paddingTop: 6 }}>
-                      {timeLabel}
-                    </View>
+                    <View style={{ paddingRight: 10, paddingTop: 6 }}>{timeLabel}</View>
                   )}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, padding: 6 }}>
                     {subSetCards}
@@ -902,7 +914,9 @@ export default function ExerciseBlock() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   className="flex-row items-center gap-1 rounded-xl border border-purple-500/30 bg-purple-900/30 px-3 py-1.5">
                   <Square size={10} color="#a855f7" fill="#a855f7" />
-                  <Text className="text-[10px] font-black uppercase text-purple-400">Done Resting</Text>
+                  <Text className="text-[10px] font-black uppercase text-purple-400">
+                    Done Resting
+                  </Text>
                 </Pressable>
               </View>
               <View style={{ height: 3, backgroundColor: 'rgba(168,85,247,0.15)' }}>
@@ -1250,7 +1264,9 @@ export default function ExerciseBlock() {
                 </View>
                 <Pressable
                   onPress={() =>
-                    setInputWeight((prev) => stepWeight(parseFloat(prev) || 0, 1, activeExercise).toString())
+                    setInputWeight((prev) =>
+                      stepWeight(parseFloat(prev) || 0, 1, activeExercise).toString()
+                    )
                   }
                   className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
                   <Plus size={18} color="#71717a" />
@@ -1509,13 +1525,25 @@ export default function ExerciseBlock() {
                 </View>
 
                 {/* Manual rest — no set logged, less common */}
-                <View className="mt-4 border-t border-zinc-800 pt-4">
+                <View
+                  className="mt-4 border-t border-zinc-800 pt-4"
+                  style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
                   <Pressable
                     onPress={handleAddRest}
+                    style={{ padding: 10 }}
                     className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
                     <Zap size={12} color="#a855f7" />
                     <Text className="text-xs font-black uppercase text-purple-400">
                       Add Rest · {currentDefaultRest}s
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleAddRest}
+                    style={{ padding: 10 }}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
+                    <Zap size={12} color="#a855f7" />
+                    <Text className="text-xs font-black uppercase text-purple-400">
+                      Start rest timer
                     </Text>
                   </Pressable>
                 </View>

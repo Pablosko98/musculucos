@@ -12,8 +12,7 @@ export type BackupData = {
   workouts: any[];
   blocks: any[];
   events: any[];
-  customExercises: any[];
-  favouriteExerciseIds: string[];
+  exercises: any[];
   routines: any[];
   routineExercises: any[];
   prefs: any[];
@@ -23,13 +22,12 @@ export type BackupData = {
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export async function exportData(): Promise<BackupData> {
-  const [workouts, blocks, events, customExercises, favouriteRows, routines, routineExercises, prefs, customEquipment] =
+  const [workouts, blocks, events, exercises, routines, routineExercises, prefs, customEquipment] =
     await Promise.all([
       db.getAllAsync('SELECT * FROM workouts ORDER BY date ASC'),
       db.getAllAsync('SELECT * FROM blocks'),
       db.getAllAsync('SELECT * FROM events'),
-      db.getAllAsync('SELECT * FROM exercises WHERE isCustom = 1'),
-      db.getAllAsync<{ id: string }>('SELECT id FROM exercises WHERE isFavourite = 1'),
+      db.getAllAsync('SELECT * FROM exercises ORDER BY id ASC'),
       db.getAllAsync('SELECT * FROM routines ORDER BY [order] ASC'),
       db.getAllAsync('SELECT * FROM routine_exercises ORDER BY routineId, [order] ASC'),
       db.getAllAsync('SELECT * FROM prefs'),
@@ -37,13 +35,12 @@ export async function exportData(): Promise<BackupData> {
     ]);
 
   return {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     workouts: workouts as any[],
     blocks: blocks as any[],
     events: events as any[],
-    customExercises: customExercises as any[],
-    favouriteExerciseIds: favouriteRows.map((r) => r.id),
+    exercises: exercises as any[],
     routines: routines as any[],
     routineExercises: routineExercises as any[],
     prefs: prefs as any[],
@@ -57,32 +54,27 @@ export async function importData(backup: BackupData): Promise<void> {
   await db.withTransactionAsync(async () => {
     // Wipe existing user data (cascades delete blocks → events, routines → routine_exercises)
     await db.runAsync('DELETE FROM workouts');
-    await db.runAsync('DELETE FROM exercises WHERE isCustom = 1');
     await db.runAsync('DELETE FROM custom_equipment');
 
     for (const eq of backup.customEquipment) {
       await db.runAsync('INSERT OR REPLACE INTO custom_equipment (id) VALUES (?)', [eq.id]);
     }
 
-    for (const ex of backup.customExercises) {
+    await db.runAsync('DELETE FROM exercises');
+    for (const ex of backup.exercises) {
       await db.runAsync(
-        `INSERT OR REPLACE INTO exercises
+        `INSERT INTO exercises
            (id, name, equipment, equipmentVariant, muscleEmphasis, description, videoUrl,
-            defaultRestSeconds, baseWeightKg, weightMode, weightStep, weightStack, isCustom)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            defaultRestSeconds, baseWeightKg, weightMode, weightStep, weightStack, isCustom, isFavourite)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           ex.id, ex.name, ex.equipment, ex.equipmentVariant ?? null,
-          ex.muscleEmphasis, ex.description, ex.videoUrl,
+          ex.muscleEmphasis, ex.description ?? '', ex.videoUrl ?? '',
           ex.defaultRestSeconds ?? null, ex.baseWeightKg ?? null,
           ex.weightMode ?? null, ex.weightStep ?? null, ex.weightStack ?? null,
+          ex.isCustom ?? 0, ex.isFavourite ?? 0,
         ]
       );
-    }
-
-    // Restore favourites (clears all first, then sets from backup)
-    await db.runAsync('UPDATE exercises SET isFavourite = 0');
-    for (const id of backup.favouriteExerciseIds) {
-      await db.runAsync('UPDATE exercises SET isFavourite = 1 WHERE id = ?', [id]);
     }
 
     for (const w of backup.workouts) {
