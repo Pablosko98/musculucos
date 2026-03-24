@@ -92,6 +92,13 @@ function formatDuration(s: number): string {
   return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
 }
 
+function formatTime(datetime: string): string {
+  if (!datetime) return '';
+  const d = new Date(datetime);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
 function variantLabel(ex: Exercise): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment)}`.trim();
@@ -812,8 +819,19 @@ export default function ExerciseBlock() {
                   </Pressable>
                 );
               });
+              const setTime = item.datetime || '';
+              const timeLabel = setTime ? (
+                <Text style={{ color: '#71717a', fontSize: 10, textAlign: 'right', marginBottom: 3 }}>
+                  {setTime}
+                </Text>
+              ) : null;
               if (!multiSet) {
-                return <View style={{ flexDirection: 'row' }}>{subSetCards}</View>;
+                return (
+                  <View>
+                    {timeLabel}
+                    <View style={{ flexDirection: 'row' }}>{subSetCards}</View>
+                  </View>
+                );
               }
               return (
                 <View
@@ -823,6 +841,11 @@ export default function ExerciseBlock() {
                     borderRadius: 20,
                     overflow: 'hidden',
                   }}>
+                  {timeLabel && (
+                    <View style={{ paddingRight: 10, paddingTop: 6 }}>
+                      {timeLabel}
+                    </View>
+                  )}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, padding: 6 }}>
                     {subSetCards}
                   </View>

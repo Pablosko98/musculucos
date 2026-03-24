@@ -187,6 +187,24 @@ export function addExercise(dateString: string, selectedExercises: Exercise[]) {
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 
+export function moveBlock(dateString: string, blockId: string, direction: 'up' | 'down') {
+  const workout = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+  if (!workout) return;
+  const sorted = [...workout.blocks].sort((a, b) => a.order - b.order);
+  const idx = sorted.findIndex((b) => b.id === blockId);
+  if (idx === -1) return;
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return;
+  const newBlocks = sorted.map((b, i) => {
+    if (i === idx) return { ...b, order: sorted[swapIdx].order };
+    if (i === swapIdx) return { ...b, order: sorted[idx].order };
+    return b;
+  });
+  const updated = { ...workout, blocks: newBlocks };
+  queryClient.setQueryData(workoutKey(dateString), updated);
+  WorkoutDAL.saveFullWorkout(updated).catch(console.error);
+}
+
 export function addRoutineBlocks(dateString: string, newBlocks: Block[]) {
   if (!newBlocks || newBlocks.length === 0) return;
   const existing = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
@@ -227,19 +245,8 @@ function WorkoutCard({ index }: { index: number }) {
 
   const hasBlocks = !!dailyWorkout && dailyWorkout.blocks.length > 0;
 
-  // Active (has events) blocks first sorted by first-event datetime ascending
-  // (oldest completion at top, newest at bottom of done section), then ghosts.
   const sortedBlocks = hasBlocks
-    ? [
-        ...dailyWorkout.blocks
-          .filter((b) => b.events.length > 0)
-          .sort((a, b) => {
-            const aTime = a.events[0]?.datetime ?? '';
-            const bTime = b.events[0]?.datetime ?? '';
-            return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
-          }),
-        ...dailyWorkout.blocks.filter((b) => b.events.length === 0),
-      ]
+    ? [...dailyWorkout.blocks].sort((a, b) => a.order - b.order)
     : [];
 
   const relativeLabel =
@@ -275,7 +282,7 @@ function WorkoutCard({ index }: { index: number }) {
 
         <ScrollView className="flex-1 px-4">
           {hasBlocks ? (
-            sortedBlocks.map((block: any) => (
+            sortedBlocks.map((block: any, idx: number) => (
               <ViewExerciseBlock
                 key={block.id}
                 exerciseBlock={block}
@@ -288,6 +295,8 @@ function WorkoutCard({ index }: { index: number }) {
                 onSwitchAlternative={(blockId, exerciseIndex, newExerciseId) =>
                   switchAlternative(dateString, blockId, exerciseIndex, newExerciseId)
                 }
+                onMoveUp={idx > 0 ? () => moveBlock(dateString, block.id, 'up') : undefined}
+                onMoveDown={idx < sortedBlocks.length - 1 ? () => moveBlock(dateString, block.id, 'down') : undefined}
               />
             ))
           ) : (

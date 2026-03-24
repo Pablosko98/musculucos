@@ -12,6 +12,11 @@ import { restTimer } from '@/lib/rest-timer';
 function fmt(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+function formatTime(datetime: string): string {
+  const d = new Date(datetime);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
 function variantLabel(ex: Exercise): string {
   if (ex.equipmentVariant) {
     return `${fmt(ex.equipmentVariant)} ${fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment)}`.trim();
@@ -32,6 +37,8 @@ type ViewExerciseBlockProps = {
     exerciseIndex: number,
     newExerciseId: string
   ) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 };
 
 // ─── Ghost Block (no events logged yet) ──────────────────────────────────────
@@ -44,6 +51,8 @@ function GhostBlock({
   onDoLater,
   onDismiss,
   onSwitchAlternative,
+  onMoveUp,
+  onMoveDown,
 }: ViewExerciseBlockProps) {
   const opts = exerciseBlock.alternativeExerciseOptions;
   const hasAnyAlternatives = opts != null && opts.some((o) => o.length > 1);
@@ -81,6 +90,8 @@ function GhostBlock({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           Alert.alert('Options', exerciseBlock.name, [
             { text: 'Cancel' },
+            onMoveUp && { text: 'Move Up', onPress: onMoveUp },
+            onMoveDown && { text: 'Move Down', onPress: onMoveDown },
             onDoLater && { text: 'Do Later', onPress: () => onDoLater(exerciseBlock.id) },
             onDismiss && { text: 'Dismiss', style: 'destructive', onPress: () => onDismiss(exerciseBlock.id) },
           ].filter(Boolean) as any[]);
@@ -104,6 +115,9 @@ function GhostBlock({
             style={{ color: '#6b7280', fontSize: 18, fontWeight: '800', flex: 1 }}
             numberOfLines={1}>
             {exerciseBlock.name}
+          </Text>
+          <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600', marginLeft: 8 }}>
+            {formatTime(exerciseBlock.datetime)}
           </Text>
         </View>
 
@@ -273,6 +287,8 @@ function ActiveBlock({
   saveEditedBlock,
   dateString,
   onDeleteBlock,
+  onMoveUp,
+  onMoveDown,
 }: ViewExerciseBlockProps) {
   const [, forceUpdate] = useState(0);
   const wasRestingRef = useRef(restTimer.isActiveBlock(exerciseBlock?.id ?? ''));
@@ -321,14 +337,12 @@ function ActiveBlock({
       }}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert('Delete', 'Delete block?', [
+        Alert.alert('Options', exerciseBlock.name, [
           { text: 'Cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => onDeleteBlock(exerciseBlock.id),
-          },
-        ]);
+          onMoveUp && { text: 'Move Up', onPress: onMoveUp },
+          onMoveDown && { text: 'Move Down', onPress: onMoveDown },
+          { text: 'Delete', style: 'destructive', onPress: () => onDeleteBlock(exerciseBlock.id) },
+        ].filter(Boolean) as any[]);
       }}>
       <View className="mb-3 flex-row items-center justify-between">
         <View style={{ flex: 1 }}>
@@ -339,7 +353,12 @@ function ActiveBlock({
             </Text>
           )}
         </View>
-        <Activity size={20} color="#22c55e" />
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <Activity size={20} color="#22c55e" />
+          <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600' }}>
+            {formatTime(exerciseBlock.datetime)}
+          </Text>
+        </View>
       </View>
       <View className="flex-row flex-wrap gap-2">
         {blockSummary.variantLabels.map((label, i) => (
