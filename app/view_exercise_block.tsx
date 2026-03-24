@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Pressable, TouchableOpacity, Alert } from 'react-native';
+import { View, Pressable, TouchableOpacity, Modal } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/ui/text';
 import { Activity, ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react-native';
@@ -24,6 +24,72 @@ function variantLabel(ex: Exercise): string {
   return fmt(ex.equipment === 'ez_bar' ? 'EZ Bar' : ex.equipment);
 }
 
+// ─── Options Modal ────────────────────────────────────────────────────────────
+
+type OptionItem = { label: string; onPress: () => void; destructive?: boolean };
+
+function BlockOptionsModal({
+  visible,
+  title,
+  options,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  options: (OptionItem | null | false | undefined)[];
+  onClose: () => void;
+}) {
+  const items = options.filter((o): o is OptionItem => !!o);
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' }}
+        onPress={onClose}>
+        <Pressable onPress={() => {}}>
+          <View style={{ width: 280, borderRadius: 22, overflow: 'hidden' }}>
+            {/* Title + options */}
+            <View style={{ backgroundColor: '#1c1c1e' }}>
+              <View style={{ paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#2c2c2e' }}>
+                <Text style={{ color: '#8e8e93', fontSize: 13, textAlign: 'center' }} numberOfLines={1}>
+                  {title}
+                </Text>
+              </View>
+              {items.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => { item.onPress(); onClose(); }}
+                  style={{
+                    paddingVertical: 16,
+                    paddingHorizontal: 16,
+                    borderTopWidth: i === 0 ? 0 : 1,
+                    borderTopColor: '#2c2c2e',
+                  }}>
+                  <Text style={{
+                    color: item.destructive ? '#ff453a' : '#ffffff',
+                    fontSize: 17,
+                    fontWeight: item.destructive ? '400' : '400',
+                    textAlign: 'center',
+                  }}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Cancel */}
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ backgroundColor: '#1c1c1e', borderTopWidth: 1, borderTopColor: '#2c2c2e', paddingVertical: 16 }}>
+              <Text style={{ color: '#0a84ff', fontSize: 17, fontWeight: '600', textAlign: 'center' }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 type ViewExerciseBlockProps = {
   exerciseBlock: Block;
   saveEditedBlock: (dateString: string, block: Block) => void;
@@ -39,6 +105,7 @@ type ViewExerciseBlockProps = {
   ) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onReplace?: (blockId: string) => void;
 };
 
 // ─── Ghost Block (no events logged yet) ──────────────────────────────────────
@@ -53,6 +120,7 @@ function GhostBlock({
   onSwitchAlternative,
   onMoveUp,
   onMoveDown,
+  onReplace,
 }: ViewExerciseBlockProps) {
   const opts = exerciseBlock.alternativeExerciseOptions;
   const hasAnyAlternatives = opts != null && opts.some((o) => o.length > 1);
@@ -66,6 +134,8 @@ function GhostBlock({
         .map(variantLabel)
     ),
   ];
+
+  const [optionsVisible, setOptionsVisible] = useState(false);
 
   const openBlock = () => {
     setActiveBlock({ block: exerciseBlock, dateString, saveEditedBlock, onDeleteBlock });
@@ -88,13 +158,7 @@ function GhostBlock({
         onPress={openBlock}
         onLongPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          Alert.alert('Options', exerciseBlock.name, [
-            { text: 'Cancel' },
-            onMoveUp && { text: 'Move Up', onPress: onMoveUp },
-            onMoveDown && { text: 'Move Down', onPress: onMoveDown },
-            onDoLater && { text: 'Do Later', onPress: () => onDoLater(exerciseBlock.id) },
-            onDismiss && { text: 'Dismiss', style: 'destructive', onPress: () => onDismiss(exerciseBlock.id) },
-          ].filter(Boolean) as any[]);
+          setOptionsVisible(true);
         }}
         style={{ padding: 16, paddingBottom: hasAnyAlternatives ? 8 : 16 }}>
         {/* Header row */}
@@ -258,10 +322,7 @@ function GhostBlock({
           <TouchableOpacity
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Alert.alert('Dismiss Exercise', `Remove "${exerciseBlock.name}" from today's workout?`, [
-                { text: 'Cancel' },
-                { text: 'Dismiss', style: 'destructive', onPress: () => onDismiss(exerciseBlock.id) },
-              ]);
+              onDismiss(exerciseBlock.id);
             }}
             style={{
               flex: 1,
@@ -276,6 +337,19 @@ function GhostBlock({
           </TouchableOpacity>
         )}
       </View>
+
+      <BlockOptionsModal
+        visible={optionsVisible}
+        title={exerciseBlock.name}
+        onClose={() => setOptionsVisible(false)}
+        options={[
+          onMoveUp && { label: 'Move Up', onPress: onMoveUp },
+          onMoveDown && { label: 'Move Down', onPress: onMoveDown },
+          onReplace && { label: 'Replace Exercise', onPress: () => onReplace(exerciseBlock.id) },
+          onDoLater && { label: 'Do Later', onPress: () => onDoLater(exerciseBlock.id) },
+          onDismiss && { label: 'Dismiss', onPress: () => onDismiss(exerciseBlock.id), destructive: true },
+        ]}
+      />
     </View>
   );
 }
@@ -289,7 +363,9 @@ function ActiveBlock({
   onDeleteBlock,
   onMoveUp,
   onMoveDown,
+  onReplace,
 }: ViewExerciseBlockProps) {
+  const [optionsVisible, setOptionsVisible] = useState(false);
   const [, forceUpdate] = useState(0);
   const wasRestingRef = useRef(restTimer.isActiveBlock(exerciseBlock?.id ?? ''));
   useEffect(() => {
@@ -337,12 +413,7 @@ function ActiveBlock({
       }}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert('Options', exerciseBlock.name, [
-          { text: 'Cancel' },
-          onMoveUp && { text: 'Move Up', onPress: onMoveUp },
-          onMoveDown && { text: 'Move Down', onPress: onMoveDown },
-          { text: 'Delete', style: 'destructive', onPress: () => onDeleteBlock(exerciseBlock.id) },
-        ].filter(Boolean) as any[]);
+        setOptionsVisible(true);
       }}>
       <View className="mb-3 flex-row items-center justify-between">
         <View style={{ flex: 1 }}>
@@ -398,6 +469,17 @@ function ActiveBlock({
           </View>
         ) : null}
       </View>
+      <BlockOptionsModal
+        visible={optionsVisible}
+        title={exerciseBlock.name}
+        onClose={() => setOptionsVisible(false)}
+        options={[
+          onMoveUp && { label: 'Move Up', onPress: onMoveUp },
+          onMoveDown && { label: 'Move Down', onPress: onMoveDown },
+          onReplace && { label: 'Replace Exercise', onPress: () => onReplace(exerciseBlock.id) },
+          { label: 'Delete', onPress: () => onDeleteBlock(exerciseBlock.id), destructive: true },
+        ]}
+      />
     </Pressable>
   );
 }

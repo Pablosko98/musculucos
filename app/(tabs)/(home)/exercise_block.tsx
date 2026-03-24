@@ -23,6 +23,7 @@ import { produce } from 'immer';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import {
+  ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -37,6 +38,7 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { ExerciseDAL, PrefsDAL } from '@/lib/db';
+import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
 import type { HistoryWorkout } from '@/lib/db';
 import type { Block, WorkoutEvent, SubSet, SetEvent } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
@@ -304,6 +306,7 @@ export default function ExerciseBlock() {
     subSetId?: string;
   } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [replacePickerOpen, setReplacePickerOpen] = useState(false);
   const [activeExerciseId, setActiveExerciseId] = useState(initialBlock?.exerciseIds?.[0] ?? '');
   const [inputWeight, setInputWeight] = useState('');
   const [inputReps, setInputReps] = useState('');
@@ -757,6 +760,40 @@ export default function ExerciseBlock() {
     handleChangeActiveExercise(ids[nextIdx] ?? activeExerciseId, nextBlock);
   };
 
+  const handleReplaceExercise = useCallback(
+    (newExercise: Exercise) => {
+      const nextBlock = produce(localBlock, (draft) => {
+        const idx = draft.exerciseIds.indexOf(activeExerciseId);
+        if (idx !== -1) draft.exerciseIds[idx] = newExercise.id;
+        const exIdx = draft.exercises.findIndex((e) => e.id === activeExerciseId);
+        if (exIdx !== -1) draft.exercises[exIdx] = newExercise;
+        draft.name = draft.exercises.map((e) => e.name).join(' / ');
+        for (const event of draft.events) {
+          if (event.type === 'set') {
+            for (const sub of event.subSets) {
+              if (sub.exerciseId === activeExerciseId) {
+                sub.exerciseId = newExercise.id;
+                sub.exercise = newExercise;
+              }
+            }
+          }
+        }
+      });
+      setLocalBlock(nextBlock);
+      localBlockRef.current = nextBlock;
+      setExerciseMap((prev) => {
+        const next = new Map(prev);
+        next.set(newExercise.id, newExercise);
+        return next;
+      });
+      setActiveExerciseId(newExercise.id);
+      setLocalPerSide(null);
+      setReplacePickerOpen(false);
+      saveEditedBlock?.(dateString, nextBlock);
+    },
+    [localBlock, activeExerciseId, saveEditedBlock, dateString]
+  );
+
   const renderEvent = useCallback(
     ({ item, drag, isActive }: RenderItemParams<WorkoutEvent>) => (
       <ScaleDecorator>
@@ -1019,6 +1056,21 @@ export default function ExerciseBlock() {
               backgroundColor: 'rgba(39,39,42,0.6)',
             }}>
             <Pencil color="#71717a" size={17} />
+          </Pressable>
+          <Pressable
+            onPress={() => setReplacePickerOpen(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{
+              height: 44,
+              width: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(234,88,12,0.25)',
+              backgroundColor: 'rgba(234,88,12,0.08)',
+            }}>
+            <ArrowLeftRight color="#ea580c" size={17} />
           </Pressable>
           {activeExercise?.videoUrl ? (
             <Pressable
@@ -1525,6 +1577,13 @@ export default function ExerciseBlock() {
             }
           />
         ))}
+
+      <ExercisePickerSheet
+        open={replacePickerOpen}
+        onClose={() => setReplacePickerOpen(false)}
+        onSelect={handleReplaceExercise}
+        excludeIds={new Set(localBlock.exerciseIds.filter((id) => id !== activeExerciseId))}
+      />
     </View>
   );
 }

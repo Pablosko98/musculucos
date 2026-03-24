@@ -20,6 +20,7 @@ import type { Exercise } from '@/lib/exercises';
 import AddExercise from '../../add_exercise';
 import AddRoutine from '../../add_routine';
 import ViewExerciseBlock from '../../view_exercise_block';
+import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -228,6 +229,44 @@ export function addRoutineBlocks(dateString: string, newBlocks: Block[]) {
   WorkoutDAL.saveFullWorkout(updated).catch(console.error);
 }
 
+export function replaceBlockExercise(
+  dateString: string,
+  blockId: string,
+  exerciseIndex: number,
+  newExercise: Exercise
+) {
+  const workout = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+  if (!workout) return;
+  const block = workout.blocks.find((b) => b.id === blockId);
+  if (!block) return;
+  const oldId = block.exerciseIds[exerciseIndex];
+  const newExerciseIds = [...block.exerciseIds];
+  newExerciseIds[exerciseIndex] = newExercise.id;
+  const newExercises = [...block.exercises];
+  newExercises[exerciseIndex] = newExercise;
+  const updatedBlock: Block = {
+    ...block,
+    exerciseIds: newExerciseIds,
+    exercises: newExercises,
+    name: newExercises.map((e) => e.name).join(' / '),
+    events: block.events.map((ev) => {
+      if (ev.type !== 'set') return ev;
+      return {
+        ...ev,
+        subSets: ev.subSets.map((sub) =>
+          sub.exerciseId === oldId ? { ...sub, exerciseId: newExercise.id, exercise: newExercise } : sub
+        ),
+      };
+    }),
+  };
+  const updated: Workout = {
+    ...workout,
+    blocks: workout.blocks.map((b) => (b.id === blockId ? updatedBlock : b)),
+  };
+  queryClient.setQueryData(workoutKey(dateString), updated);
+  WorkoutDAL.saveFullWorkout(updated).catch(console.error);
+}
+
 // ─── WorkoutCard ──────────────────────────────────────────────────────────────
 // useQuery returns cached data synchronously if available → zero flash.
 
@@ -236,6 +275,7 @@ function WorkoutCard({ index }: { index: number }) {
   const dateForCard = addDays(today, index - INITIAL_INDEX);
   const dateString = format(dateForCard, 'yyyy-MM-dd');
   const dayDiff = index - INITIAL_INDEX;
+  const [replaceBlockId, setReplaceBlockId] = useState<string | null>(null);
 
   const { data: dailyWorkout } = useQuery({
     queryKey: workoutKey(dateString),
@@ -297,6 +337,7 @@ function WorkoutCard({ index }: { index: number }) {
                 }
                 onMoveUp={idx > 0 ? () => moveBlock(dateString, block.id, 'up') : undefined}
                 onMoveDown={idx < sortedBlocks.length - 1 ? () => moveBlock(dateString, block.id, 'down') : undefined}
+                onReplace={(blockId) => setReplaceBlockId(blockId)}
               />
             ))
           ) : (
@@ -306,14 +347,27 @@ function WorkoutCard({ index }: { index: number }) {
           )}
         </ScrollView>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
-          <AddExercise
-            dateString={dateString}
-            onAdd={(exercises) => addExercise(dateString, exercises)}
-          />
-          <AddRoutine onAdd={(blocks) => addRoutineBlocks(dateString, blocks)} />
+        <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+          <View style={{ flex: 1 }}>
+            <AddExercise
+              dateString={dateString}
+              onAdd={(exercises) => addExercise(dateString, exercises)}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AddRoutine onAdd={(blocks) => addRoutineBlocks(dateString, blocks)} />
+          </View>
         </View>
       </Card>
+
+      <ExercisePickerSheet
+        open={replaceBlockId !== null}
+        onClose={() => setReplaceBlockId(null)}
+        onSelect={(newExercise) => {
+          if (replaceBlockId) replaceBlockExercise(dateString, replaceBlockId, 0, newExercise);
+          setReplaceBlockId(null);
+        }}
+      />
     </View>
   );
 }

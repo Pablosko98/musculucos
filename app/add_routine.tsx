@@ -86,7 +86,7 @@ export default function AddRoutine({ onAdd }: { onAdd: (blocks: Block[]) => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="rounded-full bg-violet-600">
+        <Button className="rounded-full bg-violet-600" style={{ height: 44 }}>
           <Text className="font-bold text-white">+ Add Routine</Text>
         </Button>
       </DialogTrigger>

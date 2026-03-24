@@ -44,9 +44,9 @@ export default function AddExercise({
       <TouchableOpacity
         onPress={() => setOpen(true)}
         style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
           backgroundColor: '#ea580c', borderRadius: 100,
-          paddingHorizontal: 16, paddingVertical: 10,
+          paddingHorizontal: 16, height: 44,
         }}>
         <Plus size={16} color="white" />
         <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Add Exercise</Text>
