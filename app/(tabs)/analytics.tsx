@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { ExerciseDAL, PrefsDAL } from '@/lib/db';
+import type { ExerciseStat } from '@/lib/db';
 import type { Exercise } from '@/lib/exercises';
 import {
   PERIODS,
@@ -14,7 +15,7 @@ import {
   type Metric,
   type MuscleHead,
 } from '@/components/analytics/analyticsUtils';
-import { ExercisesTab, buildGroups } from '@/components/analytics/ExercisesTab';
+import { ExercisesTab } from '@/components/analytics/ExercisesTab';
 import { MusclesTab } from '@/components/analytics/MusclesTab';
 
 export default function Analytics() {
@@ -25,6 +26,7 @@ export default function Analytics() {
 
   // Exercises tab
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [stats, setStats] = useState<Record<string, ExerciseStat>>({});
   const [exLoading, setExLoading] = useState(true);
 
   // Muscles tab
@@ -44,8 +46,12 @@ export default function Analytics() {
   // ── Data loading ──
 
   const loadExercises = useCallback(async () => {
-    const exs = await ExerciseDAL.getAll();
+    const [exs, s] = await Promise.all([
+      ExerciseDAL.getAll(),
+      ExerciseDAL.getExerciseStats(),
+    ]);
     setExercises(exs);
+    setStats(s);
     setExLoading(false);
   }, []);
 
@@ -105,10 +111,6 @@ export default function Analytics() {
     if (tab === 'muscles') loadMuscleStats();
   }, [tab, period]);
 
-  // ── Derived data ──
-
-  const allGroups = useMemo(() => buildGroups(exercises), [exercises]);
-
   const handleSelectVariant = (v: Exercise) => {
     router.push({
       pathname: '/exercise_history',
@@ -167,7 +169,8 @@ export default function Analytics() {
       {/* ── Exercises tab ── */}
       {tab === 'exercises' && (
         <ExercisesTab
-          groups={allGroups}
+          exercises={exercises}
+          stats={stats}
           loading={exLoading}
           bottomInset={insets.bottom}
           onSelectVariant={handleSelectVariant}

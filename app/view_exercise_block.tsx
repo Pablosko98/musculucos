@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, TouchableOpacity, Modal } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/ui/text';
-import { Activity, ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react-native';
+import { Activity, ArrowLeftRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Pencil, Trash2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import type { Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
@@ -26,63 +26,155 @@ function variantLabel(ex: Exercise): string {
 
 // ─── Options Modal ────────────────────────────────────────────────────────────
 
-type OptionItem = { label: string; onPress: () => void; destructive?: boolean };
+const DIVIDER = { height: 1, backgroundColor: '#2c2c2e' } as const;
 
 function BlockOptionsModal({
   visible,
   title,
-  options,
   onClose,
+  onEdit,
+  onReplace,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
 }: {
   visible: boolean;
   title: string;
-  options: (OptionItem | null | false | undefined)[];
   onClose: () => void;
+  onEdit?: () => void;
+  onReplace?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onDelete?: () => void;
 }) {
-  const items = options.filter((o): o is OptionItem => !!o);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleClose = () => {
+    setConfirmDelete(false);
+    onClose();
+  };
+
+  const hasMoveRow = onMoveUp || onMoveDown;
+  const hasActionRow = onEdit || onReplace;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' }}
-        onPress={onClose}>
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}
+        onPress={handleClose}>
         <Pressable onPress={() => {}}>
-          <View style={{ width: 280, borderRadius: 22, overflow: 'hidden' }}>
-            {/* Title + options */}
-            <View style={{ backgroundColor: '#1c1c1e' }}>
-              <View style={{ paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#2c2c2e' }}>
-                <Text style={{ color: '#8e8e93', fontSize: 13, textAlign: 'center' }} numberOfLines={1}>
-                  {title}
-                </Text>
-              </View>
-              {items.map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => { item.onPress(); onClose(); }}
-                  style={{
-                    paddingVertical: 16,
-                    paddingHorizontal: 16,
-                    borderTopWidth: i === 0 ? 0 : 1,
-                    borderTopColor: '#2c2c2e',
-                  }}>
-                  <Text style={{
-                    color: item.destructive ? '#ff453a' : '#ffffff',
-                    fontSize: 17,
-                    fontWeight: item.destructive ? '400' : '400',
-                    textAlign: 'center',
-                  }}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <View style={{ width: 300, backgroundColor: '#1c1c1e', borderRadius: 22, overflow: 'hidden' }}>
+
+            {/* Title */}
+            <View style={{ paddingVertical: 14, paddingHorizontal: 20 }}>
+              <Text style={{ color: '#8e8e93', fontSize: 13, fontWeight: '600', textAlign: 'center' }} numberOfLines={1}>
+                {title}
+              </Text>
             </View>
+            <View style={DIVIDER} />
+
+            {/* Move Up / Move Down row */}
+            {hasMoveRow && (
+              <>
+                <View style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity
+                    onPress={() => { onMoveUp?.(); handleClose(); }}
+                    disabled={!onMoveUp}
+                    style={{
+                      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                      gap: 8, paddingVertical: 16,
+                      opacity: onMoveUp ? 1 : 0.3,
+                    }}>
+                    <ChevronUp size={18} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Move Up</Text>
+                  </TouchableOpacity>
+                  <View style={{ width: 1, backgroundColor: '#2c2c2e' }} />
+                  <TouchableOpacity
+                    onPress={() => { onMoveDown?.(); handleClose(); }}
+                    disabled={!onMoveDown}
+                    style={{
+                      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                      gap: 8, paddingVertical: 16,
+                      opacity: onMoveDown ? 1 : 0.3,
+                    }}>
+                    <ChevronDown size={18} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Move Down</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={DIVIDER} />
+              </>
+            )}
+
+            {/* Edit / Replace row */}
+            {hasActionRow && (
+              <>
+                <View style={{ flexDirection: 'row' }}>
+                  {onEdit && (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => { onEdit(); handleClose(); }}
+                        style={{
+                          flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                          gap: 8, paddingVertical: 16,
+                        }}>
+                        <Pencil size={16} color="#60a5fa" />
+                        <Text style={{ color: '#60a5fa', fontSize: 15, fontWeight: '600' }}>Edit</Text>
+                      </TouchableOpacity>
+                      {onReplace && <View style={{ width: 1, backgroundColor: '#2c2c2e' }} />}
+                    </>
+                  )}
+                  {onReplace && (
+                    <TouchableOpacity
+                      onPress={() => { onReplace(); handleClose(); }}
+                      style={{
+                        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                        gap: 8, paddingVertical: 16,
+                      }}>
+                      <ArrowLeftRight size={16} color="#a78bfa" />
+                      <Text style={{ color: '#a78bfa', fontSize: 15, fontWeight: '600' }}>Replace</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={DIVIDER} />
+              </>
+            )}
+
+            {/* Delete */}
+            {onDelete && !confirmDelete && (
+              <TouchableOpacity
+                onPress={() => setConfirmDelete(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16 }}>
+                <Trash2 size={16} color="#ff453a" />
+                <Text style={{ color: '#ff453a', fontSize: 15, fontWeight: '600' }}>Delete</Text>
+              </TouchableOpacity>
+            )}
+            {onDelete && confirmDelete && (
+              <View style={{ paddingVertical: 14, paddingHorizontal: 16, gap: 12 }}>
+                <Text style={{ color: '#8e8e93', fontSize: 13, textAlign: 'center' }}>Are you sure?</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setConfirmDelete(false)}
+                    style={{ flex: 1, backgroundColor: '#2c2c2e', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { onDelete(); handleClose(); }}
+                    style={{ flex: 1, backgroundColor: 'rgba(255,69,58,0.15)', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: '#ff453a', fontSize: 14, fontWeight: '700' }}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={DIVIDER} />
+
             {/* Cancel */}
             <TouchableOpacity
-              onPress={onClose}
-              style={{ backgroundColor: '#1c1c1e', borderTopWidth: 1, borderTopColor: '#2c2c2e', paddingVertical: 16 }}>
-              <Text style={{ color: '#0a84ff', fontSize: 17, fontWeight: '600', textAlign: 'center' }}>
-                Cancel
-              </Text>
+              onPress={handleClose}
+              style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ color: '#0a84ff', fontSize: 17, fontWeight: '600' }}>Cancel</Text>
             </TouchableOpacity>
+
           </View>
         </Pressable>
       </Pressable>
@@ -136,6 +228,7 @@ function GhostBlock({
   ];
 
   const [optionsVisible, setOptionsVisible] = useState(false);
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
 
   const openBlock = () => {
     setActiveBlock({ block: exerciseBlock, dateString, saveEditedBlock, onDeleteBlock });
@@ -318,11 +411,11 @@ function GhostBlock({
             <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '600' }}>Do Later</Text>
           </TouchableOpacity>
         )}
-        {onDismiss && (
+        {onDismiss && !confirmDismiss && (
           <TouchableOpacity
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onDismiss(exerciseBlock.id);
+              setConfirmDismiss(true);
             }}
             style={{
               flex: 1,
@@ -336,19 +429,34 @@ function GhostBlock({
             <Text style={{ color: '#6b1a1a', fontSize: 12, fontWeight: '600' }}>Dismiss</Text>
           </TouchableOpacity>
         )}
+        {onDismiss && confirmDismiss && (
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <TouchableOpacity
+              onPress={() => setConfirmDismiss(false)}
+              style={{ flex: 1, backgroundColor: '#2c2c2e', borderRadius: 10, paddingVertical: 9, alignItems: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onDismiss(exerciseBlock.id);
+              }}
+              style={{ flex: 1, backgroundColor: 'rgba(255,69,58,0.15)', borderRadius: 10, paddingVertical: 9, alignItems: 'center' }}>
+              <Text style={{ color: '#ff453a', fontSize: 13, fontWeight: '700' }}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <BlockOptionsModal
         visible={optionsVisible}
         title={exerciseBlock.name}
         onClose={() => setOptionsVisible(false)}
-        options={[
-          onMoveUp && { label: 'Move Up', onPress: onMoveUp },
-          onMoveDown && { label: 'Move Down', onPress: onMoveDown },
-          onReplace && { label: 'Replace Exercise', onPress: () => onReplace(exerciseBlock.id) },
-          onDoLater && { label: 'Do Later', onPress: () => onDoLater(exerciseBlock.id) },
-          onDismiss && { label: 'Dismiss', onPress: () => onDismiss(exerciseBlock.id), destructive: true },
-        ]}
+        onEdit={openBlock}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onReplace={onReplace ? () => onReplace(exerciseBlock.id) : undefined}
+        onDelete={onDismiss ? () => onDismiss(exerciseBlock.id) : undefined}
       />
     </View>
   );
@@ -382,6 +490,11 @@ function ActiveBlock({
 
   if (!exerciseBlock) return null;
 
+  const openBlock = () => {
+    setActiveBlock({ block: exerciseBlock, dateString, saveEditedBlock, onDeleteBlock });
+    router.push('/exercise_block');
+  };
+
   const isResting = restTimer.isActiveBlock(exerciseBlock.id);
 
   const blockSummary = useMemo(() => {
@@ -407,10 +520,7 @@ function ActiveBlock({
   return (
     <Pressable
       className="mb-3 rounded-[22px] border border-zinc-800 bg-zinc-900 p-5"
-      onPress={() => {
-        setActiveBlock({ block: exerciseBlock, dateString, saveEditedBlock, onDeleteBlock });
-        router.push('/exercise_block');
-      }}
+      onPress={openBlock}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setOptionsVisible(true);
@@ -473,12 +583,11 @@ function ActiveBlock({
         visible={optionsVisible}
         title={exerciseBlock.name}
         onClose={() => setOptionsVisible(false)}
-        options={[
-          onMoveUp && { label: 'Move Up', onPress: onMoveUp },
-          onMoveDown && { label: 'Move Down', onPress: onMoveDown },
-          onReplace && { label: 'Replace Exercise', onPress: () => onReplace(exerciseBlock.id) },
-          { label: 'Delete', onPress: () => onDeleteBlock(exerciseBlock.id), destructive: true },
-        ]}
+        onEdit={openBlock}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onReplace={onReplace ? () => onReplace(exerciseBlock.id) : undefined}
+        onDelete={() => onDeleteBlock(exerciseBlock.id)}
       />
     </Pressable>
   );

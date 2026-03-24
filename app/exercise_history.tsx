@@ -65,17 +65,21 @@ function WorkoutCard({
   equipment?: string;
   onPressDate: (date: string) => void;
 }) {
-  const setGroups: string[] = [];
-  const seenParents = new Set<string>();
+  // Group sub-sets by parentEventId — one row per set
+  const parentOrder: string[] = [];
+  const setsByParent = new Map<string, typeof workout.sets>();
   for (const s of workout.sets) {
-    if (!seenParents.has(s.parentEventId)) {
-      seenParents.add(s.parentEventId);
-      setGroups.push(s.parentEventId);
+    if (!setsByParent.has(s.parentEventId)) {
+      setsByParent.set(s.parentEventId, []);
+      parentOrder.push(s.parentEventId);
     }
+    setsByParent.get(s.parentEventId)!.push(s);
   }
 
   return (
-    <View
+    <TouchableOpacity
+      onPress={() => onPressDate(workout.date)}
+      activeOpacity={0.7}
       style={{
         backgroundColor: '#18181b',
         borderRadius: 16,
@@ -84,10 +88,8 @@ function WorkoutCard({
         marginBottom: 10,
         overflow: 'hidden',
       }}>
-      {/* Date header — tappable */}
-      <TouchableOpacity
-        onPress={() => onPressDate(workout.date)}
-        activeOpacity={0.7}
+      {/* Date header */}
+      <View
         style={{
           paddingHorizontal: 16,
           paddingVertical: 12,
@@ -117,36 +119,62 @@ function WorkoutCard({
           </View>
         </View>
         <ChevronRight size={16} color="#3f3f46" />
-      </TouchableOpacity>
+      </View>
 
-      {/* Sets */}
+      {/* Sets — one row per parentEventId */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
-        {workout.sets.map((s, i) => {
-          const setNum = setGroups.indexOf(s.parentEventId) + 1;
-          const isWarmup = s.rep_type === 'warmup';
-          const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
+        {parentOrder.map((parentId, setIdx) => {
+          const subSets = setsByParent.get(parentId)!;
+          const isWarmup = subSets.every((s) => s.rep_type === 'warmup');
+          const rpe = subSets.find((s) => s.rpe != null)?.rpe ?? null;
+
           return (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View key={parentId} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ color: '#3f3f46', fontSize: 12, width: 18, textAlign: 'right' }}>
-                {setNum}
+                {setIdx + 1}
               </Text>
-              <Text
+              <View
                 style={{
-                  color: isWarmup ? '#52525b' : '#f4f4f5',
-                  fontSize: 15,
-                  fontWeight: '600',
                   flex: 1,
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: 4,
+                  alignItems: 'baseline',
                 }}>
-                {isBodyweight ? 'BW' : `${s.weightKg}`}
-                {!isBodyweight && (
-                  <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}> kg</Text>
-                )}
-                {' × '}
-                {s.reps}
-              </Text>
-              {s.rpe != null && (
+                {subSets.map((s, i) => {
+                  const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
+                  return (
+                    <React.Fragment key={i}>
+                      {i > 0 && (
+                        <Text style={{ color: '#52525b', fontSize: 13 }}> + </Text>
+                      )}
+                      <Text
+                        style={{
+                          color: isWarmup ? '#52525b' : '#f4f4f5',
+                          fontSize: 15,
+                          fontWeight: '600',
+                        }}>
+                        {isBodyweight ? 'BW' : `${s.weightKg}`}
+                        {!isBodyweight && (
+                          <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}>
+                            {' '}kg
+                          </Text>
+                        )}
+                        {' × '}
+                        {s.reps}
+                        {s.rep_type !== 'full' && s.rep_type !== 'warmup' && (
+                          <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '400' }}>
+                            {' '}[{s.rep_type}]
+                          </Text>
+                        )}
+                      </Text>
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+              {rpe != null && (
                 <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600' }}>
-                  @{s.rpe % 1 === 0 ? s.rpe : s.rpe.toFixed(1)}
+                  @{rpe % 1 === 0 ? rpe : rpe.toFixed(1)}
                 </Text>
               )}
               {isWarmup && (
@@ -168,30 +196,11 @@ function WorkoutCard({
                   </Text>
                 </View>
               )}
-              {!isWarmup && s.rep_type !== 'full' && (
-                <View
-                  style={{
-                    backgroundColor: '#1c1c1f',
-                    borderRadius: 4,
-                    paddingHorizontal: 5,
-                    paddingVertical: 1,
-                  }}>
-                  <Text
-                    style={{
-                      color: '#71717a',
-                      fontSize: 9,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                    }}>
-                    {s.rep_type}
-                  </Text>
-                </View>
-              )}
             </View>
           );
         })}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

@@ -391,10 +391,16 @@ export default function WorkoutTracker() {
       const target = startOfDay(new Date(pendingDate + 'T00:00:00'));
       const dayDiff = differenceInDays(target, today);
       const targetIndex = INITIAL_INDEX + dayDiff;
-      if (carouselRef.current?.getCurrentIndex() !== targetIndex) {
-        carouselRef.current?.scrollTo({ index: targetIndex, animated: false });
-      }
+      const scroll = () => {
+        if (carouselRef.current?.getCurrentIndex() !== targetIndex) {
+          carouselRef.current?.scrollTo({ index: targetIndex, animated: false });
+        }
+      };
+      // Attempt immediately, then retry after tab-switch animation settles
+      scroll();
+      const t = setTimeout(scroll, 150);
       prefetchRange(target);
+      return () => clearTimeout(t);
     }, [])
   );
 

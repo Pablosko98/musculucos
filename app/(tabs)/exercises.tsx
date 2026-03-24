@@ -258,7 +258,6 @@ export default function Exercises() {
   const [stats, setStats] = useState<Record<string, ExerciseStat>>({});
   const [loading, setLoading] = useState(true);
 
-  const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubMuscleFilter | null>(null);
@@ -435,70 +434,77 @@ export default function Exercises() {
   return (
     <View style={{ flex: 1, backgroundColor: '#09090b', paddingTop: insets.top }}>
       {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
-        {searchOpen ? (
-          <View
+      <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 }}>
+        <View
+          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
+            Exercises
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/create_exercise')}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              padding: 8,
               backgroundColor: '#18181b',
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
+              borderRadius: 10,
               borderWidth: 1,
-              borderColor: '#3f3f46',
+              borderColor: '#27272a',
             }}>
-            <Search size={17} color="#71717a" />
-            <TextInput
-              autoFocus
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search exercises..."
-              placeholderTextColor="#52525b"
-              style={{ flex: 1, color: '#fafafa', fontSize: 16, marginLeft: 8 }}
-            />
+            <Plus size={19} color="#ea580c" />
+          </TouchableOpacity>
+        </View>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#18181b',
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderWidth: 1,
+            borderColor: '#3f3f46',
+          }}>
+          <Search size={17} color="#71717a" />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search exercises..."
+            placeholderTextColor="#52525b"
+            style={{ flex: 1, color: '#fafafa', fontSize: 15, marginLeft: 8 }}
+          />
+          {search.length > 0 && (
             <TouchableOpacity
-              onPress={() => {
-                setSearch('');
-                setSearchOpen(false);
-              }}
+              onPress={() => setSearch('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={17} color="#71717a" />
             </TouchableOpacity>
-          </View>
-        ) : (
-          <View
-            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text
-              style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
-              Exercises
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity
-                onPress={() => router.push('/create_exercise')}
-                style={{
-                  padding: 8,
-                  backgroundColor: '#18181b',
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: '#27272a',
-                }}>
-                <Plus size={19} color="#ea580c" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setSearchOpen(true)}
-                style={{
-                  padding: 8,
-                  backgroundColor: '#18181b',
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: '#27272a',
-                }}>
-                <Search size={19} color="#a1a1aa" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={() => setShowFavsOnly(!showFavsOnly)}
+          activeOpacity={0.7}
+          style={{
+            marginTop: 8,
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            borderRadius: 100,
+            backgroundColor: showFavsOnly ? '#78350f' : '#27272a',
+            borderWidth: 1,
+            borderColor: showFavsOnly ? '#f59e0b' : '#3f3f46',
+          }}>
+          <Star size={12} color="#f59e0b" fill={showFavsOnly ? '#f59e0b' : 'transparent'} />
+          <Text
+            style={{
+              color: showFavsOnly ? '#fbbf24' : '#a1a1aa',
+              fontSize: 13,
+              fontWeight: showFavsOnly ? '600' : '400',
+            }}>
+            Favourites
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Exercise list ── */}
@@ -630,19 +636,12 @@ export default function Exercises() {
           }}>
           <FilterChip
             label="All"
-            active={activeGroup === null && !showFavsOnly}
+            active={activeGroup === null}
             onPress={() => {
               setActiveGroup(null);
               setActiveSub(null);
-              setShowFavsOnly(false);
             }}
             accent="#ea580c"
-          />
-          <FilterChip
-            label="★ Fav"
-            active={showFavsOnly}
-            onPress={() => setShowFavsOnly(!showFavsOnly)}
-            accent="#f59e0b"
           />
           {muscleGroups.map((g) => (
             <FilterChip
