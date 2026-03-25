@@ -68,6 +68,9 @@ export type Block = {
   // Per-exercise alternative options from a routine; index matches exerciseIds.
   // Each entry is [primaryId, alt1Id, alt2Id, ...] for that exercise slot.
   alternativeExerciseOptions?: string[][] | null;
+  // Per-exercise weight mode override for this workout session.
+  // Overrides the exercise's default weightMode setting.
+  exerciseWeightModes?: Record<string, 'total' | 'per_side'>;
 };
 
 export type Workout = {

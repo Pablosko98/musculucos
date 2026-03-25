@@ -24,6 +24,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeftRight,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -332,7 +333,13 @@ export default function ExerciseBlock() {
   const [tick, setTick] = useState(0);
   const [editingRestId, setEditingRestId] = useState<string | null>(null);
   const [editRestValue, setEditRestValue] = useState(0);
-  const [localPerSide, setLocalPerSide] = useState<boolean | null>(null);
+  // Derived from the block — no separate state needed
+  const localPerSide =
+    localBlock.exerciseWeightModes?.[activeExerciseId] === 'per_side'
+      ? true
+      : localBlock.exerciseWeightModes?.[activeExerciseId] === 'total'
+        ? false
+        : null;
   const [globalWeightMode, setGlobalWeightMode] = useState<'total' | 'per_side'>('total');
 
   // History state
@@ -467,6 +474,23 @@ export default function ExerciseBlock() {
     PrefsDAL.get('defaultWeightMode').then((v) => {
       if (v === 'total' || v === 'per_side') setGlobalWeightMode(v);
     });
+    // Apply any finalize that fired from the background notification before this
+    // component had a chance to mount and register its finalize callback.
+    const pendingElapsed = restTimer.consumePendingFinalize(localBlockRef.current.id);
+    if (pendingElapsed != null) {
+      const finalized = produce(localBlockRef.current, (draft) => {
+        for (let i = draft.events.length - 1; i >= 0; i--) {
+          const ev = draft.events[i];
+          if (ev.type === 'rest' && ev.durationSeconds === 0) {
+            ev.durationSeconds = pendingElapsed;
+            break;
+          }
+        }
+      });
+      localBlockRef.current = finalized;
+      setLocalBlock(finalized);
+      saveEditedBlock?.(dateString, finalized);
+    }
   }, []);
 
   // Scroll to bottom on mount so the latest sets are visible
@@ -523,27 +547,47 @@ export default function ExerciseBlock() {
       });
       setLocalBlock(nextBlock);
     }
-  }, [inputWeight, inputReps, repType, localPerSide]);
+  }, [inputWeight, inputReps, repType, localPerSide, editing]);
 
   const handleFinishEditing = () => {
     saveEditedBlock?.(dateString, localBlock);
     setEditing(null);
+    setEditingRestId(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Toggle per-side mode and convert inputWeight so the stored total stays consistent
+  const handleTogglePerSide = () => {
+    const newIsPerSide = !isPerSide;
+    const currentVal = parseFloat(inputWeight) || 0;
+    if (currentVal > 0) {
+      const converted = newIsPerSide ? currentVal / 2 : currentVal * 2;
+      setInputWeight(String(Math.round(converted * 100) / 100));
+    }
+    const newBlock = produce(localBlock, (draft) => {
+      if (!draft.exerciseWeightModes) draft.exerciseWeightModes = {};
+      draft.exerciseWeightModes[activeExerciseId] = newIsPerSide ? 'per_side' : 'total';
+    });
+    setLocalBlock(newBlock);
+    saveEditedBlock?.(dateString, newBlock);
   };
 
   const handleChangeActiveExercise = (id: string, blockOverride?: Block) => {
     setActiveExerciseId(id);
-    setLocalPerSide(null);
     const ex = exerciseMap.get(id);
     const newBase = ex?.baseWeightKg ?? 0;
     setCurrentDefaultRest(ex?.defaultRestSeconds ?? DEFAULT_RESTS[id] ?? DEFAULT_RESTS['default']);
     const block = blockOverride ?? localBlock;
     const newIsPerSide =
-      ex?.weightMode === 'per_side'
+      block.exerciseWeightModes?.[id] === 'per_side'
         ? true
-        : ex?.weightMode === 'total'
+        : block.exerciseWeightModes?.[id] === 'total'
           ? false
-          : globalWeightMode === 'per_side';
+          : ex?.weightMode === 'per_side'
+            ? true
+            : ex?.weightMode === 'total'
+              ? false
+              : globalWeightMode === 'per_side';
     const newMultiplier = newIsPerSide ? 2 : 1;
     const { weight, reps } = getDefaultInputs(
       id,
@@ -658,6 +702,22 @@ export default function ExerciseBlock() {
     setEditingRestId(null);
   };
 
+  const handleDeleteRestEvent = () => {
+    if (!editingRestId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const ev = localBlock.events.find((e) => e.id === editingRestId);
+    if (ev?.type === 'rest' && ev.durationSeconds === 0 && restTimer.isActiveBlock(localBlock.id)) {
+      restTimer.clear();
+    }
+    const nextBlock = produce(localBlock, (draft) => {
+      const idx = draft.events.findIndex((e) => e.id === editingRestId);
+      if (idx !== -1) draft.events.splice(idx, 1);
+    });
+    setLocalBlock(nextBlock);
+    saveEditedBlock?.(dateString, nextBlock);
+    setEditingRestId(null);
+  };
+
   // Keep localBlockRef in sync so the nav callback always has fresh block state
   useEffect(() => {
     localBlockRef.current = localBlock;
@@ -692,6 +752,43 @@ export default function ExerciseBlock() {
         }
       }
     });
+  };
+
+  const handleStartRestTimerOnly = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (restTimer.get() && !restTimer.isActiveBlock(localBlock.id)) {
+      restTimer.finalizeForBlock(Math.max(restTimer.elapsed(), 1));
+      restTimer.clear();
+    }
+    const baseBlock = finalizeActiveRest(localBlock);
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const nextBlock = produce(baseBlock, (draft) => {
+      draft.events.push({
+        id: `rest-${Date.now()}`,
+        type: 'rest',
+        durationSeconds: 0,
+        datetime: now,
+      });
+    });
+    setLocalBlock(nextBlock);
+    saveEditedBlock?.(dateString, nextBlock);
+    restTimer.setNavCallback(() => {
+      setActiveBlock({ block: localBlockRef.current, dateString, saveEditedBlock, onDeleteBlock });
+    });
+    restTimer.setFinalizeCallback((elapsed: number) => {
+      const finalized = produce(localBlockRef.current, (draft) => {
+        for (let i = draft.events.length - 1; i >= 0; i--) {
+          const ev = draft.events[i];
+          if (ev.type === 'rest' && ev.durationSeconds === 0) {
+            ev.durationSeconds = elapsed;
+            break;
+          }
+        }
+      });
+      setLocalBlock(finalized);
+      saveEditedBlock?.(dateString, finalized);
+    });
+    restTimer.start(localBlock.id, dateString, currentDefaultRest, localBlock.name);
   };
 
   const handleAddSetWithTimer = () => {
@@ -816,7 +913,12 @@ export default function ExerciseBlock() {
               const subSetCards = item.subSets?.map((sub: SubSet, index: number) => {
                 const isEditing = editing?.subSetId === sub.id;
                 const exerciseMeta = sub.exercise ?? exerciseMap.get(sub.exerciseId);
-                const displayWeight = isEditing ? inputWeight : sub.weightKg;
+                const displayWeight = isEditing
+                  ? Math.round(
+                      ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) *
+                        100
+                    ) / 100
+                  : sub.weightKg;
                 const displayReps = isEditing ? inputReps : sub.reps;
                 return (
                   <Pressable
@@ -827,6 +929,7 @@ export default function ExerciseBlock() {
                         handleFinishEditing();
                         return;
                       }
+                      setEditingRestId(null);
                       setEditing({ type: 'set', eventId: item.id, subSetId: sub.id });
                       handleChangeActiveExercise(sub.exerciseId);
                       setInputWeight(
@@ -930,48 +1033,12 @@ export default function ExerciseBlock() {
               </View>
             </View>
           ) : editingRestId === item.id ? (
-            // ── Inline rest time editor ──
-            <View className="flex-row items-center gap-2 rounded-2xl border border-purple-500/30 bg-purple-900/10 px-3 py-2">
-              {([-60, -10] as const).map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() => setEditRestValue((v) => Math.max(v + d, 1))}
-                  className="h-9 w-12 items-center justify-center rounded-xl bg-zinc-800">
-                  <Text className="text-[10px] font-black text-zinc-400">{d}s</Text>
-                </Pressable>
-              ))}
-              <Text className="flex-1 text-center text-sm font-black text-purple-300">
-                {formatDuration(editRestValue)}
+            // ── Rest selected (editing via bottom panel) ──
+            <View className="flex-row items-center justify-center gap-1.5 rounded-xl border border-purple-400/50 bg-purple-500/10 py-2">
+              <Zap size={10} color="#c084fc" />
+              <Text className="text-[10px] font-black uppercase text-purple-300">
+                {formatDuration(editRestValue)} Rest
               </Text>
-              {([10, 60] as const).map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() => setEditRestValue((v) => v + d)}
-                  className="h-9 w-12 items-center justify-center rounded-xl bg-zinc-800">
-                  <Text className="text-[10px] font-black text-zinc-400">+{d}s</Text>
-                </Pressable>
-              ))}
-              <Pressable
-                onPress={() => handleSaveRestEdit(item.id, editRestValue)}
-                className="ml-1 h-9 w-9 items-center justify-center rounded-xl bg-purple-600">
-                <Text className="text-xs font-black text-white">✓</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  if (restTimer.isActiveBlock(localBlock.id) && item.durationSeconds === 0)
-                    restTimer.clear();
-                  const nextBlock = produce(localBlock, (draft) => {
-                    const idx = draft.events.findIndex((e) => e.id === item.id);
-                    if (idx !== -1) draft.events.splice(idx, 1);
-                  });
-                  setLocalBlock(nextBlock);
-                  saveEditedBlock?.(dateString, nextBlock);
-                  setEditingRestId(null);
-                }}
-                className="h-9 w-9 items-center justify-center rounded-xl bg-red-900/40">
-                <Trash2 size={13} color="#f87171" />
-              </Pressable>
             </View>
           ) : (
             // ── Completed rest row ──
@@ -1004,7 +1071,6 @@ export default function ExerciseBlock() {
       tick,
       currentDefaultRest,
       exerciseDefaultBase,
-      localPerSide,
       weightMultiplier,
     ]
   );
@@ -1199,19 +1265,26 @@ export default function ExerciseBlock() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}>
-          <DraggableFlatList
-            ref={flatListRef}
-            data={localBlock.events}
-            onDragEnd={({ data }) => {
-              const next = { ...localBlock, events: data };
-              setLocalBlock(next);
-              saveEditedBlock?.(dateString, next);
-            }}
-            keyExtractor={(item) => item.id}
-            renderItem={renderEvent}
-            containerStyle={{ flex: 1 }}
-            contentContainerStyle={{ padding: 12, paddingBottom: 8 }}
-          />
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => {
+              if (editingRestId) { setEditingRestId(null); return; }
+              if (editing) handleFinishEditing();
+            }}>
+            <DraggableFlatList
+              ref={flatListRef}
+              data={localBlock.events}
+              onDragEnd={({ data }) => {
+                const next = { ...localBlock, events: data };
+                setLocalBlock(next);
+                saveEditedBlock?.(dateString, next);
+              }}
+              keyExtractor={(item) => item.id}
+              renderItem={renderEvent}
+              containerStyle={{ flex: 1 }}
+              contentContainerStyle={{ padding: 12, paddingBottom: 8 }}
+            />
+          </Pressable>
 
           {/* Bottom control panel */}
           <View
@@ -1222,6 +1295,61 @@ export default function ExerciseBlock() {
               padding: 16,
               paddingBottom: insets.bottom + 8,
             }}>
+            {editingRestId ? (
+              <>
+                {/* Rest duration stepper */}
+                <View className="mb-4 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
+                  {([-60, -10] as const).map((d) => (
+                    <Pressable
+                      key={d}
+                      onPress={() => setEditRestValue((v) => Math.max(v + d, 1))}
+                      className="h-12 w-14 items-center justify-center rounded-2xl bg-zinc-900">
+                      <Text className="text-xs font-black text-zinc-400">{d}s</Text>
+                    </Pressable>
+                  ))}
+                  <View className="flex-1 items-center">
+                    <Text className="text-[8px] font-black uppercase text-zinc-600">Rest</Text>
+                    <Text className="text-center text-2xl font-black text-white">
+                      {formatDuration(editRestValue)}
+                    </Text>
+                  </View>
+                  {([10, 60] as const).map((d) => (
+                    <Pressable
+                      key={d}
+                      onPress={() => setEditRestValue((v) => v + d)}
+                      className="h-12 w-14 items-center justify-center rounded-2xl bg-zinc-900">
+                      <Text className="text-xs font-black text-zinc-400">+{d}s</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Rest action row */}
+                <View className="flex-row gap-2">
+                  <Button
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    variant="outline"
+                    className="h-16 w-16 flex-row gap-1 rounded-[24px] border-zinc-800">
+                    {showAdvanced ? (
+                      <ChevronUp size={14} color="#52525b" />
+                    ) : (
+                      <ChevronDown size={14} color="#52525b" />
+                    )}
+                  </Button>
+                  <Button
+                    className="h-16 flex-1 rounded-[24px] bg-purple-600"
+                    onPress={() => handleSaveRestEdit(editingRestId, editRestValue)}>
+                    <Check color="white" size={20} strokeWidth={3} />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="h-16 w-16 rounded-[24px]"
+                    onPress={handleDeleteRestEvent}>
+                    <Trash2 color="white" size={18} />
+                  </Button>
+                </View>
+              </>
+            ) : (
+              <>
             <View className="mb-4 flex-row gap-3">
               <View className="flex-1 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
                 <Pressable
@@ -1234,7 +1362,9 @@ export default function ExerciseBlock() {
                   <Minus size={18} color="#71717a" />
                 </Pressable>
                 <View className="flex-1 items-center">
-                  <Text className="text-[8px] font-black uppercase text-zinc-600">Weight</Text>
+                  <Text className="text-[8px] font-black uppercase text-zinc-600">
+                    {isPerSide ? 'Per side' : 'Weight'}
+                  </Text>
                   <TextInput
                     ref={weightInputRef}
                     keyboardType="decimal-pad"
@@ -1318,75 +1448,71 @@ export default function ExerciseBlock() {
               </View>
             </View>
 
-            {(exerciseDefaultBase > 0 || isPerSide) && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-                {exerciseDefaultBase > 0 && (
-                  <View
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+              {exerciseDefaultBase > 0 && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 5,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: '#27272a',
+                    backgroundColor: '#18181b',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}>
+                  <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '700' }}>
+                    {exerciseDefaultBase}kg bar
+                  </Text>
+                </View>
+              )}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: isPerSide
+                    ? localPerSide !== null
+                      ? 'rgba(217,119,6,0.4)'
+                      : 'rgba(234,88,12,0.3)'
+                    : '#27272a',
+                  backgroundColor: isPerSide
+                    ? localPerSide !== null
+                      ? 'rgba(28,21,3,0.8)'
+                      : 'rgba(234,88,12,0.05)'
+                    : '#18181b',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}>
+                {isPerSide ? (
+                  <Text
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 5,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: '#27272a',
-                      backgroundColor: '#18181b',
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
+                      color: localPerSide !== null ? '#d97706' : '#ea580c',
+                      fontSize: 12,
+                      fontWeight: '700',
                     }}>
-                    <Text
-                      style={{
-                        color: '#71717a',
-                        fontSize: 12,
-                        fontWeight: '700',
-                      }}>
-                      {exerciseDefaultBase}kg bar
-                    </Text>
-                  </View>
+                    {parseFloat(inputWeight) || 0} × 2 ={' '}
+                    {Math.round(((parseFloat(inputWeight) || 0) * 2) * 100) / 100}kg
+                  </Text>
+                ) : (
+                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '700' }}>
+                    total weight
+                  </Text>
                 )}
-                {isPerSide && (
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: localPerSide !== null ? 'rgba(217,119,6,0.4)' : '#27272a',
-                      backgroundColor: localPerSide !== null ? 'rgba(28,21,3,0.8)' : '#18181b',
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                    }}>
-                    <Text
-                      style={{
-                        color: localPerSide !== null ? '#d97706' : '#71717a',
-                        fontSize: 12,
-                        fontWeight: '700',
-                      }}>
-                      ×2 per side
-                    </Text>
-                    {localPerSide !== null && (
-                      <Text
-                        style={{
-                          color: '#d97706',
-                          fontSize: 9,
-                          fontWeight: '900',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                        }}>
-                        override
-                      </Text>
-                    )}
-                  </View>
-                )}
-                <View style={{ flex: 1 }} />
+              </View>
+              <View style={{ flex: 1 }} />
+              {(exerciseDefaultBase > 0 || isPerSide) && (
                 <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '700' }}>
                   {Math.round(
                     ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
                   ) / 100}
                   kg total
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
 
             <View className="flex-row gap-2">
               <Button
@@ -1400,12 +1526,19 @@ export default function ExerciseBlock() {
                 )}
               </Button>
               {editing ? (
-                <Button
-                  variant="destructive"
-                  className="h-16 flex-1 rounded-[24px]"
-                  onPress={deleteCurrent}>
-                  <Trash2 color="white" />
-                </Button>
+                <>
+                  <Button
+                    className="h-16 flex-1 rounded-[24px] bg-green-600"
+                    onPress={handleFinishEditing}>
+                    <Check color="white" size={20} strokeWidth={3} />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="h-16 w-16 rounded-[24px]"
+                    onPress={deleteCurrent}>
+                    <Trash2 color="white" size={18} />
+                  </Button>
+                </>
               ) : isSuperset && !isLastInRound ? (
                 /* Superset mid-round: log set and advance to next exercise */
                 <Button
@@ -1467,7 +1600,7 @@ export default function ExerciseBlock() {
                   ))}
                 </View>
 
-                {/* Per side toggle */}
+                {/* Weight mode toggle */}
                 <View
                   style={{
                     borderTopWidth: 1,
@@ -1479,45 +1612,60 @@ export default function ExerciseBlock() {
                     gap: 8,
                   }}>
                   <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600', flex: 1 }}>
-                    Per side
+                    Weight mode
                   </Text>
-                  <Pressable
-                    onPress={() => setLocalPerSide(!isPerSide)}
+                  <View
                     style={{
                       flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
                       borderRadius: 10,
                       borderWidth: 1,
-                      borderColor: isPerSide ? '#ea580c' : '#27272a',
-                      backgroundColor: isPerSide ? 'rgba(234,88,12,0.1)' : '#09090b',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
+                      borderColor: '#27272a',
+                      overflow: 'hidden',
                     }}>
-                    <Text
+                    <Pressable
+                      onPress={() => isPerSide && handleTogglePerSide()}
                       style={{
-                        color: isPerSide ? '#ea580c' : '#52525b',
-                        fontSize: 12,
-                        fontWeight: '700',
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        backgroundColor: !isPerSide ? '#27272a' : 'transparent',
                       }}>
-                      {isPerSide ? 'Per side (×2)' : 'Total weight'}
-                    </Text>
-                    {localPerSide !== null && (
                       <Text
                         style={{
-                          color: '#d97706',
-                          fontSize: 9,
-                          fontWeight: '900',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.4,
+                          color: !isPerSide ? '#ffffff' : '#52525b',
+                          fontSize: 12,
+                          fontWeight: '700',
                         }}>
-                        override
+                        Total
                       </Text>
-                    )}
-                  </Pressable>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => !isPerSide && handleTogglePerSide()}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        backgroundColor: isPerSide ? 'rgba(234,88,12,0.15)' : 'transparent',
+                      }}>
+                      <Text
+                        style={{
+                          color: isPerSide ? '#ea580c' : '#52525b',
+                          fontSize: 12,
+                          fontWeight: '700',
+                        }}>
+                        Per side ×2
+                      </Text>
+                    </Pressable>
+                  </View>
                   {localPerSide !== null && (
                     <Pressable
-                      onPress={() => setLocalPerSide(null)}
+                      onPress={() => {
+                        const newBlock = produce(localBlock, (draft) => {
+                          if (draft.exerciseWeightModes) {
+                            delete draft.exerciseWeightModes[activeExerciseId];
+                          }
+                        });
+                        setLocalBlock(newBlock);
+                        saveEditedBlock?.(dateString, newBlock);
+                      }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
                     </Pressable>
@@ -1538,16 +1686,18 @@ export default function ExerciseBlock() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={handleAddRest}
+                    onPress={handleStartRestTimerOnly}
                     style={{ padding: 10 }}
                     className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
-                    <Zap size={12} color="#a855f7" />
+                    <Timer size={12} color="#a855f7" />
                     <Text className="text-xs font-black uppercase text-purple-400">
                       Start rest timer
                     </Text>
                   </Pressable>
                 </View>
               </View>
+            )}
+              </>
             )}
           </View>
         </KeyboardAvoidingView>

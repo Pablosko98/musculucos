@@ -87,9 +87,9 @@ export async function importData(backup: BackupData): Promise<void> {
     for (const b of backup.blocks) {
       await db.runAsync(
         `INSERT OR REPLACE INTO blocks
-           (id, workoutId, [order], type, name, exerciseIds, sets, datetime, alternativeExerciseOptions)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [b.id, b.workoutId, b.order, b.type, b.name, b.exerciseIds, b.sets, b.datetime, b.alternativeExerciseOptions ?? null]
+           (id, workoutId, [order], type, name, exerciseIds, sets, datetime, alternativeExerciseOptions, exerciseWeightModes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [b.id, b.workoutId, b.order, b.type, b.name, b.exerciseIds, b.sets, b.datetime, b.alternativeExerciseOptions ?? null, b.exerciseWeightModes ?? null]
       );
     }
 

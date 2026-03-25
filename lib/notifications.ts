@@ -2,11 +2,13 @@ import { Platform } from 'react-native';
 
 let notifee: typeof import('@notifee/react-native').default | null = null;
 let AndroidImportance: typeof import('@notifee/react-native').AndroidImportance | null = null;
+let AndroidVisibility: typeof import('@notifee/react-native').AndroidVisibility | null = null;
 let EventType: typeof import('@notifee/react-native').EventType | null = null;
 try {
   const mod = require('@notifee/react-native');
   notifee = mod.default;
   AndroidImportance = mod.AndroidImportance;
+  AndroidVisibility = mod.AndroidVisibility;
   EventType = mod.EventType;
 } catch {
   // Native module not available in this build
@@ -78,6 +80,7 @@ export async function postRestNotification(startMs: number, blockName = ''): Pro
       chronometerDirection: 'up',
       timestamp: startMs,
       color: '#a855f7',
+      visibility: AndroidVisibility!.PUBLIC,
       pressAction: { id: 'default' },
       actions: [
         {

@@ -157,6 +157,7 @@ export const initDB = () => {
   } catch {}
   try { db.execSync('ALTER TABLE exercises DROP COLUMN baseId'); } catch {}
   try { db.execSync('ALTER TABLE blocks ADD COLUMN alternativeExerciseOptions TEXT DEFAULT NULL'); } catch {}
+  try { db.execSync('ALTER TABLE blocks ADD COLUMN exerciseWeightModes TEXT DEFAULT NULL'); } catch {}
   // Backfill equipmentVariant for exercises that previously had none
   try {
     db.execSync(`
@@ -248,7 +249,7 @@ export const WorkoutDAL = {
           // 3. Loop through blocks and insert
           for (const block of workout.blocks) {
             await db.runAsync(
-              'INSERT INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime, alternativeExerciseOptions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              'INSERT INTO blocks (id, workoutId, [order], type, name, exerciseIds, sets, datetime, alternativeExerciseOptions, exerciseWeightModes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
               [
                 block.id,
                 workout.id,
@@ -259,6 +260,7 @@ export const WorkoutDAL = {
                 block.sets,
                 block.datetime,
                 block.alternativeExerciseOptions ? JSON.stringify(block.alternativeExerciseOptions) : null,
+                block.exerciseWeightModes ? JSON.stringify(block.exerciseWeightModes) : null,
               ]
             );
 
@@ -388,6 +390,8 @@ export const WorkoutDAL = {
         const alternativeExerciseOptions: string[][] | null = block.alternativeExerciseOptions
           ? JSON.parse(block.alternativeExerciseOptions)
           : null;
+        const exerciseWeightModes: Record<string, 'total' | 'per_side'> | undefined =
+          block.exerciseWeightModes ? JSON.parse(block.exerciseWeightModes) : undefined;
         return {
           ...block,
           name: freshName,
@@ -396,6 +400,7 @@ export const WorkoutDAL = {
           exercises: resolvedExercises,
           events: formattedEvents,
           alternativeExerciseOptions,
+          exerciseWeightModes,
         };
       })
     );
