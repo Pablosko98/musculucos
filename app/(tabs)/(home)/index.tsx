@@ -430,7 +430,7 @@ export default function WorkoutTracker() {
 
       <View
         style={{ flex: 1 }}
-        onLayout={(e) => setCarouselHeight(e.nativeEvent.layout.height + 50)}>
+        onLayout={(e) => { const h = e.nativeEvent.layout.height + 50; setCarouselHeight((prev) => prev || h); }}>
         {carouselHeight > 0 && (
           <Carousel
             ref={carouselRef}

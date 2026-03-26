@@ -27,6 +27,7 @@ export const MUSCLE_COLORS: Record<string, string> = {
   triceps: '#f59e0b',
   legs: '#f97316',
   abs: '#06b6d4',
+  forearms: '#ec4899',
 };
 
 // Canonical aliases — some exercises use alternate head names
@@ -81,9 +82,23 @@ export const MUSCLE_HEAD_DEFS: MuscleHeadDef[] = [
   // Abs
   { key: 'abs',                muscle: 'abs',       label: 'Abs',           bodySlug: 'abs' },
   { key: 'abs/obliques',       muscle: 'abs',       label: 'Obliques',      bodySlug: 'obliques' },
+  // Forearms
+  { key: 'forearms',           muscle: 'forearms',  label: 'Forearms',      bodySlug: 'forearm' },
+  { key: 'forearms/brachioradialis', muscle: 'forearms', label: 'Brachioradialis', bodySlug: 'forearm' },
 ];
 
 export const HEAD_DEF_MAP = new Map(MUSCLE_HEAD_DEFS.map((d) => [d.key, d]));
+
+export const MUSCLE_GROUP_LABELS: Record<string, string> = {
+  chest: 'Chest',
+  back: 'Back',
+  shoulders: 'Shoulders',
+  biceps: 'Biceps',
+  triceps: 'Triceps',
+  legs: 'Legs',
+  abs: 'Abs',
+  forearms: 'Forearms',
+};
 
 export const PERIODS = [
   { label: '1d', days: 1 },

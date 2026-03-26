@@ -636,6 +636,7 @@ export default function ExerciseBlock() {
     });
     setLocalBlock(nextBlock);
     saveEditedBlock?.(dateString, nextBlock);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
     const ids = localBlock.exerciseIds;
     const curIdx = ids.indexOf(activeExerciseId);
     const nextIdx = (curIdx + 1) % Math.max(ids.length, 1);
@@ -1268,7 +1269,10 @@ export default function ExerciseBlock() {
           <Pressable
             style={{ flex: 1 }}
             onPress={() => {
-              if (editingRestId) { setEditingRestId(null); return; }
+              if (editingRestId) {
+                setEditingRestId(null);
+                return;
+              }
               if (editing) handleFinishEditing();
             }}>
             <DraggableFlatList
@@ -1350,353 +1354,357 @@ export default function ExerciseBlock() {
               </>
             ) : (
               <>
-            <View className="mb-4 flex-row gap-3">
-              <View className="flex-1 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
-                <Pressable
-                  onPress={() =>
-                    setInputWeight((prev) =>
-                      stepWeight(parseFloat(prev) || 0, -1, activeExercise).toString()
-                    )
-                  }
-                  className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
-                  <Minus size={18} color="#71717a" />
-                </Pressable>
-                <View className="flex-1 items-center">
-                  <Text className="text-[8px] font-black uppercase text-zinc-600">
-                    {isPerSide ? 'Per side' : 'Weight'}
-                  </Text>
-                  <TextInput
-                    ref={weightInputRef}
-                    keyboardType="decimal-pad"
-                    value={inputWeight}
-                    selection={weightSel}
-                    onChangeText={(text) => {
-                      setWeightSel(undefined);
-                      setInputWeight(text);
-                    }}
-                    onFocus={() => {
-                      weightJustSelected.current = true;
-                      setWeightSel({ start: 0, end: inputWeight.length });
-                      flatListRef.current?.scrollToEnd({ animated: true });
-                    }}
-                    onBlur={() => setWeightSel(undefined)}
-                    onSelectionChange={() => {
-                      if (weightJustSelected.current) {
-                        weightJustSelected.current = false;
-                      } else if (weightSel !== undefined) {
-                        setWeightSel(undefined);
-                      }
-                    }}
-                    placeholder="0"
-                    placeholderTextColor="#3f3f46"
-                    className="text-center text-2xl font-black text-white"
-                  />
-                </View>
-                <Pressable
-                  onPress={() =>
-                    setInputWeight((prev) =>
-                      stepWeight(parseFloat(prev) || 0, 1, activeExercise).toString()
-                    )
-                  }
-                  className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
-                  <Plus size={18} color="#71717a" />
-                </Pressable>
-              </View>
-
-              <View className="w-36 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
-                <Pressable
-                  onPress={() =>
-                    setInputReps((prev) => Math.max(0, (parseInt(prev) || 0) - 1).toString())
-                  }
-                  className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
-                  <Minus size={16} color="#71717a" />
-                </Pressable>
-                <View className="flex-1 items-center">
-                  <Text className="text-[8px] font-black uppercase text-zinc-600">Reps</Text>
-                  <TextInput
-                    ref={repsInputRef}
-                    keyboardType="number-pad"
-                    value={inputReps}
-                    selection={repsSel}
-                    onChangeText={(text) => {
-                      setRepsSel(undefined);
-                      setInputReps(text);
-                    }}
-                    onFocus={() => {
-                      repsJustSelected.current = true;
-                      setRepsSel({ start: 0, end: inputReps.length });
-                      flatListRef.current?.scrollToEnd({ animated: true });
-                    }}
-                    onBlur={() => setRepsSel(undefined)}
-                    onSelectionChange={() => {
-                      if (repsJustSelected.current) {
-                        repsJustSelected.current = false;
-                      } else if (repsSel !== undefined) {
-                        setRepsSel(undefined);
-                      }
-                    }}
-                    placeholder="0"
-                    placeholderTextColor="#3f3f46"
-                    className="text-center text-2xl font-black text-white"
-                  />
-                </View>
-                <Pressable
-                  onPress={() => setInputReps((prev) => ((parseInt(prev) || 0) + 1).toString())}
-                  className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
-                  <Plus size={16} color="#71717a" />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-              {exerciseDefaultBase > 0 && (
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 5,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: '#27272a',
-                    backgroundColor: '#18181b',
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                  }}>
-                  <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '700' }}>
-                    {exerciseDefaultBase}kg bar
-                  </Text>
-                </View>
-              )}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isPerSide
-                    ? localPerSide !== null
-                      ? 'rgba(217,119,6,0.4)'
-                      : 'rgba(234,88,12,0.3)'
-                    : '#27272a',
-                  backgroundColor: isPerSide
-                    ? localPerSide !== null
-                      ? 'rgba(28,21,3,0.8)'
-                      : 'rgba(234,88,12,0.05)'
-                    : '#18181b',
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                }}>
-                {isPerSide ? (
-                  <Text
-                    style={{
-                      color: localPerSide !== null ? '#d97706' : '#ea580c',
-                      fontSize: 12,
-                      fontWeight: '700',
-                    }}>
-                    {parseFloat(inputWeight) || 0} × 2 ={' '}
-                    {Math.round(((parseFloat(inputWeight) || 0) * 2) * 100) / 100}kg
-                  </Text>
-                ) : (
-                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '700' }}>
-                    total weight
-                  </Text>
-                )}
-              </View>
-              <View style={{ flex: 1 }} />
-              {(exerciseDefaultBase > 0 || isPerSide) && (
-                <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '700' }}>
-                  {Math.round(
-                    ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) * 100
-                  ) / 100}
-                  kg total
-                </Text>
-              )}
-            </View>
-
-            <View className="flex-row gap-2">
-              <Button
-                onPress={() => setShowAdvanced(!showAdvanced)}
-                variant="outline"
-                className="h-16 w-16 flex-row gap-1 rounded-[24px] border-zinc-800">
-                {showAdvanced ? (
-                  <ChevronUp size={14} color="#52525b" />
-                ) : (
-                  <ChevronDown size={14} color="#52525b" />
-                )}
-              </Button>
-              {editing ? (
-                <>
-                  <Button
-                    className="h-16 flex-1 rounded-[24px] bg-green-600"
-                    onPress={handleFinishEditing}>
-                    <Check color="white" size={20} strokeWidth={3} />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="h-16 w-16 rounded-[24px]"
-                    onPress={deleteCurrent}>
-                    <Trash2 color="white" size={18} />
-                  </Button>
-                </>
-              ) : isSuperset && !isLastInRound ? (
-                /* Superset mid-round: log set and advance to next exercise */
-                <Button
-                  className="h-16 flex-1 flex-row gap-2 rounded-[24px] bg-blue-600"
-                  onPress={handleAddNewSet}>
-                  <Text className="text-sm font-black text-white">Next Exercise</Text>
-                  <ChevronRight color="white" size={18} strokeWidth={3} />
-                </Button>
-              ) : isSuperset && isLastInRound ? (
-                /* Superset last exercise: finish round */
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
-                    onPress={handleAddNewSet}>
-                    <Plus color="#71717a" strokeWidth={3} size={18} />
-                    <Text className="text-[8px] font-black uppercase text-zinc-600">no rest</Text>
-                  </Button>
-                  <Button
-                    className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
-                    onPress={handleAddSetWithTimer}>
-                    <Timer color="white" size={16} />
-                    <Text className="text-sm font-black text-white">Done Round</Text>
-                  </Button>
-                </>
-              ) : (
-                /* Standard block */
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
-                    onPress={handleAddNewSet}>
-                    <Plus color="#71717a" strokeWidth={3} size={18} />
-                    <Text className="text-[8px] font-black uppercase text-zinc-600">no rest</Text>
-                  </Button>
-                  <Button
-                    className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
-                    onPress={handleAddSetWithTimer}>
-                    <Timer color="white" size={16} />
-                    <Text className="text-sm font-black text-white">Log Set + Rest</Text>
-                  </Button>
-                </>
-              )}
-            </View>
-
-            {showAdvanced && (
-              <View className="mt-4 rounded-[32px] border border-zinc-800 bg-zinc-950 p-4">
-                <View className="mb-4 flex-row flex-wrap gap-2">
-                  {REP_TYPES.map((t) => (
+                <View className="mb-4 flex-row gap-3">
+                  <View className="flex-1 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
                     <Pressable
-                      key={t}
-                      onPress={() => setRepType(t)}
-                      className={`rounded-xl border px-4 py-2 ${repType === t ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-900'}`}>
-                      <Text
-                        className={`text-[10px] font-black uppercase ${repType === t ? 'text-black' : 'text-zinc-500'}`}>
-                        {t}
-                      </Text>
+                      onPress={() =>
+                        setInputWeight((prev) =>
+                          stepWeight(parseFloat(prev) || 0, -1, activeExercise).toString()
+                        )
+                      }
+                      className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
+                      <Minus size={18} color="#71717a" />
                     </Pressable>
-                  ))}
+                    <View className="flex-1 items-center">
+                      <Text className="text-[8px] font-black uppercase text-zinc-600">
+                        {isPerSide ? 'Per side' : 'Weight'}
+                      </Text>
+                      <TextInput
+                        ref={weightInputRef}
+                        keyboardType="decimal-pad"
+                        value={inputWeight}
+                        selection={weightSel}
+                        onChangeText={(text) => {
+                          setWeightSel(undefined);
+                          setInputWeight(text);
+                        }}
+                        onFocus={() => {
+                          weightJustSelected.current = true;
+                          setWeightSel({ start: 0, end: inputWeight.length });
+                        }}
+                        onBlur={() => setWeightSel(undefined)}
+                        onSelectionChange={() => {
+                          if (weightJustSelected.current) {
+                            weightJustSelected.current = false;
+                          } else if (weightSel !== undefined) {
+                            setWeightSel(undefined);
+                          }
+                        }}
+                        placeholder="0"
+                        placeholderTextColor="#3f3f46"
+                        className="text-center text-2xl font-black text-white"
+                      />
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        setInputWeight((prev) =>
+                          stepWeight(parseFloat(prev) || 0, 1, activeExercise).toString()
+                        )
+                      }
+                      className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
+                      <Plus size={18} color="#71717a" />
+                    </Pressable>
+                  </View>
+
+                  <View className="w-36 flex-row items-center rounded-[28px] border border-zinc-800 bg-zinc-950 p-2">
+                    <Pressable
+                      onPress={() =>
+                        setInputReps((prev) => Math.max(0, (parseInt(prev) || 0) - 1).toString())
+                      }
+                      className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
+                      <Minus size={16} color="#71717a" />
+                    </Pressable>
+                    <View className="flex-1 items-center">
+                      <Text className="text-[8px] font-black uppercase text-zinc-600">Reps</Text>
+                      <TextInput
+                        ref={repsInputRef}
+                        keyboardType="number-pad"
+                        value={inputReps}
+                        selection={repsSel}
+                        onChangeText={(text) => {
+                          setRepsSel(undefined);
+                          setInputReps(text);
+                        }}
+                        onFocus={() => {
+                          repsJustSelected.current = true;
+                          setRepsSel({ start: 0, end: inputReps.length });
+                        }}
+                        onBlur={() => setRepsSel(undefined)}
+                        onSelectionChange={() => {
+                          if (repsJustSelected.current) {
+                            repsJustSelected.current = false;
+                          } else if (repsSel !== undefined) {
+                            setRepsSel(undefined);
+                          }
+                        }}
+                        placeholder="0"
+                        placeholderTextColor="#3f3f46"
+                        className="text-center text-2xl font-black text-white"
+                      />
+                    </View>
+                    <Pressable
+                      onPress={() => setInputReps((prev) => ((parseInt(prev) || 0) + 1).toString())}
+                      className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-900">
+                      <Plus size={16} color="#71717a" />
+                    </Pressable>
+                  </View>
                 </View>
 
-                {/* Weight mode toggle */}
                 <View
-                  style={{
-                    borderTopWidth: 1,
-                    borderTopColor: '#27272a',
-                    marginTop: 12,
-                    paddingTop: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}>
-                  <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600', flex: 1 }}>
-                    Weight mode
-                  </Text>
+                  style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                  {exerciseDefaultBase > 0 && (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 5,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: '#27272a',
+                        backgroundColor: '#18181b',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                      }}>
+                      <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '700' }}>
+                        {exerciseDefaultBase}kg bar
+                      </Text>
+                    </View>
+                  )}
                   <View
                     style={{
                       flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
                       borderRadius: 10,
                       borderWidth: 1,
-                      borderColor: '#27272a',
-                      overflow: 'hidden',
+                      borderColor: isPerSide
+                        ? localPerSide !== null
+                          ? 'rgba(217,119,6,0.4)'
+                          : 'rgba(234,88,12,0.3)'
+                        : '#27272a',
+                      backgroundColor: isPerSide
+                        ? localPerSide !== null
+                          ? 'rgba(28,21,3,0.8)'
+                          : 'rgba(234,88,12,0.05)'
+                        : '#18181b',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
                     }}>
-                    <Pressable
-                      onPress={() => isPerSide && handleTogglePerSide()}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        backgroundColor: !isPerSide ? '#27272a' : 'transparent',
-                      }}>
+                    {isPerSide ? (
                       <Text
                         style={{
-                          color: !isPerSide ? '#ffffff' : '#52525b',
+                          color: localPerSide !== null ? '#d97706' : '#ea580c',
                           fontSize: 12,
                           fontWeight: '700',
                         }}>
-                        Total
+                        {parseFloat(inputWeight) || 0} × 2 ={' '}
+                        {Math.round((parseFloat(inputWeight) || 0) * 2 * 100) / 100}kg
                       </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => !isPerSide && handleTogglePerSide()}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        backgroundColor: isPerSide ? 'rgba(234,88,12,0.15)' : 'transparent',
-                      }}>
-                      <Text
-                        style={{
-                          color: isPerSide ? '#ea580c' : '#52525b',
-                          fontSize: 12,
-                          fontWeight: '700',
-                        }}>
-                        Per side ×2
+                    ) : (
+                      <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '700' }}>
+                        total weight
                       </Text>
-                    </Pressable>
+                    )}
                   </View>
-                  {localPerSide !== null && (
-                    <Pressable
-                      onPress={() => {
-                        const newBlock = produce(localBlock, (draft) => {
-                          if (draft.exerciseWeightModes) {
-                            delete draft.exerciseWeightModes[activeExerciseId];
-                          }
-                        });
-                        setLocalBlock(newBlock);
-                        saveEditedBlock?.(dateString, newBlock);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
-                    </Pressable>
+                  <View style={{ flex: 1 }} />
+                  {(exerciseDefaultBase > 0 || isPerSide) && (
+                    <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '700' }}>
+                      {Math.round(
+                        ((parseFloat(inputWeight) || 0) * weightMultiplier + exerciseDefaultBase) *
+                          100
+                      ) / 100}
+                      kg total
+                    </Text>
                   )}
                 </View>
 
-                {/* Manual rest — no set logged, less common */}
-                <View
-                  className="mt-4 border-t border-zinc-800 pt-4"
-                  style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
-                  <Pressable
-                    onPress={handleAddRest}
-                    style={{ padding: 10 }}
-                    className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
-                    <Zap size={12} color="#a855f7" />
-                    <Text className="text-xs font-black uppercase text-purple-400">
-                      Add Rest · {currentDefaultRest}s
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleStartRestTimerOnly}
-                    style={{ padding: 10 }}
-                    className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
-                    <Timer size={12} color="#a855f7" />
-                    <Text className="text-xs font-black uppercase text-purple-400">
-                      Start rest timer
-                    </Text>
-                  </Pressable>
+                <View className="flex-row gap-2">
+                  <Button
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    variant="outline"
+                    className="h-16 w-16 flex-row gap-1 rounded-[24px] border-zinc-800">
+                    {showAdvanced ? (
+                      <ChevronUp size={14} color="#52525b" />
+                    ) : (
+                      <ChevronDown size={14} color="#52525b" />
+                    )}
+                  </Button>
+                  {editing ? (
+                    <>
+                      <Button
+                        className="h-16 flex-1 rounded-[24px] bg-green-600"
+                        onPress={handleFinishEditing}>
+                        <Check color="white" size={20} strokeWidth={3} />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="h-16 w-16 rounded-[24px]"
+                        onPress={deleteCurrent}>
+                        <Trash2 color="white" size={18} />
+                      </Button>
+                    </>
+                  ) : isSuperset && !isLastInRound ? (
+                    /* Superset mid-round: log set and advance to next exercise */
+                    <Button
+                      className="h-16 flex-1 flex-row gap-2 rounded-[24px] bg-blue-600"
+                      onPress={handleAddNewSet}>
+                      <Text className="text-sm font-black text-white">Next Exercise</Text>
+                      <ChevronRight color="white" size={18} strokeWidth={3} />
+                    </Button>
+                  ) : isSuperset && isLastInRound ? (
+                    /* Superset last exercise: finish round */
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
+                        onPress={handleAddNewSet}>
+                        <Plus color="#71717a" strokeWidth={3} size={18} />
+                        <Text className="text-[8px] font-black uppercase text-zinc-600">
+                          no rest
+                        </Text>
+                      </Button>
+                      <Button
+                        className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
+                        onPress={handleAddSetWithTimer}>
+                        <Timer color="white" size={16} />
+                        <Text className="text-sm font-black text-white">Done Round</Text>
+                      </Button>
+                    </>
+                  ) : (
+                    /* Standard block */
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-16 flex-1 flex-col gap-0 rounded-[24px] border-zinc-700"
+                        onPress={handleAddNewSet}>
+                        <Plus color="#71717a" strokeWidth={3} size={18} />
+                        <Text className="text-[8px] font-black uppercase text-zinc-600">
+                          no rest
+                        </Text>
+                      </Button>
+                      <Button
+                        className="h-16 flex-[2] flex-row gap-2 rounded-[24px] bg-green-600"
+                        onPress={handleAddSetWithTimer}>
+                        <Timer color="white" size={16} />
+                        <Text className="text-sm font-black text-white">Log Set + Rest</Text>
+                      </Button>
+                    </>
+                  )}
                 </View>
-              </View>
-            )}
+
+                {showAdvanced && (
+                  <View className="mt-4 rounded-[32px] border border-zinc-800 bg-zinc-950 p-4">
+                    <View className="mb-4 flex-row flex-wrap gap-2">
+                      {REP_TYPES.map((t) => (
+                        <Pressable
+                          key={t}
+                          onPress={() => setRepType(t)}
+                          className={`rounded-xl border px-4 py-2 ${repType === t ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-900'}`}>
+                          <Text
+                            className={`text-[10px] font-black uppercase ${repType === t ? 'text-black' : 'text-zinc-500'}`}>
+                            {t}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    {/* Weight mode toggle */}
+                    <View
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: '#27272a',
+                        marginTop: 12,
+                        paddingTop: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}>
+                      <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600', flex: 1 }}>
+                        Weight mode
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: '#27272a',
+                          overflow: 'hidden',
+                        }}>
+                        <Pressable
+                          onPress={() => isPerSide && handleTogglePerSide()}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            backgroundColor: !isPerSide ? '#27272a' : 'transparent',
+                          }}>
+                          <Text
+                            style={{
+                              color: !isPerSide ? '#ffffff' : '#52525b',
+                              fontSize: 12,
+                              fontWeight: '700',
+                            }}>
+                            Total
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => !isPerSide && handleTogglePerSide()}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            backgroundColor: isPerSide ? 'rgba(234,88,12,0.15)' : 'transparent',
+                          }}>
+                          <Text
+                            style={{
+                              color: isPerSide ? '#ea580c' : '#52525b',
+                              fontSize: 12,
+                              fontWeight: '700',
+                            }}>
+                            Per side ×2
+                          </Text>
+                        </Pressable>
+                      </View>
+                      {localPerSide !== null && (
+                        <Pressable
+                          onPress={() => {
+                            const newBlock = produce(localBlock, (draft) => {
+                              if (draft.exerciseWeightModes) {
+                                delete draft.exerciseWeightModes[activeExerciseId];
+                              }
+                            });
+                            setLocalBlock(newBlock);
+                            saveEditedBlock?.(dateString, newBlock);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Text style={{ color: '#3f3f46', fontSize: 11 }}>↺</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {/* Manual rest — no set logged, less common */}
+                    <View
+                      className="mt-4 border-t border-zinc-800 pt-4"
+                      style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                      <Pressable
+                        onPress={handleAddRest}
+                        style={{ padding: 10 }}
+                        className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
+                        <Zap size={12} color="#a855f7" />
+                        <Text className="text-xs font-black uppercase text-purple-400">
+                          Add Rest · {currentDefaultRest}s
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleStartRestTimerOnly}
+                        style={{ padding: 10 }}
+                        className="flex-row items-center justify-center gap-2 rounded-2xl border border-purple-500/20 bg-purple-900/10 py-3">
+                        <Timer size={12} color="#a855f7" />
+                        <Text className="text-xs font-black uppercase text-purple-400">
+                          Start rest timer
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </>
             )}
           </View>

@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -125,11 +126,13 @@ type EmphasisRowProps = {
   onSetHead: (head: string | undefined) => void;
   onCycleRole: () => void;
   onRemove: () => void;
+  muscleOptions: Array<{ id: string; label: string }>;
+  muscleHeads: Record<string, string[]>;
 };
 
 // Each row owns its custom-text state so typing only re-renders that row
 const EmphasisRowBase = forwardRef<EmphasisRowHandle, EmphasisRowProps>(function EmphasisRow(
-  { em, openField, onToggle, onSetMuscle, onCommitMuscle, onSetHead, onCycleRole, onRemove },
+  { em, openField, onToggle, onSetMuscle, onCommitMuscle, onSetHead, onCycleRole, onRemove, muscleOptions, muscleHeads },
   ref
 ) {
   const [customMuscleText, setCustomMuscleText] = useState('');
@@ -167,15 +170,16 @@ const EmphasisRowBase = forwardRef<EmphasisRowHandle, EmphasisRowProps>(function
     }
   }, [openField]);
 
-  const heads = em.muscle ? (MUSCLE_HEADS[em.muscle] ?? []) : [];
+  const heads = em.muscle ? (muscleHeads[em.muscle] ?? []) : [];
   const musclePicking = openField === 'muscle';
   const headPicking = openField === 'head';
   const rs = ROLE_STYLE[em.role];
 
   // Duplicate detection — custom input matches a known preset
   const muscleDuplicate =
-    !!customMuscleText.trim() && !!MUSCLE_GROUP_MAP[slugify(customMuscleText)];
-  const headDuplicate = !!customHeadText.trim() && !!HEAD_LABELS[slugify(customHeadText)];
+    !!customMuscleText.trim() && muscleOptions.some((m) => m.id === slugify(customMuscleText));
+  const headDuplicate =
+    !!customHeadText.trim() && heads.includes(slugify(customHeadText));
 
   // Head is accessible if muscle is committed OR if there's pending custom text
   const hasMuscle = !!em.muscle || !!customMuscleText;
@@ -256,7 +260,7 @@ const EmphasisRowBase = forwardRef<EmphasisRowHandle, EmphasisRowProps>(function
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ gap: 6, paddingVertical: 2, alignItems: 'center' }}>
-            {MUSCLE_OPTIONS.map((m) => {
+            {muscleOptions.map((m) => {
               const active = em.muscle === m.id;
               return (
                 <TouchableOpacity
@@ -381,8 +385,10 @@ const EmphasisBuilderBase = forwardRef<
   {
     value: Emphasis[];
     onChange: (fn: (prev: Emphasis[]) => Emphasis[]) => void;
+    muscleOptions: Array<{ id: string; label: string }>;
+    muscleHeads: Record<string, string[]>;
   }
->(function EmphasisBuilder({ value, onChange }, builderRef) {
+>(function EmphasisBuilder({ value, onChange, muscleOptions, muscleHeads }, builderRef) {
   const [open, setOpen] = useState<OpenPicker>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -448,7 +454,7 @@ const EmphasisBuilderBase = forwardRef<
   const setMuscle = useCallback(
     (idx: number, muscle: string) => {
       onChange((prev) => prev.map((e, i) => (i === idx ? { ...e, muscle, head: undefined } : e)));
-      if ((MUSCLE_HEADS[muscle]?.length ?? 0) > 0) {
+      if ((muscleHeads[muscle]?.length ?? 0) > 0) {
         setOpen({ idx, field: 'head' });
       } else {
         setOpen(null);
@@ -515,6 +521,8 @@ const EmphasisBuilderBase = forwardRef<
           onSetHead={(head) => setHead(idx, head)}
           onCycleRole={() => cycleRole(idx)}
           onRemove={() => remove(idx)}
+          muscleOptions={muscleOptions}
+          muscleHeads={muscleHeads}
         />
       ))}
       <TouchableOpacity
@@ -584,7 +592,33 @@ export default function CreateExercise() {
     (pd?.showAdvancedStack as boolean) ?? false
   );
   const [showStackEditor, setShowStackEditor] = useState(false);
+  const stackItemsOnOpenRef = useRef<string[]>([]);
   const stackInputRefs = useRef<(TextInput | null)[]>([]);
+
+  const openStackEditor = (items: string[]) => {
+    stackItemsOnOpenRef.current = [...items];
+    setShowStackEditor(true);
+  };
+
+  const handleStackEditorRequestClose = () => {
+    const changed =
+      JSON.stringify(weightStackItems) !== JSON.stringify(stackItemsOnOpenRef.current);
+    if (!changed) {
+      setShowStackEditor(false);
+      return;
+    }
+    Alert.alert('Discard changes?', 'Your edits to the custom weight values will be lost.', [
+      { text: 'Keep editing', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: () => {
+          setWeightStackItems(stackItemsOnOpenRef.current);
+          setShowStackEditor(false);
+        },
+      },
+    ]);
+  };
   const [description, setDescription] = useState((pd?.description as string) ?? '');
   const [videoUrl, setVideoUrl] = useState((pd?.videoUrl as string) ?? '');
   const [isFavourite, setIsFavourite] = useState(false);
@@ -596,9 +630,44 @@ export default function CreateExercise() {
   const emphasisBuilderRef = useRef<EmphasisBuilderHandle>(null);
   const originalBaseWeightRef = useRef<number | null>(null);
 
-  // Load persisted custom equipment on mount (for all exercises)
+  const [allMuscleOptions, setAllMuscleOptions] = useState(MUSCLE_OPTIONS);
+  const [allMuscleHeads, setAllMuscleHeads] = useState<Record<string, string[]>>(MUSCLE_HEADS);
+
+  // Load persisted custom equipment and derive custom muscles/heads from all exercises on mount
   useEffect(() => {
     ExerciseDAL.getCustomEquipment().then(setPersistedCustomEquipment);
+    ExerciseDAL.getAll().then((all) => {
+      const seenMuscles = new Set(MUSCLE_OPTIONS.map((m) => m.id));
+      const extraMuscles: Array<{ id: string; label: string }> = [];
+      const extraHeads: Record<string, Set<string>> = {};
+      for (const ex of all) {
+        for (const em of ex.muscleEmphasis) {
+          if (!seenMuscles.has(em.muscle)) {
+            seenMuscles.add(em.muscle);
+            extraMuscles.push({ id: em.muscle, label: fmt(em.muscle) });
+          }
+          if (em.head) {
+            const known = MUSCLE_HEADS[em.muscle] ?? [];
+            if (!known.includes(em.head)) {
+              if (!extraHeads[em.muscle]) extraHeads[em.muscle] = new Set();
+              extraHeads[em.muscle].add(em.head);
+            }
+          }
+        }
+      }
+      if (extraMuscles.length > 0) {
+        setAllMuscleOptions(
+          [...MUSCLE_OPTIONS, ...extraMuscles].sort((a, b) => a.label.localeCompare(b.label))
+        );
+      }
+      if (Object.keys(extraHeads).length > 0) {
+        const merged: Record<string, string[]> = { ...MUSCLE_HEADS };
+        for (const [muscle, heads] of Object.entries(extraHeads)) {
+          merged[muscle] = [...(merged[muscle] ?? []), ...Array.from(heads)];
+        }
+        setAllMuscleHeads(merged);
+      }
+    });
   }, []);
 
   // Load exercise data in edit mode
@@ -1041,6 +1110,8 @@ export default function CreateExercise() {
               ref={emphasisBuilderRef}
               value={emphasis}
               onChange={(fn) => setEmphasis(fn)}
+              muscleOptions={allMuscleOptions}
+              muscleHeads={allMuscleHeads}
             />
           </View>
 
@@ -1194,9 +1265,10 @@ export default function CreateExercise() {
                   <TouchableOpacity
                     onPress={() => {
                       if (!showAdvancedStack) {
-                        setWeightStackItems(generateWeightStack(effectiveStep));
+                        const generated = generateWeightStack(effectiveStep);
+                        setWeightStackItems(generated);
                         setShowAdvancedStack(true);
-                        setShowStackEditor(true);
+                        openStackEditor(generated);
                       }
                     }}
                     style={{
@@ -1242,7 +1314,7 @@ export default function CreateExercise() {
                 {/* Custom mode — summary (taps to open modal) */}
                 {showAdvancedStack && (
                   <TouchableOpacity
-                    onPress={() => setShowStackEditor(true)}
+                    onPress={() => openStackEditor(weightStackItems)}
                     activeOpacity={0.7}
                     style={{
                       flexDirection: 'row',
@@ -1320,18 +1392,19 @@ export default function CreateExercise() {
         visible={showStackEditor}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowStackEditor(false)}>
+        onRequestClose={handleStackEditorRequestClose}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View
+          <Pressable
             style={{
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
               backgroundColor: 'rgba(0,0,0,0.65)',
-            }}>
-            <View
+            }}
+            onPress={handleStackEditorRequestClose}>
+            <Pressable
               style={{
                 backgroundColor: '#18181b',
                 borderRadius: 16,
@@ -1465,8 +1538,8 @@ export default function CreateExercise() {
                   <Text style={{ color: '#52525b', fontSize: 20, lineHeight: 22 }}>+</Text>
                 </TouchableOpacity>
               </ScrollView>
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </KeyboardAvoidingView>
       </Modal>
     </View>

@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
-import { View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, TouchableOpacity, Pressable, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import Body, { type Slug } from 'react-native-body-highlighter';
 import { Text } from '@/components/ui/text';
 import {
   PERIODS,
   MUSCLE_COLORS,
+  MUSCLE_GROUP_LABELS,
   heatColor,
   relativeDate,
   fmtVolume,
@@ -18,8 +19,17 @@ import {
 const { width: SCREEN_W } = Dimensions.get('window');
 const BODY_SCALE = (SCREEN_W - 56) / 2 / 200;
 
-function buildBodyData(slugIntensity: Record<string, number>, side: 'front' | 'back') {
-  const f = (slug: Slug) => heatColor(slugIntensity[slug] ?? 0);
+function buildBodyData(
+  slugIntensity: Record<string, number>,
+  side: 'front' | 'back',
+  selectedSlug: string | null,
+) {
+  const f = (slug: Slug) => {
+    if (selectedSlug !== null) {
+      return slug === selectedSlug ? heatColor(Math.max(slugIntensity[slug] ?? 0, 0.6)) : '#27272a';
+    }
+    return heatColor(slugIntensity[slug] ?? 0);
+  };
   const s = (slug: Slug) => ({ slug, styles: { fill: f(slug) } });
   const shared = [s('deltoids')];
 
@@ -33,7 +43,7 @@ function buildBodyData(slugIntensity: Record<string, number>, side: 'front' | 'b
   return [
     ...shared,
     s('upper-back'), s('lower-back'), s('trapezius'),
-    s('triceps'), s('hamstring'), s('gluteal'), s('calves'), s('adductors'),
+    s('triceps'), s('forearm'), s('hamstring'), s('gluteal'), s('calves'), s('adductors'),
   ];
 }
 
@@ -41,14 +51,16 @@ function BodyFigure({
   view,
   slugIntensity,
   gender,
+  selectedSlug,
 }: {
   view: 'front' | 'back';
   slugIntensity: Record<string, number>;
   gender: 'male' | 'female';
+  selectedSlug: string | null;
 }) {
   return (
     <Body
-      data={buildBodyData(slugIntensity, view)}
+      data={buildBodyData(slugIntensity, view, selectedSlug)}
       side={view}
       gender={gender}
       scale={BODY_SCALE}
@@ -79,6 +91,13 @@ export function MusclesTab({
   loading: boolean;
   bottomInset: number;
 }) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const selectedSlug = useMemo(() => {
+    if (!selectedKey) return null;
+    return muscleHeads.find((m) => m.key === selectedKey)?.bodySlug ?? null;
+  }, [selectedKey, muscleHeads]);
+
   const sortedMuscles = useMemo(
     () =>
       [...muscleHeads].sort((a, b) =>
@@ -114,7 +133,7 @@ export function MusclesTab({
         {PERIODS.map((p) => (
           <TouchableOpacity
             key={p.label}
-            onPress={() => setPeriod(p)}
+            onPress={() => { setPeriod(p); setSelectedKey(null); }}
             style={{
               flex: 1,
               paddingVertical: 7,
@@ -150,7 +169,7 @@ export function MusclesTab({
         {(['frequency', 'volume'] as const).map((m) => (
           <TouchableOpacity
             key={m}
-            onPress={() => setMetric(m)}
+            onPress={() => { setMetric(m); setSelectedKey(null); }}
             style={{
               flex: 1,
               paddingVertical: 7,
@@ -181,7 +200,7 @@ export function MusclesTab({
             style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 }}>
             {(['front', 'back'] as const).map((view) => (
               <View key={view} style={{ alignItems: 'center', gap: 8 }}>
-                <BodyFigure view={view} slugIntensity={slugIntensity} gender={gender} />
+                <BodyFigure view={view} slugIntensity={slugIntensity} gender={gender} selectedSlug={selectedSlug} />
                 <Text
                   style={{
                     color: '#3f3f46',
@@ -210,19 +229,32 @@ export function MusclesTab({
           </View>
 
           {/* Muscle head list */}
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 8 }}>
             {sortedMuscles.map((m) => {
               const val = metric === 'frequency' ? m.frequency : m.volume;
               const pct = maxValue > 0 ? val / maxValue : 0;
               const color = MUSCLE_COLORS[m.muscle] ?? '#52525b';
+              const isSelected = selectedKey === m.key;
+              const groupLabel = MUSCLE_GROUP_LABELS[m.muscle];
+              // Only show group label as subtitle when the head label doesn't already represent the group
+              const showGroup = groupLabel && m.label !== groupLabel;
               return (
-                <View key={m.key}>
+                <Pressable
+                  key={m.key}
+                  onPress={() => setSelectedKey(isSelected ? null : m.key)}
+                  style={{
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: isSelected ? color : '#27272a',
+                    backgroundColor: isSelected ? `${color}18` : 'transparent',
+                    padding: 10,
+                  }}>
                   <View
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      marginBottom: 5,
+                      marginBottom: 8,
                     }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <View
@@ -233,9 +265,16 @@ export function MusclesTab({
                           backgroundColor: color,
                         }}
                       />
-                      <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>
-                        {m.label}
-                      </Text>
+                      <View>
+                        <Text style={{ color: '#fafafa', fontSize: 14, fontWeight: '600' }}>
+                          {m.label}
+                        </Text>
+                        {showGroup && (
+                          <Text style={{ color: '#52525b', fontSize: 11, fontWeight: '500', marginTop: 1 }}>
+                            {groupLabel}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Text style={{ color: '#52525b', fontSize: 12 }}>
@@ -269,7 +308,7 @@ export function MusclesTab({
                       }}
                     />
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>

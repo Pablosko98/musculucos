@@ -58,6 +58,15 @@ export default function Exercises() {
     }, [])
   );
 
+  // Reload list when returning from create_exercise (focusName param is set)
+  useEffect(() => {
+    if (!focusName) return;
+    Promise.all([ExerciseDAL.getAll(), ExerciseDAL.getExerciseStats()]).then(([exs, s]) => {
+      setAllExercises(exs);
+      setStats(s);
+    });
+  }, [focusName]);
+
   // Scroll to newly created exercise when navigated here with focusName
   const scrolledForRef = useRef<string | null>(null);
   useEffect(() => {

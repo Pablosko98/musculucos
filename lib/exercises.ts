@@ -34,6 +34,7 @@ export const MUSCLE_GROUP_MAP: Record<string, { groupId: string; groupLabel: str
   back:      { groupId: 'back',      groupLabel: 'Back' },
   biceps:    { groupId: 'biceps',    groupLabel: 'Biceps' },
   chest:     { groupId: 'chest',     groupLabel: 'Chest' },
+  forearms:  { groupId: 'forearms',  groupLabel: 'Forearms' },
   legs:      { groupId: 'legs',      groupLabel: 'Legs' },
   shoulders: { groupId: 'shoulders', groupLabel: 'Shoulders' },
   triceps:   { groupId: 'triceps',   groupLabel: 'Triceps' },
@@ -180,6 +181,7 @@ export const exercises: Exercise[] = [
       { muscle: 'biceps', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -192,6 +194,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -204,6 +207,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -216,6 +220,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -226,6 +231,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'back', role: 'secondary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -237,6 +243,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'upper', role: 'primary' },
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -248,6 +255,7 @@ export const exercises: Exercise[] = [
       { muscle: 'back', role: 'secondary' },
       { muscle: 'biceps', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -282,6 +290,7 @@ export const exercises: Exercise[] = [
       { muscle: 'legs', role: 'secondary' },
       { muscle: 'back', role: 'secondary' },
       { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
 
@@ -394,6 +403,7 @@ export const exercises: Exercise[] = [
       { muscle: 'biceps', head: 'long_head', role: 'primary' },
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
     videoUrl: 'https://www.youtube.com/shorts/MKWBV29S6c0',
   },
@@ -406,6 +416,7 @@ export const exercises: Exercise[] = [
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', head: 'long_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -417,6 +428,7 @@ export const exercises: Exercise[] = [
       { muscle: 'biceps', head: 'long_head', role: 'primary' },
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -428,6 +440,7 @@ export const exercises: Exercise[] = [
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', head: 'long_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -437,6 +450,7 @@ export const exercises: Exercise[] = [
     description: 'Neutral (thumbs-up) grip. Removes supination → brachialis becomes primary mover.',
     muscleEmphasis: [
       { muscle: 'biceps', head: 'brachialis', role: 'primary' },
+      { muscle: 'forearms', head: 'brachioradialis', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
     ],
   },
@@ -447,6 +461,7 @@ export const exercises: Exercise[] = [
     description: 'Rope attachment, neutral grip. Constant tension on brachialis.',
     muscleEmphasis: [
       { muscle: 'biceps', head: 'brachialis', role: 'primary' },
+      { muscle: 'forearms', head: 'brachioradialis', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
     ],
   },
@@ -458,6 +473,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -468,6 +484,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -478,6 +495,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'biceps', head: 'long_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
   {
@@ -488,6 +506,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'biceps', head: 'short_head', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'secondary' },
     ],
   },
 
