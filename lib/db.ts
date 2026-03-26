@@ -451,7 +451,16 @@ export const WorkoutDAL = {
 export const ExerciseDAL = {
   async seedBaseExercises() {
     const existing = await db.getFirstAsync('SELECT id FROM exercises LIMIT 1');
-    if (existing) return;
+    if (existing) {
+      // Re-sync muscleEmphasis for all base exercises (isCustom = 0)
+      for (const ex of baseExercises) {
+        await db.runAsync(
+          `UPDATE exercises SET muscleEmphasis = ? WHERE id = ? AND isCustom = 0`,
+          [JSON.stringify(ex.muscleEmphasis ?? []), ex.id]
+        );
+      }
+      return;
+    }
 
     for (const [muscle, { groupId, groupLabel }] of Object.entries(MUSCLE_GROUP_MAP)) {
       await db.runAsync(

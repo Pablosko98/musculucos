@@ -85,6 +85,8 @@ export const MUSCLE_HEAD_DEFS: MuscleHeadDef[] = [
   // Forearms
   { key: 'forearms',           muscle: 'forearms',  label: 'Forearms',      bodySlug: 'forearm' },
   { key: 'forearms/brachioradialis', muscle: 'forearms', label: 'Brachioradialis', bodySlug: 'forearm' },
+  // Tibialis
+  { key: 'legs/tibialis',      muscle: 'legs',      label: 'Tibialis',      bodySlug: 'tibialis' },
 ];
 
 export const HEAD_DEF_MAP = new Map(MUSCLE_HEAD_DEFS.map((d) => [d.key, d]));

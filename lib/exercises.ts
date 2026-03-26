@@ -72,6 +72,8 @@ export const HEAD_LABELS: Record<string, string> = {
   medial:   'Medial Head',
   // abs
   obliques: 'Obliques',
+  // legs (extra)
+  tibialis: 'Tibialis',
 };
 
 export const exercises: Exercise[] = [
@@ -85,6 +87,7 @@ export const exercises: Exercise[] = [
       { muscle: 'chest', head: 'middle', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
     videoUrl: 'https://www.youtube.com/shorts/5NStATS0zrw',
   },
@@ -96,6 +99,7 @@ export const exercises: Exercise[] = [
       { muscle: 'chest', head: 'middle', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -106,6 +110,7 @@ export const exercises: Exercise[] = [
       { muscle: 'chest', head: 'upper', role: 'primary' },
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -116,6 +121,7 @@ export const exercises: Exercise[] = [
       { muscle: 'chest', head: 'upper', role: 'primary' },
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -125,6 +131,8 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'chest', head: 'lower', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -135,6 +143,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'chest', head: 'middle', role: 'primary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -146,6 +155,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'chest', head: 'middle', role: 'primary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -166,6 +176,7 @@ export const exercises: Exercise[] = [
       { muscle: 'triceps', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
 
@@ -266,7 +277,9 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'rear', role: 'primary' },
       { muscle: 'back', head: 'upper', role: 'primary' },
+      { muscle: 'back', head: 'traps', role: 'secondary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -277,6 +290,8 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'back', head: 'lats', role: 'primary' },
       { muscle: 'triceps', role: 'stabilizer' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -287,7 +302,9 @@ export const exercises: Exercise[] = [
       { muscle: 'back', head: 'lower', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
       { muscle: 'legs', head: 'hamstrings', role: 'primary' },
+      { muscle: 'legs', head: 'quads', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
+      { muscle: 'back', head: 'traps', role: 'stabilizer' },
       { muscle: 'back', role: 'secondary' },
       { muscle: 'abs', role: 'stabilizer' },
       { muscle: 'forearms', role: 'stabilizer' },
@@ -305,6 +322,8 @@ export const exercises: Exercise[] = [
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'triceps', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -315,6 +334,9 @@ export const exercises: Exercise[] = [
       { muscle: 'shoulders', head: 'front', role: 'primary' },
       { muscle: 'shoulders', role: 'secondary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -334,7 +356,9 @@ export const exercises: Exercise[] = [
     description: 'Slight forward lean increases lateral delt activation.',
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'side', role: 'primary' },
+      { muscle: 'back', head: 'traps', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -344,7 +368,9 @@ export const exercises: Exercise[] = [
     description: 'Low pulley provides constant tension through full ROM.',
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'side', role: 'primary' },
+      { muscle: 'back', head: 'traps', role: 'secondary' },
       { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -354,6 +380,8 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'front', role: 'primary' },
       { muscle: 'chest', role: 'secondary' },
+      { muscle: 'back', head: 'traps', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -363,7 +391,9 @@ export const exercises: Exercise[] = [
     description: 'Torso parallel to floor. Slight elbow bend reduces trap recruitment.',
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'rear', role: 'primary' },
+      { muscle: 'back', head: 'traps', role: 'secondary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -372,7 +402,9 @@ export const exercises: Exercise[] = [
     equipment: 'cable',
     muscleEmphasis: [
       { muscle: 'shoulders', head: 'rear', role: 'primary' },
+      { muscle: 'back', head: 'traps', role: 'secondary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -384,6 +416,7 @@ export const exercises: Exercise[] = [
       { muscle: 'shoulders', head: 'side', role: 'primary' },
       { muscle: 'back', head: 'traps', role: 'primary' },
       { muscle: 'biceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
 
@@ -525,6 +558,7 @@ export const exercises: Exercise[] = [
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
       { muscle: 'triceps', head: 'medial', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -536,6 +570,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -547,6 +582,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'triceps', head: 'long_head', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -556,6 +592,7 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'triceps', head: 'long_head', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -567,6 +604,7 @@ export const exercises: Exercise[] = [
       { muscle: 'triceps', head: 'long_head', role: 'primary' },
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
       { muscle: 'triceps', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -579,6 +617,8 @@ export const exercises: Exercise[] = [
       { muscle: 'triceps', head: 'medial', role: 'primary' },
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
       { muscle: 'chest', role: 'secondary' },
+      { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -590,6 +630,8 @@ export const exercises: Exercise[] = [
       { muscle: 'triceps', head: 'lateral', role: 'primary' },
       { muscle: 'chest', role: 'secondary' },
       { muscle: 'shoulders', role: 'secondary' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
 
@@ -603,7 +645,11 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
+      { muscle: 'legs', head: 'adductors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
+      { muscle: 'back', head: 'lower', role: 'stabilizer' },
+      { muscle: 'back', head: 'traps', role: 'stabilizer' },
       { muscle: 'abs', role: 'stabilizer' },
     ],
   },
@@ -615,8 +661,12 @@ export const exercises: Exercise[] = [
     description: 'Goblet hold promotes upright torso → greater quad emphasis.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
+      { muscle: 'legs', head: 'glutes', role: 'secondary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
+      { muscle: 'legs', head: 'adductors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
       { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -626,6 +676,9 @@ export const exercises: Exercise[] = [
     description: 'Feet forward on platform. VMO (inner quad) dominant.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
+      { muscle: 'legs', head: 'glutes', role: 'secondary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
+      { muscle: 'legs', head: 'adductors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
     ],
   },
@@ -636,6 +689,8 @@ export const exercises: Exercise[] = [
     description: 'Foot position changes emphasis: high/wide = glutes; low/narrow = quads.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
+      { muscle: 'legs', head: 'glutes', role: 'secondary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
     ],
     videoUrl: 'https://www.youtube.com/shorts/EotSw18oR9w',
@@ -649,6 +704,8 @@ export const exercises: Exercise[] = [
       { muscle: 'legs', head: 'hamstrings', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'back', head: 'lower', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -659,6 +716,8 @@ export const exercises: Exercise[] = [
       { muscle: 'legs', head: 'hamstrings', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
       { muscle: 'back', role: 'secondary' },
+      { muscle: 'back', head: 'lower', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -701,6 +760,7 @@ export const exercises: Exercise[] = [
     description: 'Knee straight → gastrocnemius dominant (crosses knee and ankle).',
     muscleEmphasis: [
       { muscle: 'legs', head: 'calves', role: 'primary' },
+      { muscle: 'legs', head: 'tibialis', role: 'stabilizer' },
       { muscle: 'legs', role: 'secondary' },
     ],
     videoUrl: 'https://www.youtube.com/shorts/wdOkFomQNp8',
@@ -713,6 +773,7 @@ export const exercises: Exercise[] = [
     description: 'Knee bent → gastrocnemius is slack → soleus isolated.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'calves', role: 'primary' },
+      { muscle: 'legs', head: 'tibialis', role: 'stabilizer' },
       { muscle: 'legs', role: 'secondary' },
     ],
   },
@@ -723,8 +784,9 @@ export const exercises: Exercise[] = [
     description: 'Best peak contraction for glutes due to full hip extension under load.',
     muscleEmphasis: [
       { muscle: 'legs', head: 'glutes', role: 'primary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
-      { muscle: 'legs', role: 'stabilizer' },
+      { muscle: 'abs', role: 'stabilizer' },
     ],
   },
   {
@@ -735,7 +797,11 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
+      { muscle: 'legs', head: 'adductors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -745,7 +811,11 @@ export const exercises: Exercise[] = [
     muscleEmphasis: [
       { muscle: 'legs', head: 'quads', role: 'primary' },
       { muscle: 'legs', head: 'glutes', role: 'primary' },
+      { muscle: 'legs', head: 'hamstrings', role: 'secondary' },
+      { muscle: 'legs', head: 'adductors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
+      { muscle: 'abs', role: 'stabilizer' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
 
@@ -770,7 +840,9 @@ export const exercises: Exercise[] = [
     equipment: 'bodyweight',
     muscleEmphasis: [
       { muscle: 'abs', role: 'primary' },
+      { muscle: 'legs', head: 'hip_flexors', role: 'secondary' },
       { muscle: 'legs', role: 'secondary' },
+      { muscle: 'forearms', role: 'stabilizer' },
     ],
   },
   {
@@ -779,6 +851,9 @@ export const exercises: Exercise[] = [
     equipment: 'bodyweight',
     muscleEmphasis: [
       { muscle: 'abs', role: 'primary' },
+      { muscle: 'shoulders', role: 'stabilizer' },
+      { muscle: 'back', role: 'stabilizer' },
+      { muscle: 'legs', role: 'stabilizer' },
     ],
   },
   {

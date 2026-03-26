@@ -254,7 +254,9 @@ export function replaceBlockExercise(
       return {
         ...ev,
         subSets: ev.subSets.map((sub) =>
-          sub.exerciseId === oldId ? { ...sub, exerciseId: newExercise.id, exercise: newExercise } : sub
+          sub.exerciseId === oldId
+            ? { ...sub, exerciseId: newExercise.id, exercise: newExercise }
+            : sub
         ),
       };
     }),
@@ -285,9 +287,7 @@ function WorkoutCard({ index }: { index: number }) {
 
   const hasBlocks = !!dailyWorkout && dailyWorkout.blocks.length > 0;
 
-  const sortedBlocks = hasBlocks
-    ? [...dailyWorkout.blocks].sort((a, b) => a.order - b.order)
-    : [];
+  const sortedBlocks = hasBlocks ? [...dailyWorkout.blocks].sort((a, b) => a.order - b.order) : [];
 
   const relativeLabel =
     dayDiff === 0
@@ -336,7 +336,11 @@ function WorkoutCard({ index }: { index: number }) {
                   switchAlternative(dateString, blockId, exerciseIndex, newExerciseId)
                 }
                 onMoveUp={idx > 0 ? () => moveBlock(dateString, block.id, 'up') : undefined}
-                onMoveDown={idx < sortedBlocks.length - 1 ? () => moveBlock(dateString, block.id, 'down') : undefined}
+                onMoveDown={
+                  idx < sortedBlocks.length - 1
+                    ? () => moveBlock(dateString, block.id, 'down')
+                    : undefined
+                }
                 onReplace={(blockId) => setReplaceBlockId(blockId)}
               />
             ))
@@ -423,14 +427,17 @@ export default function WorkoutTracker() {
         </Button>
         <Button
           style={{ backgroundColor: '#166534', width: 140 }}
-          onPress={() => carouselRef.current?.scrollTo({ index: INITIAL_INDEX, animated: true })}>
+          onPress={() => carouselRef.current?.scrollTo({ index: INITIAL_INDEX, animated: false })}>
           <Text style={{ color: 'white' }}>Today</Text>
         </Button>
       </View>
 
       <View
         style={{ flex: 1 }}
-        onLayout={(e) => { const h = e.nativeEvent.layout.height + 50; setCarouselHeight((prev) => prev || h); }}>
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height + 50;
+          setCarouselHeight((prev) => prev || h);
+        }}>
         {carouselHeight > 0 && (
           <Carousel
             ref={carouselRef}

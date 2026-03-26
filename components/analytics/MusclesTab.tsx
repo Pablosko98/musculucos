@@ -36,8 +36,8 @@ function buildBodyData(
   if (side === 'front') {
     return [
       ...shared,
-      s('chest'), s('biceps'), s('abs'), s('obliques'),
-      s('quadriceps'), s('calves'), s('adductors'),
+      s('chest'), s('biceps'), s('forearm'), s('abs'), s('obliques'),
+      s('quadriceps'), s('tibialis'), s('calves'), s('adductors'),
     ];
   }
   return [
