@@ -524,7 +524,7 @@ export default function ExerciseBlock() {
     );
     setInputWeight(weight);
     setInputReps(reps);
-  }, [historyData, prefillMode, activeExerciseId]);
+  }, [historyData, prefillMode, activeExerciseId, weightMultiplier]);
 
   // ── Sets tab logic ───────────────────────────────────────────────────────
 
