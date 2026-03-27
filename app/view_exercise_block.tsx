@@ -506,6 +506,8 @@ function ActiveBlock({
       e.subSets.filter((s) => s.rep_type !== 'warmup')
     );
     const volume = allWorkingSubSets.reduce((sum, s) => sum + s.weightKg * s.reps, 0);
+    const totalReps = allWorkingSubSets.reduce((sum, s) => sum + s.reps, 0);
+    const avgKg = workingSetEvents.length > 0 && totalReps > 0 ? volume / totalReps : 0;
     const totalRest = exerciseBlock.events
       .filter((e): e is import('@/lib/types').RestEvent => e.type === 'rest')
       .reduce((sum, e) => sum + e.durationSeconds, 0);
@@ -514,70 +516,83 @@ function ActiveBlock({
         .filter((ex) => ex.equipment)
         .map((ex) => variantLabel(ex))
     )];
-    return { sets: workingSetEvents.length, volume, totalRest, variantLabels };
+    return { sets: workingSetEvents.length, volume, totalReps, avgKg, totalRest, variantLabels };
   }, [exerciseBlock]);
 
   return (
     <Pressable
-      className="mb-3 rounded-[22px] border border-zinc-800 bg-zinc-900 p-5"
       onPress={openBlock}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setOptionsVisible(true);
+      }}
+      style={{
+        marginBottom: 10,
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: isResting ? '#4c1d95' : '#27272a',
+        backgroundColor: isResting ? '#0d0a14' : '#18181b',
+        overflow: 'hidden',
       }}>
-      <View className="mb-3 flex-row items-center justify-between">
-        <View style={{ flex: 1 }}>
-          <Text className="text-xl font-black leading-tight text-white">{exerciseBlock.name}</Text>
-          {blockSummary.variantLabels.length > 0 && (
-            <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '600', marginTop: 2 }}>
-              {blockSummary.variantLabels.join(' · ')}
+      {isResting && (
+        <View style={{ height: 3, backgroundColor: '#7c3aed' }} />
+      )}
+      <View style={{ padding: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={{ color: '#fafafa', fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 22 }} numberOfLines={1}>
+              {exerciseBlock.name}
+              {blockSummary.variantLabels.length > 0 && (
+                <Text style={{ color: '#3f3f46', fontSize: 15, fontWeight: '500', letterSpacing: -0.2 }}>
+                  {' | '}{blockSummary.variantLabels.join(' | ')}
+                </Text>
+              )}
             </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4, paddingTop: 2 }}>
+            <Activity size={18} color={isResting ? '#a855f7' : '#22c55e'} />
+            <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600' }}>
+              {formatTime(exerciseBlock.datetime)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {blockSummary.sets > 0 && (
+            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 3 }}>
+              <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(34,211,238,0.10)', borderWidth: 1, borderColor: 'rgba(34,211,238,0.22)', width: '100%', alignItems: 'center' }}>
+                <Text style={{ color: '#22d3ee', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>{blockSummary.sets} sets</Text>
+              </View>
+            </View>
+          )}
+          {blockSummary.totalReps > 0 && (
+            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 3 }}>
+              <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(251,113,133,0.10)', borderWidth: 1, borderColor: 'rgba(251,113,133,0.22)', width: '100%', alignItems: 'center' }}>
+                <Text style={{ color: '#fb7185', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>{blockSummary.totalReps} reps</Text>
+              </View>
+            </View>
+          )}
+          {blockSummary.avgKg > 0 && (
+            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 3 }}>
+              <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(52,211,153,0.10)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.22)', width: '100%', alignItems: 'center' }}>
+                <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }} numberOfLines={1} adjustsFontSizeToFit>{Math.round(blockSummary.avgKg)} kg/rep</Text>
+              </View>
+            </View>
+          )}
+          {(isResting || blockSummary.totalRest > 0) && (
+            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 3 }}>
+              {isResting ? (
+                <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(167,139,250,0.20)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.40)', width: '100%', alignItems: 'center' }}>
+                  <Text style={{ color: '#a78bfa', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>Resting…</Text>
+                </View>
+              ) : (
+                <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(167,139,250,0.10)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.22)', width: '100%', alignItems: 'center' }}>
+                  <Text style={{ color: '#a78bfa', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>{Math.round(blockSummary.totalRest / 60)}m rest</Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          <Activity size={20} color="#22c55e" />
-          <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600' }}>
-            {formatTime(exerciseBlock.datetime)}
-          </Text>
-        </View>
-      </View>
-      <View className="flex-row flex-wrap gap-2">
-        {blockSummary.variantLabels.map((label, i) => (
-          <View
-            key={`${label}-${i}`}
-            className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1">
-            <Text className="text-[9px] font-black uppercase tracking-widest text-blue-400">
-              {label}
-            </Text>
-          </View>
-        ))}
-        {blockSummary.sets > 0 && (
-          <View className="rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1">
-            <Text className="text-[9px] font-black uppercase tracking-widest text-zinc-300">
-              {blockSummary.sets} sets
-            </Text>
-          </View>
-        )}
-        {blockSummary.volume > 0 && (
-          <View className="rounded-lg border border-green-500/20 bg-green-500/10 px-2 py-1">
-            <Text className="text-[9px] font-black uppercase tracking-widest text-green-400">
-              {blockSummary.volume.toLocaleString()}kg vol
-            </Text>
-          </View>
-        )}
-        {isResting ? (
-          <View className="rounded-lg border border-purple-500/40 bg-purple-500/20 px-2 py-1">
-            <Text className="text-[9px] font-black uppercase tracking-widest text-purple-400">
-              Resting…
-            </Text>
-          </View>
-        ) : blockSummary.totalRest > 0 ? (
-          <View className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1">
-            <Text className="text-[9px] font-black uppercase tracking-widest text-purple-400">
-              {Math.round(blockSummary.totalRest / 60)}m rest
-            </Text>
-          </View>
-        ) : null}
       </View>
       <BlockOptionsModal
         visible={optionsVisible}
