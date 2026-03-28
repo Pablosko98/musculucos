@@ -71,6 +71,7 @@ export type Block = {
   // Per-exercise weight mode override for this workout session.
   // Overrides the exercise's default weightMode setting.
   exerciseWeightModes?: Record<string, 'total' | 'per_side'>;
+  prCount?: number;
 };
 
 export type Workout = {

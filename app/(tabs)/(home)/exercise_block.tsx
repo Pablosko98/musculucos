@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -35,10 +35,11 @@ import {
   Square,
   Timer,
   Trash2,
+  Trophy,
   Youtube,
   Zap,
 } from 'lucide-react-native';
-import { ExerciseDAL, PrefsDAL } from '@/lib/db';
+import { ExerciseDAL, PrefsDAL, PRDAL } from '@/lib/db';
 import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
 import type { HistoryWorkout } from '@/lib/db';
 import type { Block, WorkoutEvent, SubSet, SetEvent } from '@/lib/types';
@@ -164,10 +165,12 @@ function formatDate(dateStr: string): string {
 function HistoryCard({
   workout,
   equipment,
+  prKeys,
   onPressDate,
 }: {
   workout: HistoryWorkout;
   equipment?: string;
+  prKeys?: Set<string>;
   onPressDate: (date: string) => void;
 }) {
   const setGroups: string[] = [];
@@ -226,6 +229,7 @@ function HistoryCard({
           const setNum = setGroups.indexOf(s.parentEventId) + 1;
           const isWarmup = s.rep_type === 'warmup';
           const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
+          const isPR = !isWarmup && prKeys?.has(`${workout.date}:${s.reps}:${s.weightKg}`);
           return (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ color: '#3f3f46', fontSize: 12, width: 18, textAlign: 'right' }}>
@@ -245,6 +249,12 @@ function HistoryCard({
                 {' × '}
                 {s.reps}
               </Text>
+              {isPR && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+                  <Trophy size={8} color="#f59e0b" />
+                  <Text style={{ color: '#f59e0b', fontSize: 9, fontWeight: '800' }}>PR</Text>
+                </View>
+              )}
               {isWarmup && (
                 <View
                   style={{
@@ -317,6 +327,8 @@ export default function ExerciseBlock() {
   const [inputRest, setInputRest] = useState('');
   const [repType, setRepType] = useState('full');
   const [prefillMode, setPrefillMode] = useState<PrefillMode>('last_set');
+  const [externalPRs, setExternalPRs] = useState<Array<{ exerciseId: string; reps: number; weightKg: number }>>([]);
+  const [historyPRKeys, setHistoryPRKeys] = useState<Set<string>>(new Set());
   const flatListRef = useRef<any>(null);
   const localBlockRef = useRef<Block>(initialBlock!);
   const weightInputRef = useRef<any>(null);
@@ -492,6 +504,17 @@ export default function ExerciseBlock() {
       saveEditedBlock?.(dateString, finalized);
     }
   }, []);
+
+  // Load all-time bests for exercises in this block (excluding this block's own PRs)
+  const exerciseIdsKey = localBlock.exerciseIds.join(',');
+  useEffect(() => {
+    PRDAL.getPRsForExercises(localBlock.exerciseIds, localBlock.id).then(setExternalPRs);
+  }, [exerciseIdsKey, localBlock.id]);
+
+  // Load PR keys for history view
+  useEffect(() => {
+    PRDAL.getForExercise(activeExerciseId).then(setHistoryPRKeys);
+  }, [activeExerciseId]);
 
   // Scroll to bottom on mount so the latest sets are visible
   useEffect(() => {
@@ -898,6 +921,30 @@ export default function ExerciseBlock() {
     [localBlock, activeExerciseId, saveEditedBlock, dateString]
   );
 
+  const prSubsetIds = useMemo(() => {
+    const ids = new Set<string>();
+    // Session PRs accumulated so far (Pareto frontier within this block)
+    const sessionPRs: Array<{ exerciseId: string; reps: number; weightKg: number }> = [];
+    const isDominated = (
+      pool: Array<{ exerciseId: string; reps: number; weightKg: number }>,
+      exerciseId: string, weightKg: number, reps: number
+    ) => pool.some((p) => p.exerciseId === exerciseId && p.weightKg >= weightKg && p.reps >= reps);
+    for (const event of localBlock.events) {
+      if (event.type !== 'set') continue;
+      for (const sub of event.subSets) {
+        if (sub.rep_type === 'warmup') continue;
+        if (
+          !isDominated(externalPRs, sub.exerciseId, sub.weightKg, sub.reps) &&
+          !isDominated(sessionPRs, sub.exerciseId, sub.weightKg, sub.reps)
+        ) {
+          ids.add(sub.id);
+          sessionPRs.push({ exerciseId: sub.exerciseId, reps: sub.reps, weightKg: sub.weightKg });
+        }
+      }
+    }
+    return ids;
+  }, [localBlock.events, externalPRs]);
+
   const renderEvent = useCallback(
     ({ item, drag, isActive }: RenderItemParams<WorkoutEvent>) => (
       <ScaleDecorator>
@@ -921,6 +968,7 @@ export default function ExerciseBlock() {
                     ) / 100
                   : sub.weightKg;
                 const displayReps = isEditing ? inputReps : sub.reps;
+                const isPR = prSubsetIds.has(sub.id);
                 return (
                   <Pressable
                     key={sub.id}
@@ -959,10 +1007,18 @@ export default function ExerciseBlock() {
                         className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
                         {exerciseMeta?.name || sub.exerciseId}
                       </Text>
-                      <Text
-                        className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                        {sub.rep_type}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        {isPR && !isEditing && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                            <Trophy size={8} color="#f59e0b" />
+                            <Text style={{ color: '#f59e0b', fontSize: 8, fontWeight: '800' }}>PR</Text>
+                          </View>
+                        )}
+                        <Text
+                          className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                          {sub.rep_type}
+                        </Text>
+                      </View>
                     </View>
                     <Text
                       className={`text-base font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
@@ -1732,6 +1788,7 @@ export default function ExerciseBlock() {
               <HistoryCard
                 workout={item}
                 equipment={activeExercise?.equipment}
+                prKeys={historyPRKeys}
                 onPressDate={(date) => {
                   setPendingWorkoutDate(date);
                   router.dismissAll();

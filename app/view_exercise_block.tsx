@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, TouchableOpacity, Modal } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/ui/text';
-import { Activity, ArrowLeftRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Pencil, Trash2 } from 'lucide-react-native';
+import { ArrowLeftRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Pencil, Trash2, Trophy } from 'lucide-react-native';
 import { router } from 'expo-router';
 import type { Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
@@ -540,21 +540,28 @@ function ActiveBlock({
       <View style={{ padding: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={{ color: '#fafafa', fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 22 }} numberOfLines={1}>
-              {exerciseBlock.name}
-              {blockSummary.variantLabels.length > 0 && (
-                <Text style={{ color: '#3f3f46', fontSize: 15, fontWeight: '500', letterSpacing: -0.2 }}>
-                  {' | '}{blockSummary.variantLabels.join(' | ')}
-                </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ color: '#fafafa', fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 22, flexShrink: 1 }} numberOfLines={1}>
+                {exerciseBlock.name}
+              </Text>
+              {(exerciseBlock.prCount ?? 0) > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                  <Trophy size={11} color="#f59e0b" />
+                  <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '700' }}>
+                    {exerciseBlock.prCount} {exerciseBlock.prCount === 1 ? 'PR' : 'PRs'}
+                  </Text>
+                </View>
               )}
-            </Text>
+            </View>
+            {blockSummary.variantLabels.length > 0 && (
+              <Text style={{ color: '#3f3f46', fontSize: 13, fontWeight: '500', marginTop: 2 }} numberOfLines={1}>
+                {blockSummary.variantLabels.join(' · ')}
+              </Text>
+            )}
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 4, paddingTop: 2 }}>
-            <Activity size={18} color={isResting ? '#a855f7' : '#22c55e'} />
-            <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600' }}>
-              {formatTime(exerciseBlock.datetime)}
-            </Text>
-          </View>
+          <Text style={{ color: '#3f3f46', fontSize: 11, fontWeight: '600', paddingTop: 3 }}>
+            {formatTime(exerciseBlock.datetime)}
+          </Text>
         </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

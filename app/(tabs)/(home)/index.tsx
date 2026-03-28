@@ -13,7 +13,7 @@ import { addDays, differenceInDays, format, startOfDay } from 'date-fns';
 import type { ICarouselInstance } from 'react-native-reanimated-carousel';
 
 import { setActiveBlock } from '@/lib/block-state';
-import { WorkoutDAL, ExerciseDAL, db, initDB } from '@/lib/db';
+import { WorkoutDAL, ExerciseDAL, PRDAL, db, initDB } from '@/lib/db';
 import { queryClient, prefetchedRanges } from '@/lib/queryClient';
 import type { Workout, Block } from '@/lib/types';
 import type { Exercise } from '@/lib/exercises';
@@ -96,6 +96,15 @@ export async function saveEditedBlock(dateString: string, updatedBlock: Block) {
       );
     } else {
       await WorkoutDAL.saveFullWorkout(updated);
+    }
+    // Refresh prCount in cache after save so carousel pill stays accurate
+    const prCount = await PRDAL.getCountForBlock(updatedBlock.id);
+    const cached = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
+    if (cached) {
+      queryClient.setQueryData(workoutKey(dateString), {
+        ...cached,
+        blocks: cached.blocks.map((b) => (b.id === updatedBlock.id ? { ...b, prCount } : b)),
+      });
     }
   } catch (err) {
     console.error('Background save failed:', err);
@@ -289,6 +298,8 @@ function WorkoutCard({ index }: { index: number }) {
 
   const sortedBlocks = hasBlocks ? [...dailyWorkout.blocks].sort((a, b) => a.order - b.order) : [];
 
+  const totalPRs = sortedBlocks.reduce((sum, b) => sum + (b.prCount ?? 0), 0);
+
   const relativeLabel =
     dayDiff === 0
       ? 'Today'
@@ -312,9 +323,18 @@ function WorkoutCard({ index }: { index: number }) {
           overflow: 'hidden',
         }}>
         <CardHeader>
-          <CardTitle style={{ color: 'white', fontSize: 22 }}>
-            {format(dateForCard, 'EEEE')}
-          </CardTitle>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <CardTitle style={{ color: 'white', fontSize: 22 }}>
+              {format(dateForCard, 'EEEE')}
+            </CardTitle>
+            {totalPRs > 0 && (
+              <View style={{ paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.28)' }}>
+                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '700' }}>
+                  {totalPRs} {totalPRs === 1 ? 'PR' : 'PRs'}
+                </Text>
+              </View>
+            )}
+          </View>
           <CardDescription style={{ color: '#a3a3a3' }}>
             {format(dateForCard, 'MMM do, yyyy')} · {relativeLabel}
           </CardDescription>

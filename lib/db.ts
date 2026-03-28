@@ -48,6 +48,16 @@ type ExerciseRow = {
   isFavourite: number;
 };
 
+export type PersonalRecord = {
+  id: string;
+  exerciseId: string;
+  reps: number;
+  weightKg: number;
+  blockId: string;
+  date: string;
+  datetime: string;
+};
+
 export const initDB = () => {
   // Toggle these to wipe the DB during development
   // db.execSync('DROP TABLE IF EXISTS events;');
@@ -139,6 +149,17 @@ export const initDB = () => {
       exerciseGroups TEXT NOT NULL,
       FOREIGN KEY (routineId) REFERENCES routines (id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS personal_records (
+      id TEXT PRIMARY KEY NOT NULL,
+      exerciseId TEXT NOT NULL,
+      reps INTEGER NOT NULL,
+      weightKg REAL NOT NULL,
+      blockId TEXT NOT NULL,
+      date TEXT NOT NULL,
+      datetime TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_pr_exercise_reps ON personal_records (exerciseId, reps);
   `);
 
   // ── Migrations ────────────────────────────────────────────────────────────
@@ -158,6 +179,8 @@ export const initDB = () => {
   try { db.execSync('ALTER TABLE exercises DROP COLUMN baseId'); } catch {}
   try { db.execSync('ALTER TABLE blocks ADD COLUMN alternativeExerciseOptions TEXT DEFAULT NULL'); } catch {}
   try { db.execSync('ALTER TABLE blocks ADD COLUMN exerciseWeightModes TEXT DEFAULT NULL'); } catch {}
+  try { db.execSync('CREATE TABLE IF NOT EXISTS personal_records (id TEXT PRIMARY KEY NOT NULL, exerciseId TEXT NOT NULL, reps INTEGER NOT NULL, weightKg REAL NOT NULL, blockId TEXT NOT NULL, date TEXT NOT NULL, datetime TEXT NOT NULL)'); } catch {}
+  try { db.execSync('CREATE INDEX IF NOT EXISTS idx_pr_exercise_reps ON personal_records (exerciseId, reps)'); } catch {}
   // Backfill equipmentVariant for exercises that previously had none
   try {
     db.execSync(`
@@ -241,6 +264,24 @@ export const WorkoutDAL = {
             [workout.id, workout.date, workout.durationSeconds || 0, workout.notes || '']
           );
 
+          // PR re-eval: collect old blockIds BEFORE deletion
+          const oldBlockRows = await db.getAllAsync<{ id: string }>(
+            'SELECT id FROM blocks WHERE workoutId = ?',
+            [workout.id]
+          );
+          const allBlockIds = [
+            ...new Set([
+              ...oldBlockRows.map((r) => r.id),
+              ...workout.blocks.map((b) => b.id),
+            ]),
+          ];
+          if (allBlockIds.length > 0) {
+            await db.runAsync(
+              `DELETE FROM personal_records WHERE blockId IN (${allBlockIds.map(() => '?').join(',')})`,
+              allBlockIds
+            );
+          }
+
           // 2. Clear existing blocks.
           // Because of "ON DELETE CASCADE" in your initDB,
           // this automatically deletes all associated events!
@@ -290,6 +331,28 @@ export const WorkoutDAL = {
                   `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
                   [block.id, 'rest', event.durationSeconds, event.datetime]
                 );
+              }
+            }
+          }
+
+          // Re-evaluate PRs for all blocks in this workout (in chronological order)
+          const sortedBlocks = [...workout.blocks].sort((a, b) => a.order - b.order);
+          for (const block of sortedBlocks) {
+            for (const event of block.events) {
+              if (event.type !== 'set' || !event.subSets) continue;
+              for (const sub of event.subSets) {
+                if (sub.rep_type === 'warmup') continue;
+                const dominated = await db.getFirstAsync<{ id: string }>(
+                  'SELECT id FROM personal_records WHERE exerciseId = ? AND weightKg >= ? AND reps >= ? LIMIT 1',
+                  [sub.exerciseId, sub.weightKg, sub.reps]
+                );
+                if (!dominated) {
+                  const prId = `pr_${block.id}_${sub.exerciseId}_${sub.reps}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                  await db.runAsync(
+                    'INSERT INTO personal_records (id, exerciseId, reps, weightKg, blockId, date, datetime) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [prId, sub.exerciseId, sub.reps, sub.weightKg, block.id, workout.date, sub.datetime ?? new Date().toISOString()]
+                  );
+                }
               }
             }
           }
@@ -392,6 +455,11 @@ export const WorkoutDAL = {
           : null;
         const exerciseWeightModes: Record<string, 'total' | 'per_side'> | undefined =
           block.exerciseWeightModes ? JSON.parse(block.exerciseWeightModes) : undefined;
+        const prCountRow = await db.getFirstAsync<{ count: number }>(
+          'SELECT COUNT(*) as count FROM personal_records WHERE blockId = ?',
+          [block.id]
+        );
+        const prCount = prCountRow?.count ?? 0;
         return {
           ...block,
           name: freshName,
@@ -401,6 +469,7 @@ export const WorkoutDAL = {
           events: formattedEvents,
           alternativeExerciseOptions,
           exerciseWeightModes,
+          prCount,
         };
       })
     );
@@ -412,7 +481,7 @@ export const WorkoutDAL = {
   async addEvent(blockId: string, event: WorkoutEvent) {
     try {
       if (event.type === 'set') {
-        const parentEventId = event.id; // Use the ID generated in UI
+        const parentEventId = event.id;
         for (const sub of event.subSets) {
           await db.runAsync(
             `INSERT INTO events (blockId, type, exerciseId, parentEventId, weightKg, rep_type, reps, rpe, datetime)
@@ -430,6 +499,26 @@ export const WorkoutDAL = {
             ]
           );
         }
+        // Check PRs for working sets
+        const dateRow = await db.getFirstAsync<{ date: string }>(
+          'SELECT w.date FROM workouts w JOIN blocks b ON b.workoutId = w.id WHERE b.id = ?',
+          [blockId]
+        );
+        const date = dateRow?.date ?? new Date().toISOString().slice(0, 10);
+        for (const sub of event.subSets) {
+          if (sub.rep_type === 'warmup') continue;
+          const dominated = await db.getFirstAsync<{ id: string }>(
+            'SELECT id FROM personal_records WHERE exerciseId = ? AND weightKg >= ? AND reps >= ? LIMIT 1',
+            [sub.exerciseId, sub.weightKg, sub.reps]
+          );
+          if (!dominated) {
+            const prId = `pr_${blockId}_${sub.exerciseId}_${sub.reps}_${Date.now()}`;
+            await db.runAsync(
+              'INSERT INTO personal_records (id, exerciseId, reps, weightKg, blockId, date, datetime) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [prId, sub.exerciseId, sub.reps, sub.weightKg, blockId, date, sub.datetime ?? new Date().toISOString()]
+            );
+          }
+        }
       } else {
         await db.runAsync(
           `INSERT INTO events (blockId, type, durationSeconds, datetime) VALUES (?, ?, ?, ?)`,
@@ -445,6 +534,65 @@ export const WorkoutDAL = {
   async deleteEventAtomic(eventId: string) {
     // This deletes the rest event OR all sub-sets sharing a parentEventId
     await db.runAsync('DELETE FROM events WHERE id = ? OR parentEventId = ?', [eventId, eventId]);
+  },
+};
+
+export const PRDAL = {
+  async getBestsMap(
+    exerciseIds: string[],
+    excludeBlockId: string
+  ): Promise<Record<string, number>> {
+    if (exerciseIds.length === 0) return {};
+    const placeholders = exerciseIds.map(() => '?').join(',');
+    const rows = await db.getAllAsync<{ exerciseId: string; reps: number; maxKg: number }>(
+      `SELECT exerciseId, reps, MAX(weightKg) as maxKg
+       FROM personal_records
+       WHERE exerciseId IN (${placeholders}) AND blockId != ?
+       GROUP BY exerciseId, reps`,
+      [...exerciseIds, excludeBlockId]
+    );
+    const map: Record<string, number> = {};
+    for (const row of rows) {
+      map[`${row.exerciseId}:${row.reps}`] = row.maxKg;
+    }
+    return map;
+  },
+
+  async getCountForBlock(blockId: string): Promise<number> {
+    const row = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM personal_records WHERE blockId = ?',
+      [blockId]
+    );
+    return row?.count ?? 0;
+  },
+
+  async getPRsForExercises(
+    exerciseIds: string[],
+    excludeBlockId: string
+  ): Promise<Array<{ exerciseId: string; reps: number; weightKg: number }>> {
+    if (exerciseIds.length === 0) return [];
+    const placeholders = exerciseIds.map(() => '?').join(',');
+    return db.getAllAsync<{ exerciseId: string; reps: number; weightKg: number }>(
+      `SELECT exerciseId, reps, MAX(weightKg) as weightKg
+       FROM personal_records
+       WHERE exerciseId IN (${placeholders}) AND blockId != ?
+       GROUP BY exerciseId, reps`,
+      [...exerciseIds, excludeBlockId]
+    );
+  },
+
+  async getForExercise(exerciseId: string): Promise<Set<string>> {
+    const rows = await db.getAllAsync<{ date: string; reps: number; weightKg: number }>(
+      'SELECT date, reps, weightKg FROM personal_records WHERE exerciseId = ?',
+      [exerciseId]
+    );
+    return new Set(rows.map((r) => `${r.date}:${r.reps}:${r.weightKg}`));
+  },
+
+  async getAll(): Promise<PersonalRecord[]> {
+    return db.getAllAsync<PersonalRecord>(
+      'SELECT * FROM personal_records ORDER BY datetime DESC'
+    );
   },
 };
 
