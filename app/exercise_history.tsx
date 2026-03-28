@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, FlatList, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { ExerciseDAL } from '@/lib/db';
+import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react-native';
+import { ExerciseDAL, PRDAL } from '@/lib/db';
 import type { HistoryWorkout } from '@/lib/db';
 import type { Exercise } from '@/lib/exercises';
 import { setPendingWorkoutDate } from '@/lib/navigation-state';
@@ -59,27 +59,26 @@ function formatDate(dateStr: string): string {
 function WorkoutCard({
   workout,
   equipment,
+  prKeys,
   onPressDate,
 }: {
   workout: HistoryWorkout;
   equipment?: string;
+  prKeys?: Set<string>;
   onPressDate: (date: string) => void;
 }) {
-  // Group sub-sets by parentEventId — one row per set
-  const parentOrder: string[] = [];
-  const setsByParent = new Map<string, typeof workout.sets>();
+  // Build ordered list of distinct parentEventIds for set numbering
+  const setGroups: string[] = [];
+  const seenParents = new Set<string>();
   for (const s of workout.sets) {
-    if (!setsByParent.has(s.parentEventId)) {
-      setsByParent.set(s.parentEventId, []);
-      parentOrder.push(s.parentEventId);
+    if (!seenParents.has(s.parentEventId)) {
+      seenParents.add(s.parentEventId);
+      setGroups.push(s.parentEventId);
     }
-    setsByParent.get(s.parentEventId)!.push(s);
   }
 
   return (
-    <TouchableOpacity
-      onPress={() => onPressDate(workout.date)}
-      activeOpacity={0.7}
+    <View
       style={{
         backgroundColor: '#18181b',
         borderRadius: 16,
@@ -89,7 +88,9 @@ function WorkoutCard({
         overflow: 'hidden',
       }}>
       {/* Date header */}
-      <View
+      <TouchableOpacity
+        onPress={() => onPressDate(workout.date)}
+        activeOpacity={0.7}
         style={{
           paddingHorizontal: 16,
           paddingVertical: 12,
@@ -119,80 +120,51 @@ function WorkoutCard({
           </View>
         </View>
         <ChevronRight size={16} color="#3f3f46" />
-      </View>
+      </TouchableOpacity>
 
-      {/* Sets — one row per parentEventId */}
+      {/* Sets — one row per subset */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
-        {parentOrder.map((parentId, setIdx) => {
-          const subSets = setsByParent.get(parentId)!;
-          const isWarmup = subSets.every((s) => s.rep_type === 'warmup');
-          const rpe = subSets.find((s) => s.rpe != null)?.rpe ?? null;
-
+        {workout.sets.map((s, i) => {
+          const setNum = setGroups.indexOf(s.parentEventId) + 1;
+          const isWarmup = s.rep_type === 'warmup';
+          const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
+          const isPR = !isWarmup && prKeys?.has(`${workout.date}:${s.reps}:${s.weightKg}`);
           return (
-            <View key={parentId} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ color: '#3f3f46', fontSize: 12, width: 18, textAlign: 'right' }}>
-                {setIdx + 1}
+                {setNum}
               </Text>
-              <View
+              <Text
                 style={{
+                  color: isWarmup ? '#52525b' : '#f4f4f5',
+                  fontSize: 15,
+                  fontWeight: '600',
                   flex: 1,
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  gap: 4,
-                  alignItems: 'baseline',
                 }}>
-                {subSets.map((s, i) => {
-                  const isBodyweight = s.weightKg === 0 || equipment === 'bodyweight';
-                  return (
-                    <React.Fragment key={i}>
-                      {i > 0 && (
-                        <Text style={{ color: '#52525b', fontSize: 13 }}> + </Text>
-                      )}
-                      <Text
-                        style={{
-                          color: isWarmup ? '#52525b' : '#f4f4f5',
-                          fontSize: 15,
-                          fontWeight: '600',
-                        }}>
-                        {isBodyweight ? 'BW' : `${s.weightKg}`}
-                        {!isBodyweight && (
-                          <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}>
-                            {' '}kg
-                          </Text>
-                        )}
-                        {' × '}
-                        {s.reps}
-                        {s.rep_type !== 'full' && s.rep_type !== 'warmup' && (
-                          <Text style={{ color: '#71717a', fontSize: 11, fontWeight: '400' }}>
-                            {' '}[{s.rep_type}]
-                          </Text>
-                        )}
-                      </Text>
-                    </React.Fragment>
-                  );
-                })}
-              </View>
-              {rpe != null && (
-                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '600' }}>
-                  @{rpe % 1 === 0 ? rpe : rpe.toFixed(1)}
-                </Text>
+                {isBodyweight ? 'BW' : `${s.weightKg}`}
+                {!isBodyweight && (
+                  <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '400' }}> kg</Text>
+                )}
+                {' × '}
+                {s.reps}
+              </Text>
+              {isPR && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+                  <Trophy size={8} color="#f59e0b" />
+                  <Text style={{ color: '#f59e0b', fontSize: 9, fontWeight: '800' }}>PR</Text>
+                </View>
               )}
               {isWarmup && (
-                <View
-                  style={{
-                    backgroundColor: '#27272a',
-                    borderRadius: 4,
-                    paddingHorizontal: 5,
-                    paddingVertical: 1,
-                  }}>
-                  <Text
-                    style={{
-                      color: '#71717a',
-                      fontSize: 9,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                    }}>
+                <View style={{ backgroundColor: '#27272a', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     warmup
+                  </Text>
+                </View>
+              )}
+              {!isWarmup && s.rep_type !== 'full' && (
+                <View style={{ backgroundColor: '#1c1c1f', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                  <Text style={{ color: '#71717a', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {s.rep_type}
                   </Text>
                 </View>
               )}
@@ -200,7 +172,7 @@ function WorkoutCard({
           );
         })}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -221,6 +193,7 @@ export default function ExerciseHistory() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [prKeys, setPrKeys] = useState<Set<string>>(new Set());
   const offsetRef = useRef(0);
   const loadingMoreRef = useRef(false);
 
@@ -266,6 +239,7 @@ export default function ExerciseHistory() {
   useEffect(() => {
     setHasMore(true);
     loadPage(activeId, true);
+    PRDAL.getForExercise(activeId).then(setPrKeys);
   }, [activeId]);
 
   const handleEndReached = () => {
@@ -358,6 +332,7 @@ export default function ExerciseHistory() {
             <WorkoutCard
               workout={item}
               equipment={activeVariant?.equipment}
+              prKeys={prKeys}
               onPressDate={handlePressDate}
             />
           )}

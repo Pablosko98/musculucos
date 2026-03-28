@@ -21,6 +21,14 @@ export {
   ErrorBoundary,
 } from 'expo-router';
 
+function formatDuration(s: number): string {
+  if (s <= 0) return '0s';
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m === 0) return `${rem}s`;
+  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+}
+
 function useNotificationHandlers() {
   const pathname = usePathname();
   useEffect(() => {
@@ -85,7 +93,7 @@ function RestBanner() {
           ) : null}
         </View>
         <Text style={{ color: '#e9d5ff', fontSize: 18, fontWeight: '900', letterSpacing: -0.5 }}>
-          {elapsed}s
+          {formatDuration(elapsed)}
         </Text>
       </View>
       <View style={{ height: 3, backgroundColor: 'rgba(168,85,247,0.15)' }}>
