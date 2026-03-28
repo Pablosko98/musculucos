@@ -945,6 +945,18 @@ export default function ExerciseBlock() {
     return ids;
   }, [localBlock.events, externalPRs]);
 
+  const subSetNumbers = useMemo(() => {
+    const map = new Map<string, number>();
+    let n = 0;
+    for (const event of localBlock.events) {
+      if (event.type !== 'set') continue;
+      for (const sub of event.subSets) {
+        map.set(sub.id, ++n);
+      }
+    }
+    return map;
+  }, [localBlock.events]);
+
   const renderEvent = useCallback(
     ({ item, drag, isActive }: RenderItemParams<WorkoutEvent>) => (
       <ScaleDecorator>
@@ -958,6 +970,7 @@ export default function ExerciseBlock() {
           {item.type === 'set' ? (
             (() => {
               const multiSet = (item.subSets?.length ?? 0) > 1;
+              const setTime = item.datetime || '';
               const subSetCards = item.subSets?.map((sub: SubSet, index: number) => {
                 const isEditing = editing?.subSetId === sub.id;
                 const exerciseMeta = sub.exercise ?? exerciseMap.get(sub.exerciseId);
@@ -992,56 +1005,65 @@ export default function ExerciseBlock() {
                       setInputReps(sub.reps.toString());
                       setRepType(sub.rep_type || 'full');
                     }}
-                    style={{ flex: 1, minWidth: 120 }}
-                    className={`rounded-2xl border px-3 py-2 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 4,
-                        marginBottom: 2,
-                      }}>
-                      <Text
-                        numberOfLines={1}
-                        className={`flex-1 text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                        {exerciseMeta?.name || sub.exerciseId}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        {isPR && !isEditing && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
-                            <Trophy size={8} color="#f59e0b" />
-                            <Text style={{ color: '#f59e0b', fontSize: 8, fontWeight: '800' }}>PR</Text>
-                          </View>
-                        )}
-                        <Text
-                          className={`text-[9px] font-black uppercase ${isEditing ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                          {sub.rep_type}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      className={`text-base font-black ${isEditing ? 'text-black' : 'text-zinc-100'}`}>
-                      <Text className="text-green-500">{index + 1}. </Text>
-                      {displayWeight}
-                      <Text className="text-xs text-zinc-500">kg</Text> × {displayReps}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                    className={`rounded-2xl border px-4 py-4 ${isEditing ? 'border-zinc-100 bg-zinc-100' : 'border-zinc-800 bg-zinc-950'}`}>
+                    {/* Set number */}
+                    <Text style={{
+                      color: isEditing ? '#a1a1aa' : '#22c55e',
+                      fontSize: 20, fontWeight: '900',
+                      width: 22, textAlign: 'center', lineHeight: 22,
+                    }}>
+                      {subSetNumbers.get(sub.id) ?? index + 1}
                     </Text>
+                    {/* Weight × reps */}
+                    <View style={{ flex: 1 }}>
+                      {multiSet && (
+                        <Text numberOfLines={1} style={{
+                          color: isEditing ? '#71717a' : '#52525b',
+                          fontSize: 9, fontWeight: '800',
+                          textTransform: 'uppercase', letterSpacing: 0.5,
+                          marginBottom: 2,
+                        }}>
+                          {exerciseMeta?.name || sub.exerciseId}
+                        </Text>
+                      )}
+                      <Text style={{
+                        fontSize: 18, fontWeight: '900', lineHeight: 22,
+                        color: isEditing ? '#000' : '#f4f4f5',
+                      }}>
+                        {displayWeight}
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#71717a' }}>kg</Text>
+                        {' × '}
+                        {displayReps}
+                      </Text>
+                    </View>
+                    {/* Meta: PR badge, rep type, time — single row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      {isPR && !isEditing && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                          <Trophy size={8} color="#f59e0b" />
+                          <Text style={{ color: '#f59e0b', fontSize: 8, fontWeight: '800' }}>PR</Text>
+                        </View>
+                      )}
+                      <Text style={{
+                        color: isEditing ? '#a1a1aa' : '#52525b',
+                        fontSize: 9, fontWeight: '800',
+                        textTransform: 'uppercase', letterSpacing: 0.5,
+                      }}>
+                        {sub.rep_type}
+                      </Text>
+                      {setTime && !isEditing && (
+                        <Text style={{ color: '#3f3f46', fontSize: 9, fontWeight: '600' }}>
+                          {setTime}
+                        </Text>
+                      )}
+                    </View>
                   </Pressable>
                 );
               });
-              const setTime = item.datetime || '';
-              const timeLabel = setTime ? (
-                <Text
-                  style={{ color: '#71717a', fontSize: 10, textAlign: 'right', marginBottom: 3 }}>
-                  {setTime}
-                </Text>
-              ) : null;
               if (!multiSet) {
                 return (
-                  <View>
-                    {timeLabel}
-                    <View style={{ flexDirection: 'row' }}>{subSetCards}</View>
-                  </View>
+                  <View style={{ flexDirection: 'row' }}>{subSetCards}</View>
                 );
               }
               return (
@@ -1051,13 +1073,10 @@ export default function ExerciseBlock() {
                     borderColor: '#27272a',
                     borderRadius: 20,
                     overflow: 'hidden',
+                    gap: 2,
+                    padding: 4,
                   }}>
-                  {timeLabel && (
-                    <View style={{ paddingRight: 10, paddingTop: 6 }}>{timeLabel}</View>
-                  )}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, padding: 6 }}>
-                    {subSetCards}
-                  </View>
+                  {subSetCards}
                 </View>
               );
             })()
@@ -1129,6 +1148,7 @@ export default function ExerciseBlock() {
       currentDefaultRest,
       exerciseDefaultBase,
       weightMultiplier,
+      subSetNumbers,
     ]
   );
 
