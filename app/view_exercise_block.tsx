@@ -534,9 +534,7 @@ function ActiveBlock({
         backgroundColor: isResting ? '#0d0a14' : '#18181b',
         overflow: 'hidden',
       }}>
-      {isResting && (
-        <View style={{ height: 3, backgroundColor: '#7c3aed' }} />
-      )}
+      <View style={{ height: 3, backgroundColor: isResting ? '#7c3aed' : 'transparent' }} />
       <View style={{ padding: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ flex: 1, marginRight: 12 }}>
