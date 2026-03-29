@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dimensions, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Dimensions, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import Carousel from 'react-native-reanimated-carousel';
@@ -21,6 +21,7 @@ import AddExercise from '../../add_exercise';
 import AddRoutine from '../../add_routine';
 import ViewExerciseBlock from '../../view_exercise_block';
 import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
+import { CalendarModal } from '@/components/CalendarModal';
 
 const { width } = Dimensions.get('window');
 
@@ -400,6 +401,7 @@ function WorkoutCard({ index }: { index: number }) {
           )}
         </ScrollView>
 
+
         <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
           <View style={{ flex: 1 }}>
             <AddExercise
@@ -431,6 +433,15 @@ export default function WorkoutTracker() {
   const carouselRef = useRef<ICarouselInstance>(null);
   const today = startOfDay(new Date());
   const [carouselHeight, setCarouselHeight] = useState(0);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(INITIAL_INDEX);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const currentDate = format(addDays(today, currentIndex - INITIAL_INDEX), 'yyyy-MM-dd');
+  const { isPending: isCardPending } = useQuery({
+    queryKey: workoutKey(currentDate),
+    queryFn: () => WorkoutDAL.getWorkoutByDate(currentDate),
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
     initDB();
@@ -446,7 +457,7 @@ export default function WorkoutTracker() {
       const targetIndex = INITIAL_INDEX + dayDiff;
       const scroll = () => {
         if (carouselRef.current?.getCurrentIndex() !== targetIndex) {
-          carouselRef.current?.scrollTo({ index: targetIndex, animated: false });
+          navigateTo(targetIndex);
         }
       };
       // Attempt immediately, then retry after tab-switch animation settles
@@ -456,6 +467,13 @@ export default function WorkoutTracker() {
       return () => clearTimeout(t);
     }, [])
   );
+
+  const navigateTo = useCallback((index: number) => {
+    setIsNavigating(true);
+    setCurrentIndex(index);
+    carouselRef.current?.scrollTo({ index, animated: false });
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsNavigating(false)));
+  }, []);
 
   const renderCarouselItem = useCallback(
     ({ index }: { index: number }) => <WorkoutCard index={index} />,
@@ -471,12 +489,20 @@ export default function WorkoutTracker() {
           paddingTop: 10,
           zIndex: 50,
         }}>
-        <Button style={{ backgroundColor: '#6b21a8', width: 140 }}>
+        <Button style={{ backgroundColor: '#6b21a8', width: 140 }} onPress={() => setCalendarVisible(true)}>
           <Text style={{ color: 'white' }}>Calendar</Text>
         </Button>
+        <CalendarModal
+          visible={calendarVisible}
+          onClose={() => setCalendarVisible(false)}
+          onSelectDate={(date) => {
+            const dayDiff = differenceInDays(startOfDay(date), today);
+            navigateTo(INITIAL_INDEX + dayDiff);
+          }}
+        />
         <Button
           style={{ backgroundColor: '#166534', width: 140 }}
-          onPress={() => carouselRef.current?.scrollTo({ index: INITIAL_INDEX, animated: false })}>
+          onPress={() => navigateTo(INITIAL_INDEX)}>
           <Text style={{ color: 'white' }}>Today</Text>
         </Button>
       </View>
@@ -496,9 +522,17 @@ export default function WorkoutTracker() {
             windowSize={11}
             mode="parallax"
             modeConfig={{ parallaxScrollingScale: 0.94, parallaxScrollingOffset: 40 }}
-            onSnapToItem={(index) => prefetchRange(addDays(today, index - INITIAL_INDEX))}
+            onSnapToItem={(index) => {
+              setCurrentIndex(index);
+              prefetchRange(addDays(today, index - INITIAL_INDEX));
+            }}
             renderItem={renderCarouselItem}
           />
+        )}
+        {(isCardPending || isNavigating || carouselHeight === 0) && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }}>
+            <ActivityIndicator color="#ea580c" size="large" />
+          </View>
         )}
       </View>
     </View>

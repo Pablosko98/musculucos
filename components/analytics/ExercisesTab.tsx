@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, FlatList } from 'react-native';
+import { View, FlatList, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ChevronRight } from 'lucide-react-native';
 import { Exercise } from '@/lib/exercises';
@@ -60,11 +60,9 @@ export function ExercisesTab({
           />
         )}
         ListHeaderComponent={
-          <Text style={{ color: '#52525b', fontSize: 13, marginBottom: 10 }}>
-            {loading
-              ? 'Loading…'
-              : `${filters.filteredGroups.length} exercise${filters.filteredGroups.length !== 1 ? 's' : ''}`}
-          </Text>
+          loading
+            ? <ActivityIndicator size="small" color="#ea580c" style={{ marginBottom: 10 }} />
+            : <Text style={{ color: '#52525b', fontSize: 13, marginBottom: 10 }}>{filters.filteredGroups.length} exercise{filters.filteredGroups.length !== 1 ? 's' : ''}</Text>
         }
         ListEmptyComponent={
           loading ? null : (

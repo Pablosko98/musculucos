@@ -370,6 +370,19 @@ export const WorkoutDAL = {
     return saveQueue;
   },
 
+  async getWorkoutDatesInRange(from: string, to: string): Promise<string[]> {
+    const rows = await db.getAllAsync<{ date: string }>(
+      `SELECT DISTINCT w.date
+       FROM workouts w
+       JOIN blocks b ON b.workoutId = w.id
+       JOIN events e ON e.blockId = b.id
+       WHERE w.date BETWEEN ? AND ?
+       ORDER BY w.date`,
+      [from, to]
+    );
+    return rows.map((r) => r.date);
+  },
+
   async getWorkoutByDate(date: string): Promise<Workout | null> {
     const workout = await db.getFirstAsync<WorkoutRow>('SELECT * FROM workouts WHERE date = ?', [
       date,

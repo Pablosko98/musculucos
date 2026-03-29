@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, FlatList, TouchableOpacity } from 'react-native';
+import { View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
@@ -148,11 +148,10 @@ export default function Exercises() {
         )}
         ListHeaderComponent={
           <View style={{ paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: '#52525b', fontSize: 13 }}>
-              {loading
-                ? 'Loading…'
-                : `${filters.filteredGroups.length} ${filters.filteredGroups.length === 1 ? 'exercise' : 'exercises'}`}
-            </Text>
+            {loading
+              ? <ActivityIndicator size="small" color="#ea580c" />
+              : <Text style={{ color: '#52525b', fontSize: 13 }}>{filters.filteredGroups.length} {filters.filteredGroups.length === 1 ? 'exercise' : 'exercises'}</Text>
+            }
             {crumbs.map((c, i) => (
               <React.Fragment key={i}>
                 <Text style={{ color: '#3f3f46', fontSize: 13 }}>·</Text>

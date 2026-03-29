@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { PrefsDAL } from '@/lib/db';
 import {
@@ -415,9 +415,7 @@ export default function Settings() {
             onPress={handleBackup}
             disabled={loading !== null}
             style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#27272a' }}>
-            <Text style={{ color: loading === 'backup' ? '#71717a' : '#fff', fontWeight: '600' }}>
-              {loading === 'backup' ? 'Backing up…' : 'Back Up Now'}
-            </Text>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Back Up Now</Text>
             {lastBackup && (
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
                 Last backup: {formatDate(lastBackup)}
@@ -430,16 +428,28 @@ export default function Settings() {
             onPress={handleRestore}
             disabled={loading !== null}
             style={{ padding: 16 }}>
-            <Text
-              style={{ color: loading === 'restore' ? '#71717a' : '#ea580c', fontWeight: '600' }}>
-              {loading === 'restore' ? 'Restoring…' : 'Restore from Drive'}
-            </Text>
+            <Text style={{ color: '#ea580c', fontWeight: '600' }}>Restore from Drive</Text>
             <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
               Overwrites all local data
             </Text>
           </TouchableOpacity>
         </View>
       </View>
+      {/* Backup/restore blocking loading modal */}
+      <Modal visible={loading !== null} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
+          <ActivityIndicator size="large" color="#ea580c" />
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+            {loading === 'backup' ? 'Backing up…' : 'Restoring…'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLoading(null)}
+            style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#52525b' }}>
+            <Text style={{ color: '#a3a3a3', fontWeight: '600' }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       {/* Backup picker modal */}
       <Modal
         visible={pickerVisible}
@@ -478,9 +488,9 @@ export default function Settings() {
 
             <ScrollView>
               {pickerLoading ? (
-                <Text style={{ color: '#71717a', padding: 24, textAlign: 'center' }}>
-                  Loading backups…
-                </Text>
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <ActivityIndicator color="#ea580c" />
+                </View>
               ) : pickerEntries.length === 0 ? (
                 <Text style={{ color: '#71717a', padding: 24, textAlign: 'center' }}>
                   No backups found.
