@@ -113,6 +113,7 @@ function AppShell() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="create_exercise" options={{ headerShown: false }} />
         <Stack.Screen name="exercise_history" options={{ headerShown: false }} />
+        <Stack.Screen name="ai_import" options={{ headerShown: false }} />
       </Stack>
     </View>
   );
