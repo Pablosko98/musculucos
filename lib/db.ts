@@ -58,7 +58,10 @@ export type PersonalRecord = {
   datetime: string;
 };
 
+let _dbInitialized = false;
 export const initDB = () => {
+  if (_dbInitialized) return;
+  _dbInitialized = true;
   // Toggle these to wipe the DB during development
   // db.execSync('DROP TABLE IF EXISTS events;');
   // db.execSync('DROP TABLE IF EXISTS blocks;');

@@ -327,9 +327,10 @@ export default function ExerciseBlock() {
   const [inputRest, setInputRest] = useState('');
   const [repType, setRepType] = useState('full');
   const [prefillMode, setPrefillMode] = useState<PrefillMode>('last_set');
-  const [externalPRs, setExternalPRs] = useState<Array<{ exerciseId: string; reps: number; weightKg: number }>>([]);
+  const [externalPRs, setExternalPRs] = useState<Array<{ exerciseId: string; reps: number; weightKg: number }> | null>(null);
   const [historyPRKeys, setHistoryPRKeys] = useState<Set<string>>(new Set());
   const flatListRef = useRef<any>(null);
+  const hasScrolledToBottomRef = useRef(false);
   const localBlockRef = useRef<Block>(initialBlock!);
   const weightInputRef = useRef<any>(null);
   const repsInputRef = useRef<any>(null);
@@ -367,15 +368,6 @@ export default function ExerciseBlock() {
 
   const navigation = useNavigation();
   const allowBackRef = useRef(false);
-
-  // Hide the tab bar while in this screen, restore when leaving
-  useEffect(() => {
-    const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => {
-      parent?.setOptions({ tabBarStyle: { backgroundColor: '#fff', borderTopWidth: 0 } });
-    };
-  }, [navigation]);
 
   // Hijack hardware back / swipe gesture to always return to the workout tab.
   // allowBackRef prevents the re-dispatched action from re-triggering this listener.
@@ -516,11 +508,6 @@ export default function ExerciseBlock() {
     PRDAL.getForExercise(activeExerciseId).then(setHistoryPRKeys);
   }, [activeExerciseId]);
 
-  // Scroll to bottom on mount so the latest sets are visible
-  useEffect(() => {
-    const timer = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Scroll editing item into view when keyboard opens
   useEffect(() => {
@@ -914,7 +901,6 @@ export default function ExerciseBlock() {
         return next;
       });
       setActiveExerciseId(newExercise.id);
-      setLocalPerSide(null);
       setReplacePickerOpen(false);
       saveEditedBlock?.(dateString, nextBlock);
     },
@@ -922,6 +908,8 @@ export default function ExerciseBlock() {
   );
 
   const prSubsetIds = useMemo(() => {
+    // Don't mark any PRs until external PRs have been fetched — avoids false positives on mount
+    if (externalPRs === null) return new Set<string>();
     const ids = new Set<string>();
     // Session PRs accumulated so far (Pareto frontier within this block)
     const sessionPRs: Array<{ exerciseId: string; reps: number; weightKg: number }> = [];
@@ -1363,6 +1351,12 @@ export default function ExerciseBlock() {
               renderItem={renderEvent}
               containerStyle={{ flex: 1 }}
               contentContainerStyle={{ padding: 12, paddingBottom: 8 }}
+              onContentSizeChange={() => {
+                if (!hasScrolledToBottomRef.current) {
+                  hasScrolledToBottomRef.current = true;
+                  flatListRef.current?.scrollToEnd({ animated: false });
+                }
+              }}
             />
           </Pressable>
 

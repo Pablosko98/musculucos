@@ -71,13 +71,29 @@ async function prefetchRange(centerDate: Date) {
 
 // ─── Module-level mutations (accessible from exercise_block etc.) ─────────────
 
+// Reorder blocks so a newly-real block sits just after the last real block.
+function promoteBlockToRealOrder(workout: Workout, promotedBlockId: string): Workout {
+  const sorted = [...workout.blocks].sort((a, b) => a.order - b.order);
+  const promotedIdx = sorted.findIndex((b) => b.id === promotedBlockId);
+  if (promotedIdx === -1) return workout;
+  // Last real block index, ignoring the promoted one (it now has events too)
+  let lastRealIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    if (i !== promotedIdx && sorted[i].events.length > 0) lastRealIdx = i;
+  }
+  const targetIdx = lastRealIdx + 1;
+  if (targetIdx === promotedIdx) return workout; // already in place
+  const reordered = [...sorted];
+  const [promoted] = reordered.splice(promotedIdx, 1);
+  reordered.splice(targetIdx, 0, promoted);
+  return { ...workout, blocks: reordered.map((b, i) => ({ ...b, order: i })) };
+}
+
 export async function saveEditedBlock(dateString: string, updatedBlock: Block) {
   const workout = queryClient.getQueryData<Workout | null>(workoutKey(dateString));
   if (!workout) return;
   const updatedBlocks = workout.blocks.map((b) => (b.id === updatedBlock.id ? updatedBlock : b));
   const updated = { ...workout, blocks: updatedBlocks };
-  // Instant optimistic update — no flash
-  queryClient.setQueryData(workoutKey(dateString), updated);
   const oldBlock = workout.blocks.find((b) => b.id === updatedBlock.id);
   if (!oldBlock) return;
   const countDiff = updatedBlock.events.length - oldBlock.events.length;
@@ -88,14 +104,22 @@ export async function saveEditedBlock(dateString: string, updatedBlock: Block) {
     matchNew != null &&
     lastOld.id === matchNew.id &&
     JSON.stringify(lastOld) !== JSON.stringify(matchNew);
+
+  // Ghost → real promotion: move block to bottom of real list
+  const isPromotion = oldBlock.events.length === 0 && updatedBlock.events.length > 0;
+  const finalWorkout = isPromotion ? promoteBlockToRealOrder(updated, updatedBlock.id) : updated;
+
+  // Instant optimistic update — no flash
+  queryClient.setQueryData(workoutKey(dateString), finalWorkout);
+
   try {
-    if (countDiff === 1 && !existingModified) {
+    if (!isPromotion && countDiff === 1 && !existingModified) {
       await WorkoutDAL.addEvent(
         updatedBlock.id,
         updatedBlock.events[updatedBlock.events.length - 1]
       );
     } else {
-      await WorkoutDAL.saveFullWorkout(updated);
+      await WorkoutDAL.saveFullWorkout(finalWorkout);
     }
     // Refresh prCount in cache after save so carousel pill stays accurate
     const prCount = await PRDAL.getCountForBlock(updatedBlock.id);
@@ -355,9 +379,14 @@ function WorkoutCard({ index }: { index: number }) {
                 onSwitchAlternative={(blockId, exerciseIndex, newExerciseId) =>
                   switchAlternative(dateString, blockId, exerciseIndex, newExerciseId)
                 }
-                onMoveUp={idx > 0 ? () => moveBlock(dateString, block.id, 'up') : undefined}
+                onMoveUp={
+                  idx > 0 && !(block.events.length === 0 && sortedBlocks[idx - 1].events.length > 0)
+                    ? () => moveBlock(dateString, block.id, 'up')
+                    : undefined
+                }
                 onMoveDown={
-                  idx < sortedBlocks.length - 1
+                  idx < sortedBlocks.length - 1 &&
+                  !(block.events.length > 0 && sortedBlocks[idx + 1].events.length === 0)
                     ? () => moveBlock(dateString, block.id, 'down')
                     : undefined
                 }
