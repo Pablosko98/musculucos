@@ -56,8 +56,26 @@ export async function exportRoutinesAI(ids?: string[]): Promise<string> {
   const routines = ids ? all.filter((r) => ids.includes(r.id)) : all;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
 
+  // Collect only exercises actually referenced in the selected routines
+  const usedExIds = new Set<string>();
+  for (const r of routines) {
+    for (const re of r.exercises) {
+      for (const group of re.exerciseGroups) {
+        for (const id of group) usedExIds.add(id);
+      }
+    }
+  }
+  const usedExercises = [...usedExIds]
+    .map((id) => exMap.get(id))
+    .filter((ex): ex is Exercise => ex != null);
+
   const payload = {
     type: 'routines',
+    exercises: usedExercises.map((ex) => ({
+      name: ex.name,
+      equipment: ex.equipment,
+      equipmentVariant: ex.equipmentVariant ?? null,
+    })),
     routines: routines.map((r) => ({
       name: r.name,
       description: r.description,
@@ -167,6 +185,9 @@ export async function exportAnalyticsAI(opts?: AnalyticsExportOpts): Promise<str
   return JSON.stringify(payload, null, 2);
 }
 
+// Character threshold above which sharing is disabled (~10 exercises of JSON data)
+export const PASTE_CHAR_LIMIT = 2_500;
+
 // ─── AI import prompts ────────────────────────────────────────────────────────
 
 export const EXERCISE_IMPORT_PROMPT = `You are a fitness data assistant for the Musculucos workout app. Respond ONLY with valid JSON — no markdown, no code blocks, no explanation.
@@ -205,11 +226,7 @@ Notes:
 - baseWeightKg = inherent equipment weight (20 for barbell, 10 for ez_bar, null otherwise)
 - Respond with ONLY the JSON object, nothing else`;
 
-export async function buildRoutineImportPrompt(): Promise<string> {
-  const exercises = await ExerciseDAL.getAll();
-  const list = exercises.map((ex) => `  - ${exDisplayName(ex)}`).join('\n');
-
-  return `You are a fitness data assistant for the Musculucos workout app. Respond ONLY with valid JSON — no markdown, no code blocks, no explanation.
+export const ROUTINE_IMPORT_SCHEMA = `You are a fitness data assistant for the Musculucos workout app. Respond ONLY with valid JSON — no markdown, no code blocks, no explanation.
 
 To create routines, use this exact schema:
 {
@@ -231,7 +248,14 @@ Slot structure:
 - Each slot = one exercise block in the workout
 - slots[i] = array of exercise groups (length 1 = single exercise, length 2+ = superset)
 - slots[i][j] = [primary, alt1, alt2, ...] — first entry is primary, rest are alternatives
-- Format exercise names exactly as "Name (equipment)" or "Name (equipment, Variant)"
+- Format exercise names exactly as "Name (equipment)" or "Name (equipment, Variant)"`;
+
+export async function buildRoutineImportPrompt(exerciseIds?: string[]): Promise<string> {
+  const all = await ExerciseDAL.getAll();
+  const exercises = exerciseIds ? all.filter((e) => exerciseIds.includes(e.id)) : all;
+  const list = exercises.map((ex) => `  - ${exDisplayName(ex)}`).join('\n');
+
+  return `${ROUTINE_IMPORT_SCHEMA}
 
 Available exercises (use ONLY these):
 ${list}

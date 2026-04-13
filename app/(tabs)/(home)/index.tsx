@@ -3,7 +3,8 @@ import { ActivityIndicator, Dimensions, View, type LayoutChangeEvent } from 'rea
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import Carousel from 'react-native-reanimated-carousel';
-import { useRef, useEffect, useCallback, useReducer, useState } from 'react';
+import { useRef, useEffect, useCallback, useContext, useReducer, useState } from 'react';
+import { RestBannerHeightContext } from '@/app/_layout';
 import { useFocusEffect, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { restTimer } from '@/lib/rest-timer';
@@ -430,6 +431,7 @@ function WorkoutCard({ index }: { index: number }) {
 // ─── WorkoutTracker ───────────────────────────────────────────────────────────
 
 export default function WorkoutTracker() {
+  const bannerHeight = useContext(RestBannerHeightContext);
   const carouselRef = useRef<ICarouselInstance>(null);
   const today = startOfDay(new Date());
   const [carouselHeight, setCarouselHeight] = useState(0);
@@ -486,7 +488,7 @@ export default function WorkoutTracker() {
         style={{
           flexDirection: 'row',
           justifyContent: 'space-evenly',
-          paddingTop: 10,
+          paddingTop: bannerHeight + 10,
           zIndex: 50,
         }}>
         <Button style={{ backgroundColor: '#6b21a8', width: 140 }} onPress={() => setCalendarVisible(true)}>

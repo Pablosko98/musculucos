@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, Share, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { router } from 'expo-router';
 import { PrefsDAL } from '@/lib/db';
-import { exportAnalyticsAI, exportExercisesAI, exportRoutinesAI } from '@/lib/ai-format';
 import {
   configureGoogleSignIn,
   getCurrentUser,
@@ -39,8 +38,6 @@ export default function Settings() {
   const [bodyGender, setBodyGender] = useState<'male' | 'female'>('male');
   const [weightPrefill, setWeightPrefill] = useState<'last_set' | 'first_set'>('last_set');
   const [defaultWeightMode, setDefaultWeightMode] = useState<'total' | 'per_side'>('total');
-  const [aiExporting, setAIExporting] = useState<'exercises' | 'routines' | 'analytics' | null>(null);
-  const [aiExportModalVisible, setAIExportModalVisible] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then(setUser);
@@ -174,23 +171,6 @@ export default function Settings() {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-
-  async function handleAIExport(kind: 'exercises' | 'routines' | 'analytics') {
-    setAIExporting(kind);
-    try {
-      const text =
-        kind === 'exercises'
-          ? await exportExercisesAI()
-          : kind === 'routines'
-          ? await exportRoutinesAI()
-          : await exportAnalyticsAI();
-      await Share.share({ message: text });
-    } catch (e: any) {
-      Alert.alert('Export failed', e?.message ?? 'Unknown error');
-    } finally {
-      setAIExporting(null);
-    }
-  }
 
   return (
     <ScrollView
@@ -388,8 +368,7 @@ export default function Settings() {
         </Text>
         <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
           <TouchableOpacity
-            onPress={() => setAIExportModalVisible(true)}
-            disabled={aiExporting !== null}
+            onPress={() => router.push('/ai_export')}
             style={{
               padding: 16,
               flexDirection: 'row',
@@ -404,11 +383,7 @@ export default function Settings() {
                 Share exercises, routines or analytics with your AI chatbot
               </Text>
             </View>
-            {aiExporting !== null ? (
-              <ActivityIndicator size="small" color="#ea580c" />
-            ) : (
-              <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>Share</Text>
-            )}
+            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>Open →</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push('/ai_import')}
@@ -428,61 +403,6 @@ export default function Settings() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* AI Export modal */}
-      <Modal
-        visible={aiExportModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAIExportModalVisible(false)}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setAIExportModalVisible(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
-          <TouchableOpacity activeOpacity={1} style={{ width: '100%', backgroundColor: '#18181b', borderRadius: 16, overflow: 'hidden' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#27272a' }}>
-              <Text style={{ color: '#fafafa', fontWeight: '700', fontSize: 16 }}>Export for AI</Text>
-              <Text style={{ color: '#71717a', fontSize: 13, marginTop: 3 }}>
-                Which data do you want to share with your AI chatbot?
-              </Text>
-            </View>
-            {(
-              [
-                { key: 'exercises', label: 'Exercises', sub: 'Your full exercise library' },
-                { key: 'routines', label: 'Routines', sub: 'Training routines with exercise references' },
-                { key: 'analytics', label: 'Analytics', sub: 'Stats, PRs and 28-day volume' },
-              ] as const
-            ).map(({ key, label, sub }, i, arr) => (
-              <TouchableOpacity
-                key={key}
-                onPress={async () => {
-                  setAIExportModalVisible(false);
-                  await handleAIExport(key);
-                }}
-                disabled={aiExporting !== null}
-                style={{
-                  padding: 16,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  borderBottomWidth: i < arr.length - 1 ? 1 : 0,
-                  borderBottomColor: '#27272a',
-                }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontWeight: '600' }}>{label}</Text>
-                  <Text style={{ color: '#71717a', fontSize: 12, marginTop: 1 }}>{sub}</Text>
-                </View>
-                <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>Share →</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              onPress={() => setAIExportModalVisible(false)}
-              style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#27272a' }}>
-              <Text style={{ color: '#71717a', fontWeight: '600', fontSize: 14 }}>Cancel</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Google Account */}
       <View style={{ marginBottom: 32 }}>

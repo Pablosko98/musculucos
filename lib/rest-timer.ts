@@ -6,10 +6,12 @@ let _activeRest: ActiveRest | null = null;
 let _navCallback: (() => void) | null = null;
 let _finalizeCallback: ((elapsed: number) => void) | null = null;
 let _pendingFinalize: { blockId: string; elapsed: number } | null = null;
+let _onActiveChange: ((next: ActiveRest | null) => void) | null = null;
 
 export const restTimer = {
   start(blockId: string, dateString: string, targetSeconds = 60, blockName = '') {
     _activeRest = { blockId, blockName, dateString, startMs: Date.now(), targetSeconds };
+    _onActiveChange?.(_activeRest);
     postRestNotification(_activeRest.startMs, blockName).catch(() => {});
   },
 
@@ -63,10 +65,15 @@ export const restTimer = {
     return _activeRest?.blockId === blockId;
   },
 
+  setOnActiveChange(fn: ((next: ActiveRest | null) => void) | null) {
+    _onActiveChange = fn;
+  },
+
   clear() {
     _activeRest = null;
     _navCallback = null;
     _finalizeCallback = null;
+    _onActiveChange?.(null);
     dismissRestNotification().catch(() => {});
   },
 };

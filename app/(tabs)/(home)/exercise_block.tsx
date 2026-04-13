@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { RestBannerHeightContext } from '@/app/_layout';
 import {
   ActivityIndicator,
   FlatList,
@@ -305,6 +306,7 @@ function HistoryCard({
 
 export default function ExerciseBlock() {
   const insets = useSafeAreaInsets();
+  const bannerHeight = useContext(RestBannerHeightContext);
   const state = getActiveBlock();
 
   const initialBlock = state?.block;
@@ -1145,7 +1147,7 @@ export default function ExerciseBlock() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#09090b' }}>
+    <View style={{ flex: 1, backgroundColor: '#09090b', paddingTop: bannerHeight }}>
       {/* Header */}
       <View
         style={{

@@ -5,7 +5,7 @@ import { PortalHost } from '@rn-primitives/portal';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
-import { useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { initDB } from '@/lib/db';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { restTimer } from '@/lib/rest-timer';
+import type { ActiveRest } from '@/lib/rest-timer';
 import { setNotificationCallbacks } from '@/lib/notifications';
 import { Text } from '@/components/ui/text';
 import { Timer } from 'lucide-react-native';
@@ -20,6 +21,9 @@ import { Timer } from 'lucide-react-native';
 export {
   ErrorBoundary,
 } from 'expo-router';
+
+// Screens that sit behind the rest banner can consume this to add paddingTop.
+export const RestBannerHeightContext = createContext(0);
 
 function formatDuration(s: number): string {
   if (s <= 0) return '0s';
@@ -47,7 +51,8 @@ function useNotificationHandlers() {
   }, [pathname]);
 }
 
-function RestBanner() {
+// Rendered absolutely — out of layout flow so the Stack height never changes.
+function RestBanner({ active, onHeight }: { active: ActiveRest | null; onHeight: (h: number) => void }) {
   const pathname = usePathname();
   const [, setTick] = useState(0);
 
@@ -56,29 +61,32 @@ function RestBanner() {
     return () => clearInterval(interval);
   }, []);
 
-  if (pathname.includes('exercise_block')) return null;
-  const active = restTimer.get();
   if (!active) return null;
 
   const elapsed = restTimer.elapsed();
   const target = restTimer.target();
   const progress = Math.min(elapsed / target, 1);
+  const isExerciseBlock = pathname.includes('exercise_block');
 
   return (
     <Pressable
       onPress={() => {
-        if (pathname.includes('exercise_block')) return;
+        if (isExerciseBlock) return;
         restTimer.navigate();
         router.push('/exercise_block');
       }}
+      onLayout={(e) => onHeight(e.nativeEvent.layout.height)}
       style={{
+        position: 'absolute',
+        top: 0,
+        left: 16,
+        right: 16,
+        zIndex: 10,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(168,85,247,0.4)',
         backgroundColor: 'rgba(20,10,40,0.92)',
         overflow: 'hidden',
-        marginHorizontal: 16,
-        marginBottom: 8,
       }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 11 }}>
         <Timer size={14} color="#a855f7" />
@@ -103,18 +111,48 @@ function RestBanner() {
   );
 }
 
+function NotificationHandlers() {
+  useNotificationHandlers();
+  return null;
+}
+
+// The banner is absolutely positioned so the Stack height never changes —
+// the tab bar's absolute Y position is therefore always constant.
+// The measured banner height is broadcast via RestBannerHeightContext so
+// individual screens can add their own paddingTop to avoid being obscured.
+function BannerAwareStackShell() {
+  const [active, setActive] = useState<ActiveRest | null>(() => restTimer.get());
+  const [bannerHeight, setBannerHeight] = useState(0);
+
+  useEffect(() => {
+    restTimer.setOnActiveChange((next) => setActive(next));
+    return () => restTimer.setOnActiveChange(null);
+  }, []);
+
+  const contextValue = active ? bannerHeight : 0;
+
+  return (
+    <RestBannerHeightContext.Provider value={contextValue}>
+      <View style={{ flex: 1 }}>
+        <RestBanner active={active} onHeight={setBannerHeight} />
+        <Stack style={{ flex: 1 }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="create_exercise" options={{ headerShown: false }} />
+          <Stack.Screen name="exercise_history" options={{ headerShown: false }} />
+          <Stack.Screen name="ai_import" options={{ headerShown: false }} />
+          <Stack.Screen name="ai_export" options={{ headerShown: false }} />
+        </Stack>
+      </View>
+    </RestBannerHeightContext.Provider>
+  );
+}
+
 function AppShell() {
   const insets = useSafeAreaInsets();
-  useNotificationHandlers();
   return (
     <View style={{ flex: 1, backgroundColor: 'black', paddingTop: insets.top }}>
-      <RestBanner />
-      <Stack style={{ flex: 1 }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="create_exercise" options={{ headerShown: false }} />
-        <Stack.Screen name="exercise_history" options={{ headerShown: false }} />
-        <Stack.Screen name="ai_import" options={{ headerShown: false }} />
-      </Stack>
+      <NotificationHandlers />
+      <BannerAwareStackShell />
     </View>
   );
 }
