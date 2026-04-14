@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronDown, ChevronUp, Copy, Share2, TriangleAlert } from 'lucide-react-native';
@@ -52,10 +53,11 @@ function ResolutionToggle({
   onChange: (r: Resolution) => void;
   showUpdate: boolean;
 }) {
+  const { t } = useTranslation();
   const options: { key: Resolution; label: string }[] = [
-    ...(showUpdate ? [{ key: 'update' as Resolution, label: 'Update' }] : []),
-    { key: 'add_new', label: 'Add as copy' },
-    { key: 'skip', label: 'Skip' },
+    ...(showUpdate ? [{ key: 'update' as Resolution, label: t('ai.update') }] : []),
+    { key: 'add_new', label: t('ai.addAsCopy') },
+    { key: 'skip', label: t('ai.skip') },
   ];
   return (
     <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
@@ -189,6 +191,7 @@ function SelectionPanel({
 
 export default function AIImport() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('exercises');
   const [sharing, setSharing] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -286,25 +289,25 @@ export default function AIImport() {
 
   async function handleParse() {
     if (!pastedText.trim()) {
-      Alert.alert('Empty input', 'Paste the AI response first.');
+      Alert.alert(t('ai.emptyInput'), t('ai.emptyInputMsg'));
       return;
     }
     setParsing(true);
     try {
       const parsed = parseAIImport(pastedText);
       if (parsed.type === 'error') {
-        Alert.alert('Could not parse', parsed.message);
+        Alert.alert(t('ai.couldNotParse'), parsed.message);
         return;
       }
       if (parsed.type === 'exercises') {
         if (mode !== 'exercises') {
-          Alert.alert('Wrong type', 'The pasted response contains exercises, but Routines mode is active.');
+          Alert.alert(t('ai.wrongType'), 'The pasted response contains exercises, but Routines mode is active.');
           return;
         }
         setExerciseConflicts(await detectExerciseConflicts(parsed.items));
       } else {
         if (mode !== 'routines') {
-          Alert.alert('Wrong type', 'The pasted response contains routines, but Exercises mode is active.');
+          Alert.alert(t('ai.wrongType'), 'The pasted response contains routines, but Exercises mode is active.');
           return;
         }
         setRoutineConflicts(await detectRoutineConflicts(parsed.items));
@@ -327,7 +330,7 @@ export default function AIImport() {
       setResult(r);
       setPhase('done');
     } catch (e: any) {
-      Alert.alert('Import failed', e?.message ?? 'Unknown error');
+      Alert.alert(t('ai.importFailed'), e?.message ?? 'Unknown error');
     } finally {
       setImporting(false);
     }
@@ -383,7 +386,7 @@ export default function AIImport() {
           <ChevronLeft size={22} color="#a1a1aa" />
         </TouchableOpacity>
         <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '700', flex: 1 }}>
-          AI Import
+          {t('ai.importHeading')}
         </Text>
       </View>
 
@@ -427,16 +430,16 @@ export default function AIImport() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>✓</Text>
           <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' }}>
-            Import complete
+            {t('ai.importComplete')}
           </Text>
           <Text style={{ color: '#71717a', fontSize: 15, textAlign: 'center', marginBottom: 32 }}>
-            {result.imported} {mode} imported
-            {result.skipped > 0 ? `, ${result.skipped} skipped` : ''}
+            {t('ai.importResult', { count: result.imported, mode })}
+            {result.skipped > 0 ? t('ai.importSkipped', { count: result.skipped }) : ''}
           </Text>
           <TouchableOpacity
             onPress={() => router.back()}
             style={{ backgroundColor: '#ea580c', paddingHorizontal: 32, paddingVertical: 13, borderRadius: 10 }}>
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Done</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('ai.doneBtn')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -444,13 +447,13 @@ export default function AIImport() {
         <View style={{ flex: 1 }}>
           <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
             <Text style={{ color: '#fafafa', fontSize: 16, fontWeight: '700' }}>
-              Review — {conflicts.length} item{conflicts.length !== 1 ? 's' : ''}
+              {t('ai.reviewHeader', { count: conflicts.length })}
             </Text>
             {conflictCount > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <TriangleAlert size={13} color="#fb923c" />
                 <Text style={{ color: '#fb923c', fontSize: 13 }}>
-                  {conflictCount} already exist{conflictCount !== 1 ? 's' : ''} — choose what to do below
+                  {t('ai.conflictWarning', { count: conflictCount })}
                 </Text>
               </View>
             )}
@@ -516,16 +519,16 @@ export default function AIImport() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={{ color: nonSkipped > 0 ? '#fff' : '#52525b', fontWeight: '700', fontSize: 15 }}>
-                  Import {nonSkipped > 0 ? `${nonSkipped} ` : ''}
-                  {mode === 'exercises' ? 'exercise' : 'routine'}
-                  {nonSkipped !== 1 ? 's' : ''}
+                  {nonSkipped > 0
+                    ? `Import ${nonSkipped} ${mode === 'exercises' ? 'exercise' : 'routine'}${nonSkipped !== 1 ? 's' : ''}`
+                    : `Import 0 ${mode === 'exercises' ? 'exercises' : 'routines'}`}
                 </Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setPhase('compose')}
               style={{ alignItems: 'center', paddingVertical: 8 }}>
-              <Text style={{ color: '#71717a', fontSize: 14 }}>← Back to paste</Text>
+              <Text style={{ color: '#71717a', fontSize: 14 }}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -539,7 +542,7 @@ export default function AIImport() {
 
           {/* ── Step 1: prompt ─────────────────────────────────────────── */}
           <Text style={{ color: '#71717a', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-            Step 1 — Give this prompt to your AI chatbot
+            {t('ai.step1')}
           </Text>
 
           {/* Prompt preview */}
@@ -598,10 +601,10 @@ export default function AIImport() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#fafafa', fontSize: 13, fontWeight: '600' }}>
-                    Include my current {mode} as context
+                    {t('ai.includeContext', { mode })}
                   </Text>
                   <Text style={{ color: '#52525b', fontSize: 12, marginTop: 1 }}>
-                    Lets the AI see and improve your existing {mode}
+                    {t('ai.includeContextDesc', { mode })}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -609,7 +612,7 @@ export default function AIImport() {
               {/* Context pickers (shown when toggle is on) */}
               {includeContext && mode === 'exercises' && (
                 <SelectionPanel
-                  title="Exercises to include as context"
+                  title={t('ai.exercisesContext')}
                   badge={`${selectedExIds.size}/${allExercises.length}`}
                   allItems={allExercises}
                   selectedIds={selectedExIds}
@@ -631,7 +634,7 @@ export default function AIImport() {
 
               {includeContext && mode === 'routines' && (
                 <SelectionPanel
-                  title="Routines to include as context"
+                  title={t('ai.routinesContext')}
                   badge={`${selectedRoutineIds.size}/${allRoutines.length}`}
                   allItems={allRoutines}
                   selectedIds={selectedRoutineIds}
@@ -672,7 +675,7 @@ export default function AIImport() {
               }}>
               <TriangleAlert size={14} color="#fb923c" style={{ marginTop: 1 }} />
               <Text style={{ color: '#fb923c', fontSize: 13, flex: 1, lineHeight: 18 }}>
-                Too large to copy (~{Math.round(estimatedChars / 1000)}K chars). Use Share or deselect items to bring it under {PASTE_CHAR_LIMIT / 1000}K.
+                {t('ai.tooLarge', { size: Math.round(estimatedChars / 1000), limit: PASTE_CHAR_LIMIT / 1000 })}
               </Text>
             </View>
           )}
@@ -700,7 +703,7 @@ export default function AIImport() {
                 ) : (
                   <>
                     <Copy size={14} color="#ea580c" />
-                    <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>Copy</Text>
+                    <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>{t('common.copy')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -725,7 +728,7 @@ export default function AIImport() {
               ) : (
                 <>
                   <Share2 size={14} color="#ea580c" />
-                  <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>Share</Text>
+                  <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>{t('common.share')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -733,13 +736,13 @@ export default function AIImport() {
 
           {/* ── Step 2: paste ───────────────────────────────────────────── */}
           <Text style={{ color: '#71717a', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-            Step 2 — Paste the AI response here
+            {t('ai.step2')}
           </Text>
 
           <TextInput
             value={pastedText}
             onChangeText={setPastedText}
-            placeholder="Paste AI response…"
+            placeholder={t('ai.pasteResponse')}
             placeholderTextColor="#3f3f46"
             multiline
             style={{
@@ -768,7 +771,7 @@ export default function AIImport() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={{ color: pastedText.trim() ? '#fff' : '#52525b', fontWeight: '700', fontSize: 15 }}>
-                Parse &amp; Review
+                {t('ai.parseAndReview')}
               </Text>
             )}
           </TouchableOpacity>
@@ -787,6 +790,7 @@ function ExerciseConflictRow({
   conflict: ExerciseConflict;
   onChange: (r: Resolution) => void;
 }) {
+  const { t } = useTranslation();
   const { item, existing, resolution } = conflict;
   const displayName = `${item.name} (${item.equipment}${item.equipmentVariant ? `, ${item.equipmentVariant}` : ''})`;
   const primaryMuscle = item.muscleEmphasis.find((m) => m.role === 'primary');
@@ -804,7 +808,7 @@ function ExerciseConflictRow({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ backgroundColor: existing ? '#431407' : '#052e16', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 }}>
           <Text style={{ color: existing ? '#fb923c' : '#4ade80', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {existing ? 'exists' : 'new'}
+            {existing ? t('common.exists') : t('common.new')}
           </Text>
         </View>
         <Text style={{ color: '#fafafa', fontWeight: '600', fontSize: 14, flex: 1 }} numberOfLines={1}>
@@ -814,7 +818,7 @@ function ExerciseConflictRow({
       {primaryMuscle && (
         <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
           {primaryMuscle.muscle}{primaryMuscle.head ? ` · ${primaryMuscle.head}` : ''}{' '}
-          · {item.muscleEmphasis.length} muscle{item.muscleEmphasis.length !== 1 ? 's' : ''}
+          · {t('ai.muscle', { count: item.muscleEmphasis.length })}
         </Text>
       )}
       {existing && <ResolutionToggle value={resolution} onChange={onChange} showUpdate />}
@@ -829,6 +833,7 @@ function RoutineConflictRow({
   conflict: RoutineConflict;
   onChange: (r: Resolution) => void;
 }) {
+  const { t } = useTranslation();
   const { item, existing, resolution } = conflict;
 
   return (
@@ -844,7 +849,7 @@ function RoutineConflictRow({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ backgroundColor: existing ? '#431407' : '#052e16', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 }}>
           <Text style={{ color: existing ? '#fb923c' : '#4ade80', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {existing ? 'exists' : 'new'}
+            {existing ? t('common.exists') : t('common.new')}
           </Text>
         </View>
         <Text style={{ color: '#fafafa', fontWeight: '600', fontSize: 14, flex: 1 }} numberOfLines={1}>
@@ -857,7 +862,7 @@ function RoutineConflictRow({
         </Text>
       ) : null}
       <Text style={{ color: '#52525b', fontSize: 12, marginTop: 2 }}>
-        {item.slots.length} slot{item.slots.length !== 1 ? 's' : ''}
+        {t('ai.slot', { count: item.slots.length })}
       </Text>
       {existing && <ResolutionToggle value={resolution} onChange={onChange} showUpdate />}
     </View>

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Copy, Share2, TriangleAlert } from 'lucide-react-native';
@@ -39,6 +40,7 @@ const TIMEFRAMES: { label: string; days: number | null }[] = [
 
 export default function AIExport() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('exercises');
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
@@ -140,7 +142,7 @@ export default function AIExport() {
     try {
       await Share.share({ message: await buildExport() });
     } catch (e: any) {
-      Alert.alert('Export failed', e?.message ?? 'Unknown error');
+      Alert.alert(t('ai.exportFailed'), e?.message ?? 'Unknown error');
     } finally {
       setSharing(false);
     }
@@ -151,7 +153,7 @@ export default function AIExport() {
     try {
       await Clipboard.setStringAsync(await buildExport());
     } catch (e: any) {
-      Alert.alert('Copy failed', e?.message ?? 'Unknown error');
+      Alert.alert(t('ai.exportFailed'), e?.message ?? 'Unknown error');
     } finally {
       setCopying(false);
     }
@@ -234,7 +236,7 @@ export default function AIExport() {
           <ChevronLeft size={22} color="#a1a1aa" />
         </TouchableOpacity>
         <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '700', flex: 1 }}>
-          Export for AI
+          {t('ai.exportHeading')}
         </Text>
       </View>
 
@@ -328,7 +330,7 @@ export default function AIExport() {
           }
           ListEmptyComponent={
             <Text style={{ color: '#3f3f46', fontSize: 14, textAlign: 'center', paddingTop: 40 }}>
-              No routines found
+              {t('ai.noRoutines')}
             </Text>
           }
           ItemSeparatorComponent={() => (
@@ -357,7 +359,7 @@ export default function AIExport() {
                   letterSpacing: 1,
                   marginBottom: 8,
                 }}>
-                Timeframe
+                {t('ai.timeframe')}
               </Text>
               <View
                 style={{
@@ -403,7 +405,7 @@ export default function AIExport() {
                   letterSpacing: 1,
                   marginBottom: 8,
                 }}>
-                Exercises
+                {t('ai.exercisesSection')}
               </Text>
               <SelectionSearch value={analyticsSearch} onChangeText={setAnalyticsSearch} />
               <SelectAllBar
@@ -451,7 +453,7 @@ export default function AIExport() {
             }}>
             <TriangleAlert size={14} color="#fb923c" style={{ marginTop: 1 }} />
             <Text style={{ color: '#fb923c', fontSize: 13, flex: 1, lineHeight: 18 }}>
-              Too large to copy (~{Math.round(estimatedChars / 1000)}K chars). Use Share or deselect items to bring it under {PASTE_CHAR_LIMIT / 1000}K.
+              {t('ai.tooLarge', { size: Math.round(estimatedChars / 1000), limit: PASTE_CHAR_LIMIT / 1000 })}
             </Text>
           </View>
         )}
@@ -478,7 +480,7 @@ export default function AIExport() {
                 <>
                   <Copy size={15} color={actionDisabled ? '#52525b' : '#ea580c'} />
                   <Text style={{ color: actionDisabled ? '#52525b' : '#ea580c', fontWeight: '700', fontSize: 15 }}>
-                    Copy
+                    {t('common.copy')}
                   </Text>
                 </>
               )}
@@ -504,8 +506,8 @@ export default function AIExport() {
                 <Share2 size={15} color={actionDisabled ? '#52525b' : '#fff'} />
                 <Text style={{ color: actionDisabled ? '#52525b' : '#fff', fontWeight: '700', fontSize: 15 }}>
                   {shareCount > 0
-                    ? `Share ${shareCount} ${tab === 'analytics' ? 'exercise' : tab.slice(0, -1)}${shareCount !== 1 ? 's' : ''}`
-                    : 'Nothing selected'}
+                    ? `${t('common.share')} ${shareCount} ${tab === 'analytics' ? 'exercise' : tab.slice(0, -1)}${shareCount !== 1 ? 's' : ''}`
+                    : t('ai.nothingSelected')}
                 </Text>
               </>
             )}

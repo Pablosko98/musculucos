@@ -48,6 +48,7 @@ import type { Exercise } from '@/lib/exercises';
 import { getActiveBlock, setActiveBlock } from '@/lib/block-state';
 import { setPendingWorkoutDate } from '@/lib/navigation-state';
 import { restTimer } from '@/lib/rest-timer';
+import { useTranslation } from 'react-i18next';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ function HistoryCard({
   prKeys?: Set<string>;
   onPressDate: (date: string) => void;
 }) {
+  const { t } = useTranslation();
   const setGroups: string[] = [];
   const seenParents = new Set<string>();
   for (const s of workout.sets) {
@@ -210,15 +212,15 @@ function HistoryCard({
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 3 }}>
             {workout.workingSets > 0 && (
               <Text style={{ color: '#52525b', fontSize: 12 }}>
-                {workout.workingSets} {workout.workingSets === 1 ? 'set' : 'sets'}
+                {t('tracker.set', { count: workout.workingSets })}
               </Text>
             )}
             {workout.maxWeightKg > 0 && (
-              <Text style={{ color: '#52525b', fontSize: 12 }}>· {workout.maxWeightKg}kg max</Text>
+              <Text style={{ color: '#52525b', fontSize: 12 }}>{t('tracker.kgMax', { value: workout.maxWeightKg })}</Text>
             )}
             {workout.totalVolume > 0 && (
               <Text style={{ color: '#52525b', fontSize: 12 }}>
-                · {workout.totalVolume.toLocaleString()}kg vol
+                {t('tracker.kgVol', { value: workout.totalVolume.toLocaleString() })}
               </Text>
             )}
           </View>
@@ -307,6 +309,7 @@ function HistoryCard({
 export default function ExerciseBlock() {
   const insets = useSafeAreaInsets();
   const bannerHeight = useContext(RestBannerHeightContext);
+  const { t } = useTranslation();
   const state = getActiveBlock();
 
   const initialBlock = state?.block;
@@ -1176,8 +1179,8 @@ export default function ExerciseBlock() {
               letterSpacing: 1.2,
             }}>
             {isSuperset
-              ? `Superset · ${activeExerciseIndex + 1} of ${localBlock.exerciseIds.length}`
-              : 'Active Exercise'}
+              ? t('exercise.superset', { index: activeExerciseIndex + 1, total: localBlock.exerciseIds.length })
+              : t('exercise.activeExercise')}
           </Text>
           <Text style={{ color: '#fafafa', fontSize: 20, fontWeight: '900', lineHeight: 24 }}>
             {activeExercise?.name || localBlock.name}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { ExerciseDAL, PrefsDAL } from '@/lib/db';
@@ -20,6 +21,7 @@ import { MusclesTab } from '@/components/analytics/MusclesTab';
 
 export default function Analytics() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   // Tab — default to muscles
   const [tab, setTab] = useState<'muscles' | 'exercises'>('muscles');
@@ -125,28 +127,28 @@ export default function Analytics() {
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 }}>
         <Text style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
-          Analytics
+          {t('analytics.heading')}
         </Text>
       </View>
 
       {/* Tab bar */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 }}>
-        {(['muscles', 'exercises'] as const).map((t) => (
+        {(['muscles', 'exercises'] as const).map((tabKey) => (
           <TouchableOpacity
-            key={t}
-            onPress={() => setTab(t)}
+            key={tabKey}
+            onPress={() => setTab(tabKey)}
             style={{
               flex: 1,
               paddingVertical: 9,
               borderRadius: 11,
               alignItems: 'center',
-              backgroundColor: tab === t ? '#27272a' : 'transparent',
+              backgroundColor: tab === tabKey ? '#27272a' : 'transparent',
               borderWidth: 1,
-              borderColor: tab === t ? '#3f3f46' : 'transparent',
+              borderColor: tab === tabKey ? '#3f3f46' : 'transparent',
             }}>
             <Text
-              style={{ color: tab === t ? '#fafafa' : '#52525b', fontSize: 14, fontWeight: '600' }}>
-              {t === 'muscles' ? 'Muscles' : 'Exercises'}
+              style={{ color: tab === tabKey ? '#fafafa' : '#52525b', fontSize: 14, fontWeight: '600' }}>
+              {tabKey === 'muscles' ? t('analytics.tabMuscles') : t('analytics.tabExercises')}
             </Text>
           </TouchableOpacity>
         ))}

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { PrefsDAL } from '@/lib/db';
+import i18n, { type AppLanguage, getDeviceLanguage } from '@/lib/i18n';
 import {
   configureGoogleSignIn,
   getCurrentUser,
@@ -28,6 +30,7 @@ const WEB_CLIENT_ID = '245792984579-bsq4di63h6clvuv85bk11e706pp2u5ku.apps.google
 configureGoogleSignIn(WEB_CLIENT_ID);
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [backupCount, setBackupCount] = useState<number | null>(null);
@@ -38,6 +41,7 @@ export default function Settings() {
   const [bodyGender, setBodyGender] = useState<'male' | 'female'>('male');
   const [weightPrefill, setWeightPrefill] = useState<'last_set' | 'first_set'>('last_set');
   const [defaultWeightMode, setDefaultWeightMode] = useState<'total' | 'per_side'>('total');
+  const [language, setLanguage] = useState<AppLanguage>('device');
 
   useEffect(() => {
     getCurrentUser().then(setUser);
@@ -50,6 +54,9 @@ export default function Settings() {
     PrefsDAL.get('defaultWeightMode').then((v) => {
       if (v === 'total' || v === 'per_side') setDefaultWeightMode(v);
     });
+    PrefsDAL.get('language').then((v) => {
+      if (v === 'device' || v === 'en' || v === 'es' || v === 'fr') setLanguage(v);
+    });
   }, []);
 
   async function ensureSignedIn(): Promise<string | null> {
@@ -59,7 +66,7 @@ export default function Settings() {
       setUser(result.user);
       return result.accessToken;
     } catch {
-      Alert.alert('Sign-in failed', 'Could not sign in with Google.');
+      Alert.alert(t('settings.signInFailed'), t('settings.signInFailedMsg'));
       return null;
     }
   }
@@ -74,7 +81,7 @@ export default function Settings() {
         setBackupCount(info.count);
       }
     } catch (e: any) {
-      Alert.alert('Sign-in failed', e?.message ?? JSON.stringify(e));
+      Alert.alert(t('settings.signInFailed'), e?.message ?? JSON.stringify(e));
     }
   }
 
@@ -90,12 +97,12 @@ export default function Settings() {
     if (!token) return;
 
     Alert.alert(
-      'Back Up Now?',
-      'A new backup will be created on Google Drive. Old backups are kept (up to 10).',
+      t('settings.backUpNowTitle'),
+      t('settings.backUpNowMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Back Up',
+          text: t('settings.backUpBtn'),
           onPress: async () => {
             setLoading('backup');
             try {
@@ -106,9 +113,9 @@ export default function Settings() {
                 setLastBackup(info.modifiedTime);
                 setBackupCount(info.count);
               }
-              Alert.alert('Backup complete', 'Your data has been saved to Google Drive.');
+              Alert.alert(t('settings.backupComplete'), t('settings.backupCompleteMsg'));
             } catch (e: any) {
-              Alert.alert('Backup failed', e.message);
+              Alert.alert(t('settings.backupFailed'), e.message);
             } finally {
               setLoading(null);
             }
@@ -129,7 +136,7 @@ export default function Settings() {
       setPickerEntries(entries);
     } catch (e: any) {
       setPickerVisible(false);
-      Alert.alert('Failed to load backups', e.message);
+      Alert.alert(t('settings.failedToLoadBackups'), e.message);
     } finally {
       setPickerLoading(false);
     }
@@ -141,12 +148,12 @@ export default function Settings() {
     if (!token) return;
 
     Alert.alert(
-      'Restore this backup?',
+      t('settings.restoreTitle'),
       `${formatDate(entry.createdTime)}\n\nThis will overwrite all local workout data. This cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Restore',
+          text: t('settings.restoreBtn'),
           style: 'destructive',
           onPress: async () => {
             setLoading('restore');
@@ -154,9 +161,9 @@ export default function Settings() {
               const backup = await downloadFromDriveById(token, entry.id);
               await importData(backup);
               clearAllCaches();
-              Alert.alert('Restore complete', 'Your data has been restored from Google Drive.');
+              Alert.alert(t('settings.restoreComplete'), t('settings.restoreCompleteMsg'));
             } catch (e: any) {
-              Alert.alert('Restore failed', e.message);
+              Alert.alert(t('settings.restoreFailed'), e.message);
             } finally {
               setLoading(null);
             }
@@ -177,7 +184,7 @@ export default function Settings() {
       style={{ flex: 1, backgroundColor: '#09090b' }}
       contentContainerStyle={{ padding: 24 }}>
       <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 32 }}>
-        Settings
+        {t('settings.heading')}
       </Text>
 
       {/* Appearance */}
@@ -190,7 +197,7 @@ export default function Settings() {
             letterSpacing: 1.2,
             marginBottom: 12,
           }}>
-          Appearance
+          {t('settings.appearance')}
         </Text>
         <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
           <View
@@ -201,9 +208,9 @@ export default function Settings() {
               justifyContent: 'space-between',
             }}>
             <View>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Body figure</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.bodyFigure')}</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Shown in the Muscles tab
+                {t('settings.bodyFigureDesc')}
               </Text>
             </View>
             <View
@@ -233,7 +240,65 @@ export default function Settings() {
                       fontSize: 13,
                       fontWeight: '600',
                     }}>
-                    {g === 'male' ? '♂ Male' : '♀ Female'}
+                    {g === 'male' ? t('settings.male') : t('settings.female')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: '#27272a',
+              padding: 16,
+              gap: 12,
+            }}>
+            <View>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.language')}</Text>
+              <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
+                {t('settings.languageDesc')}
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: '#27272a',
+                borderRadius: 8,
+                padding: 3,
+                gap: 3,
+              }}>
+              {(
+                [
+                  ['device', t('settings.languageDevice')],
+                  ['en', t('settings.languageEn')],
+                  ['es', t('settings.languageEs')],
+                  ['fr', t('settings.languageFr')],
+                ] as [AppLanguage, string][]
+              ).map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => {
+                    setLanguage(val);
+                    PrefsDAL.set('language', val);
+                    const effective = val === 'device' ? getDeviceLanguage() : val;
+                    i18n.changeLanguage(effective);
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingHorizontal: 8,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    alignItems: 'center',
+                    backgroundColor: language === val ? '#3f3f46' : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      color: language === val ? '#fafafa' : '#71717a',
+                      fontSize: 12,
+                      fontWeight: '600',
+                    }}>
+                    {label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -252,14 +317,14 @@ export default function Settings() {
             letterSpacing: 1.2,
             marginBottom: 12,
           }}>
-          Workout
+          {t('settings.workout')}
         </Text>
         <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
           <View style={{ padding: 16, gap: 12 }}>
             <View>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Weight &amp; reps prefill</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.weightRepsPrefill')}</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Default values when starting the first set of an exercise
+                {t('settings.weightRepsPrefillDesc')}
               </Text>
             </View>
             <View
@@ -272,8 +337,8 @@ export default function Settings() {
               }}>
               {(
                 [
-                  ['last_set', 'Last set'],
-                  ['first_set', 'First of last workout'],
+                  ['last_set', t('settings.lastSet')],
+                  ['first_set', t('settings.firstOfLastWorkout')],
                 ] as const
               ).map(([val, label]) => (
                 <TouchableOpacity
@@ -305,10 +370,9 @@ export default function Settings() {
 
           <View style={{ borderTopWidth: 1, borderTopColor: '#27272a', padding: 16, gap: 12 }}>
             <View>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Default weight mode</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.defaultWeightMode')}</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Per side: enter weight for one side — total is doubled (e.g. dumbbells). Can be
-                overridden per exercise.
+                {t('settings.defaultWeightModeDesc')}
               </Text>
             </View>
             <View
@@ -321,8 +385,8 @@ export default function Settings() {
               }}>
               {(
                 [
-                  ['total', 'Total weight'],
-                  ['per_side', 'Per side (×2)'],
+                  ['total', t('settings.totalWeight')],
+                  ['per_side', t('settings.perSideX2')],
                 ] as const
               ).map(([val, label]) => (
                 <TouchableOpacity
@@ -364,7 +428,7 @@ export default function Settings() {
             letterSpacing: 1.2,
             marginBottom: 12,
           }}>
-          AI Coaching
+          {t('settings.aiCoaching')}
         </Text>
         <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
           <TouchableOpacity
@@ -378,12 +442,12 @@ export default function Settings() {
               borderBottomColor: '#27272a',
             }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Export for AI</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.exportForAi')}</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Share exercises, routines or analytics with your AI chatbot
+                {t('settings.exportForAiDesc')}
               </Text>
             </View>
-            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>Open →</Text>
+            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>{t('common.open')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push('/ai_import')}
@@ -394,12 +458,12 @@ export default function Settings() {
               justifyContent: 'space-between',
             }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Import from AI</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.importFromAi')}</Text>
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                Paste AI-generated exercises or routines
+                {t('settings.importFromAiDesc')}
               </Text>
             </View>
-            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>Open →</Text>
+            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 13 }}>{t('common.open')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -414,7 +478,7 @@ export default function Settings() {
             letterSpacing: 1.2,
             marginBottom: 12,
           }}>
-          Google Account
+          {t('settings.googleAccount')}
         </Text>
         {user ? (
           <View style={{ backgroundColor: '#18181b', borderRadius: 12, padding: 16 }}>
@@ -431,7 +495,7 @@ export default function Settings() {
                 paddingHorizontal: 14,
                 paddingVertical: 8,
               }}>
-              <Text style={{ color: '#f87171', fontWeight: '600', fontSize: 13 }}>Sign out</Text>
+              <Text style={{ color: '#f87171', fontWeight: '600', fontSize: 13 }}>{t('common.signOut')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -444,7 +508,7 @@ export default function Settings() {
               flexDirection: 'row',
               alignItems: 'center',
             }}>
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Sign in with Google</Text>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.signInGoogle')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -459,14 +523,14 @@ export default function Settings() {
             letterSpacing: 1.2,
             marginBottom: 12,
           }}>
-          Google Drive Backup
+          {t('settings.googleDriveBackup')}
         </Text>
         <View style={{ backgroundColor: '#18181b', borderRadius: 12, overflow: 'hidden' }}>
           <TouchableOpacity
             onPress={handleBackup}
             disabled={loading !== null}
             style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#27272a' }}>
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Back Up Now</Text>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>{t('settings.backUpNow')}</Text>
             {lastBackup && (
               <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
                 Last backup: {formatDate(lastBackup)}
@@ -479,9 +543,9 @@ export default function Settings() {
             onPress={handleRestore}
             disabled={loading !== null}
             style={{ padding: 16 }}>
-            <Text style={{ color: '#ea580c', fontWeight: '600' }}>Restore from Drive</Text>
+            <Text style={{ color: '#ea580c', fontWeight: '600' }}>{t('settings.restoreFromDrive')}</Text>
             <Text style={{ color: '#71717a', fontSize: 12, marginTop: 4 }}>
-              Overwrites all local data
+              {t('settings.restoreFromDriveDesc')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -491,12 +555,12 @@ export default function Settings() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
           <ActivityIndicator size="large" color="#ea580c" />
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-            {loading === 'backup' ? 'Backing up…' : 'Restoring…'}
+            {loading === 'backup' ? t('settings.backingUp') : t('settings.restoring')}
           </Text>
           <TouchableOpacity
             onPress={() => setLoading(null)}
             style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#52525b' }}>
-            <Text style={{ color: '#a3a3a3', fontWeight: '600' }}>Cancel</Text>
+            <Text style={{ color: '#a3a3a3', fontWeight: '600' }}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -530,10 +594,10 @@ export default function Settings() {
                 borderBottomColor: '#27272a',
               }}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-                Choose a backup
+                {t('settings.chooseBackup')}
               </Text>
               <TouchableOpacity onPress={() => setPickerVisible(false)}>
-                <Text style={{ color: '#71717a', fontSize: 14 }}>Cancel</Text>
+                <Text style={{ color: '#71717a', fontSize: 14 }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -544,7 +608,7 @@ export default function Settings() {
                 </View>
               ) : pickerEntries.length === 0 ? (
                 <Text style={{ color: '#71717a', padding: 24, textAlign: 'center' }}>
-                  No backups found.
+                  {t('settings.noBackups')}
                 </Text>
               ) : (
                 pickerEntries.map((entry, i) => (
@@ -560,7 +624,7 @@ export default function Settings() {
                       {formatDate(entry.createdTime)}
                     </Text>
                     {i === 0 && (
-                      <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>Latest</Text>
+                      <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>{t('common.latest')}</Text>
                     )}
                   </TouchableOpacity>
                 ))

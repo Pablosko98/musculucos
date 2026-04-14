@@ -2,6 +2,7 @@ import React from 'react';
 import { TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 // ─── Single selectable row ────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ export function SelectAllBar({
   onSelectAll: () => void;
   onDeselectAll: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -69,14 +71,14 @@ export function SelectAllBar({
         paddingVertical: 8,
       }}>
       <Text style={{ color: '#71717a', fontSize: 13 }}>
-        {selected} / {total} selected
+        {t('selection.selected', { selected, total })}
       </Text>
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <TouchableOpacity onPress={onSelectAll}>
-          <Text style={{ color: '#ea580c', fontSize: 13, fontWeight: '600' }}>All</Text>
+          <Text style={{ color: '#ea580c', fontSize: 13, fontWeight: '600' }}>{t('selection.all')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onDeselectAll}>
-          <Text style={{ color: '#52525b', fontSize: 13, fontWeight: '600' }}>None</Text>
+          <Text style={{ color: '#52525b', fontSize: 13, fontWeight: '600' }}>{t('selection.none')}</Text>
         </TouchableOpacity>
       </View>
     </View>

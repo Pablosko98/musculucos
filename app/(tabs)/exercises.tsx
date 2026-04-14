@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { Plus, Pencil } from 'lucide-react-native';
@@ -19,6 +20,7 @@ import {
 
 export default function Exercises() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { focusName } = useLocalSearchParams<{ focusName?: string }>();
   const flatListRef = useRef<FlatList>(null);
 
@@ -100,7 +102,7 @@ export default function Exercises() {
             marginBottom: 8,
           }}>
           <Text style={{ fontSize: 28, fontWeight: '700', color: '#fafafa', letterSpacing: -0.5 }}>
-            Exercises
+            {t('exercises.heading')}
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/create_exercise')}
@@ -150,7 +152,7 @@ export default function Exercises() {
           <View style={{ paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {loading
               ? <ActivityIndicator size="small" color="#ea580c" />
-              : <Text style={{ color: '#52525b', fontSize: 13 }}>{filters.filteredGroups.length} {filters.filteredGroups.length === 1 ? 'exercise' : 'exercises'}</Text>
+              : <Text style={{ color: '#52525b', fontSize: 13 }}>{t('exercises.exercise', { count: filters.filteredGroups.length })}</Text>
             }
             {crumbs.map((c, i) => (
               <React.Fragment key={i}>
@@ -163,7 +165,7 @@ export default function Exercises() {
         ListEmptyComponent={
           loading ? null : (
             <View style={{ paddingTop: 60, alignItems: 'center' }}>
-              <Text style={{ color: '#3f3f46', fontSize: 15 }}>No exercises found</Text>
+              <Text style={{ color: '#3f3f46', fontSize: 15 }}>{t('exercises.noExercises')}</Text>
             </View>
           )
         }

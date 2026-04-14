@@ -1,3 +1,4 @@
+import '@/lib/i18n';
 import '@/global.css';
 import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
@@ -9,7 +10,8 @@ import { createContext, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
-import { initDB } from '@/lib/db';
+import { initDB, PrefsDAL } from '@/lib/db';
+import { applyStoredLanguage } from '@/lib/i18n';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { restTimer } from '@/lib/rest-timer';
@@ -17,6 +19,7 @@ import type { ActiveRest } from '@/lib/rest-timer';
 import { setNotificationCallbacks } from '@/lib/notifications';
 import { Text } from '@/components/ui/text';
 import { Timer } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 export {
   ErrorBoundary,
@@ -54,6 +57,7 @@ function useNotificationHandlers() {
 // Rendered absolutely — out of layout flow so the Stack height never changes.
 function RestBanner({ active, onHeight }: { active: ActiveRest | null; onHeight: (h: number) => void }) {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -92,7 +96,7 @@ function RestBanner({ active, onHeight }: { active: ActiveRest | null; onHeight:
         <Timer size={14} color="#a855f7" />
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#a855f7', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-            Resting
+            {t('banner.resting')}
           </Text>
           {active.blockName ? (
             <Text style={{ color: '#d8b4fe', fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
@@ -160,6 +164,7 @@ function AppShell() {
 export default function RootLayout() {
   useEffect(() => {
     initDB();
+    PrefsDAL.get('language').then(applyStoredLanguage);
   }, []);
 
   return (

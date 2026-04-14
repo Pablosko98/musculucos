@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ExerciseDAL, RoutineDAL } from '@/lib/db';
@@ -55,6 +56,7 @@ function SlotGroupEditor({
   onRemoveGroup: () => void;
   canRemoveGroup: boolean;
 }) {
+  const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const usedIds = useMemo(() => new Set(options), [options]);
@@ -83,7 +85,7 @@ function SlotGroupEditor({
               textTransform: 'uppercase',
               letterSpacing: 1,
             }}>
-            Exercise {groupIndex + 1}
+            {t('routines.exerciseSlot', { number: groupIndex + 1 })}
           </Text>
           <TouchableOpacity onPress={onRemoveGroup}>
             <X size={16} color="#ef4444" />
@@ -138,7 +140,7 @@ function SlotGroupEditor({
                 <Text style={{ color: '#52525b', fontSize: 12, marginTop: 2 }}>
                   {exerciseLabel(ex)}
                   <Text style={{ color: isPrimary ? '#3b82f6' : '#3f3f46' }}>
-                    {isPrimary ? '  ·  Primary' : `  ·  Alt ${i}`}
+                    {isPrimary ? `  ${t('routines.primary')}` : `  ${t('routines.alt', { number: i })}`}
                   </Text>
                 </Text>
               )}
@@ -147,10 +149,10 @@ function SlotGroupEditor({
             <TouchableOpacity
               onPress={() => {
                 if (isPrimary) {
-                  Alert.alert('Change Primary', 'Remove this exercise?', [
-                    { text: 'Cancel' },
+                  Alert.alert(t('routines.changePrimary'), t('common.remove'), [
+                    { text: t('common.cancel') },
                     {
-                      text: 'Remove',
+                      text: t('common.remove'),
                       style: 'destructive',
                       onPress: () => onChange(options.filter((_, idx) => idx !== 0)),
                     },
@@ -177,14 +179,14 @@ function SlotGroupEditor({
         }}>
         <Plus size={14} color="#ea580c" />
         <Text style={{ color: '#ea580c', fontSize: 13, fontWeight: '600' }}>
-          {options.length === 0 ? 'Add Exercise' : 'Add Alternative'}
+          {options.length === 0 ? t('routines.addExercise') : t('routines.addAlternative')}
         </Text>
       </TouchableOpacity>
 
       <ExercisePickerSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Select Exercise"
+        title={t('routines.selectExercise')}
         onSelect={(ex) => onChange([...options, ex.id])}
         excludeIds={usedIds}
         createContext={{ type: 'callback', onCreated: (ex) => onChange([...options, ex.id]) }}
@@ -206,14 +208,15 @@ function SlotRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       onPress={onEdit}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert('Remove Exercise', 'Remove this slot from the routine?', [
-          { text: 'Cancel' },
-          { text: 'Remove', style: 'destructive', onPress: onDelete },
+        Alert.alert(t('routines.removeExerciseTitle'), t('routines.removeExerciseMessage'), [
+          { text: t('common.cancel') },
+          { text: t('common.remove'), style: 'destructive', onPress: onDelete },
         ]);
       }}
       style={{
@@ -241,7 +244,7 @@ function SlotRow({
                     textTransform: 'uppercase',
                     letterSpacing: 0.5,
                   }}>
-                  {gi === 0 ? 'Superset' : 'with'}
+                  {gi === 0 ? t('routines.superset') : t('routines.with')}
                 </Text>
               </View>
             )}
@@ -253,7 +256,7 @@ function SlotRow({
                 marginBottom: isEmpty ? 0 : 6,
                 fontStyle: isEmpty ? 'italic' : 'normal',
               }}>
-              {isEmpty ? 'Tap to select exercise…' : primaryEx ? primaryEx.name : group[0]}
+              {isEmpty ? t('routines.tapToSelect') : primaryEx ? primaryEx.name : group[0]}
             </Text>
             {!isEmpty && allOptions.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
@@ -314,6 +317,7 @@ function SlotEditorModal({
   onClose: () => void;
   onSave: (updated: RoutineExercise) => void;
 }) {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState<string[][]>([]);
   const [addGroupPickerOpen, setAddGroupPickerOpen] = useState(false);
 
@@ -367,7 +371,7 @@ function SlotEditorModal({
               borderBottomWidth: 1,
               borderBottomColor: '#262626',
             }}>
-            <DialogTitle style={{ color: 'white', flex: 1 }}>Edit Exercise Slot</DialogTitle>
+            <DialogTitle style={{ color: 'white', flex: 1 }}>{t('routines.editSlot')}</DialogTitle>
             <TouchableOpacity onPress={onClose}>
               <X size={20} color="#71717a" />
             </TouchableOpacity>
@@ -403,21 +407,21 @@ function SlotEditorModal({
               }}>
               <Link size={14} color="#71717a" />
               <Text style={{ color: '#71717a', fontSize: 13, fontWeight: '600' }}>
-                Add Superset Exercise
+                {t('routines.addSupersetExercise')}
               </Text>
             </TouchableOpacity>
           </ScrollView>
 
           <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#262626' }}>
             <Button onPress={handleSave} style={{ backgroundColor: '#ea580c', borderRadius: 12 }}>
-              <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>Save</Text>
+              <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>{t('common.save')}</Text>
             </Button>
           </View>
 
           <ExercisePickerSheet
             open={addGroupPickerOpen}
             onClose={() => setAddGroupPickerOpen(false)}
-            title="Add Exercise to Superset"
+            title={t('routines.addExerciseToSuperset')}
             onSelect={(ex) => {
               setGroups((prev) => [...prev, [ex.id]]);
             }}
@@ -445,6 +449,7 @@ function RoutineEditor({
   onBack: () => void;
   onSave: (r: Routine) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(routine.name);
   const [description, setDescription] = useState(routine.description ?? '');
   const [slots, setSlots] = useState<RoutineExercise[]>(routine.exercises);
@@ -522,7 +527,7 @@ function RoutineEditor({
           <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
         <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', flex: 1 }}>
-          Edit Routine
+          {t('routines.editRoutine')}
         </Text>
         <TouchableOpacity
           onPress={handleSave}
@@ -532,7 +537,7 @@ function RoutineEditor({
             paddingVertical: 8,
             borderRadius: 20,
           }}>
-          <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Save</Text>
+          <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>{t('common.save')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -550,12 +555,12 @@ function RoutineEditor({
             letterSpacing: 1,
             marginBottom: 6,
           }}>
-          Name
+          {t('routines.name')}
         </Text>
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Routine name"
+          placeholder={t('routines.routineName')}
           placeholderTextColor="#3f3f46"
           style={{
             backgroundColor: '#18181b',
@@ -578,12 +583,12 @@ function RoutineEditor({
             letterSpacing: 1,
             marginBottom: 6,
           }}>
-          Description
+          {t('routines.description')}
         </Text>
         <TextInput
           value={description}
           onChangeText={setDescription}
-          placeholder="Optional description"
+          placeholder={t('routines.optionalDescription')}
           placeholderTextColor="#3f3f46"
           multiline
           style={{
@@ -608,7 +613,7 @@ function RoutineEditor({
               letterSpacing: 1,
               flex: 1,
             }}>
-            Exercises ({slots.length})
+            {t('routines.exerciseCount', { count: slots.length })}
           </Text>
         </View>
 
@@ -642,7 +647,7 @@ function RoutineEditor({
               borderColor: '#27272a',
             }}>
             <Plus size={16} color="#ea580c" />
-            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>Add Exercise</Text>
+            <Text style={{ color: '#ea580c', fontWeight: '600', fontSize: 14 }}>{t('routines.addExercise')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleAddSuperset}
@@ -659,7 +664,7 @@ function RoutineEditor({
               borderColor: '#27272a',
             }}>
             <Plus size={14} color="#f97316" />
-            <Text style={{ color: '#f97316', fontWeight: '600', fontSize: 14 }}>Add Superset</Text>
+            <Text style={{ color: '#f97316', fontWeight: '600', fontSize: 14 }}>{t('routines.addSuperset')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -678,7 +683,7 @@ function RoutineEditor({
       <ExercisePickerSheet
         open={addSlotPickerOpen}
         onClose={() => setAddSlotPickerOpen(false)}
-        title="Add Exercise"
+        title={t('routines.addExercise')}
         onSelect={handleAddSlot}
         createContext={{ type: 'callback', onCreated: handleAddSlot }}
       />
@@ -699,6 +704,7 @@ function RoutineCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const exerciseNames = routine.exercises.slice(0, 4).map((slot) => {
     const ex = allExercises.get(slot.exerciseGroups[0]?.[0] ?? '');
     return ex?.name ?? '—';
@@ -709,9 +715,9 @@ function RoutineCard({
       onPress={onEdit}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert('Delete Routine', `Delete "${routine.name}"?`, [
-          { text: 'Cancel' },
-          { text: 'Delete', style: 'destructive', onPress: onDelete },
+        Alert.alert(t('routines.deleteTitle'), t('routines.deleteMessage', { name: routine.name }), [
+          { text: t('common.cancel') },
+          { text: t('common.delete'), style: 'destructive', onPress: onDelete },
         ]);
       }}
       style={{
@@ -764,6 +770,7 @@ function RoutineCard({
 // ─── WorkoutBuilder (main tab) ────────────────────────────────────────────────
 
 export default function WorkoutBuilder() {
+  const { t } = useTranslation();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [allExercises, setAllExercises] = useState<Map<string, Exercise>>(new Map());
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -840,7 +847,7 @@ export default function WorkoutBuilder() {
           paddingTop: 20,
           paddingBottom: 16,
         }}>
-        <Text style={{ color: 'white', fontSize: 28, fontWeight: '800', flex: 1 }}>Routines</Text>
+        <Text style={{ color: 'white', fontSize: 28, fontWeight: '800', flex: 1 }}>{t('routines.heading')}</Text>
         <TouchableOpacity
           onPress={handleNewRoutine}
           style={{
@@ -859,10 +866,10 @@ export default function WorkoutBuilder() {
         {routines.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 80 }}>
             <Text style={{ color: '#3f3f46', fontSize: 16, fontWeight: '600' }}>
-              No routines yet
+              {t('routines.noRoutines')}
             </Text>
             <Text style={{ color: '#27272a', fontSize: 13, marginTop: 6 }}>
-              Tap + to create one
+              {t('routines.tapToCreate')}
             </Text>
           </View>
         ) : (

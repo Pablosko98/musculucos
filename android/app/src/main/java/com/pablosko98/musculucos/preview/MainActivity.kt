@@ -1,4 +1,4 @@
-package com.pablosko98.musculucos.dev
+package com.pablosko98.musculucos.preview
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

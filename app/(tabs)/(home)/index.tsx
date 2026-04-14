@@ -23,6 +23,7 @@ import AddRoutine from '../../add_routine';
 import ViewExerciseBlock from '../../view_exercise_block';
 import { ExercisePickerSheet } from '@/components/ExercisePickerSheet';
 import { CalendarModal } from '@/components/CalendarModal';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
@@ -313,6 +314,7 @@ function WorkoutCard({ index }: { index: number }) {
   const dateString = format(dateForCard, 'yyyy-MM-dd');
   const dayDiff = index - INITIAL_INDEX;
   const [replaceBlockId, setReplaceBlockId] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const { data: dailyWorkout } = useQuery({
     queryKey: workoutKey(dateString),
@@ -397,7 +399,7 @@ function WorkoutCard({ index }: { index: number }) {
             ))
           ) : (
             <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 100 }}>
-              <Text style={{ color: '#404040', fontSize: 18, fontWeight: '600' }}>REST DAY</Text>
+              <Text style={{ color: '#404040', fontSize: 18, fontWeight: '600' }}>{t('tracker.restDay')}</Text>
             </View>
           )}
         </ScrollView>
@@ -432,6 +434,7 @@ function WorkoutCard({ index }: { index: number }) {
 
 export default function WorkoutTracker() {
   const bannerHeight = useContext(RestBannerHeightContext);
+  const { t } = useTranslation();
   const carouselRef = useRef<ICarouselInstance>(null);
   const today = startOfDay(new Date());
   const [carouselHeight, setCarouselHeight] = useState(0);
@@ -492,7 +495,7 @@ export default function WorkoutTracker() {
           zIndex: 50,
         }}>
         <Button style={{ backgroundColor: '#6b21a8', width: 140 }} onPress={() => setCalendarVisible(true)}>
-          <Text style={{ color: 'white' }}>Calendar</Text>
+          <Text style={{ color: 'white' }}>{t('common.calendar')}</Text>
         </Button>
         <CalendarModal
           visible={calendarVisible}
@@ -505,7 +508,7 @@ export default function WorkoutTracker() {
         <Button
           style={{ backgroundColor: '#166534', width: 140 }}
           onPress={() => navigateTo(INITIAL_INDEX)}>
-          <Text style={{ color: 'white' }}>Today</Text>
+          <Text style={{ color: 'white' }}>{t('common.today')}</Text>
         </Button>
       </View>
 

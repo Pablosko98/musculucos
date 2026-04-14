@@ -7,6 +7,7 @@ import {
   Animated,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { X, Plus } from 'lucide-react-native';
 import type { Exercise } from '@/lib/exercises';
@@ -48,12 +49,14 @@ export type ExercisePickerSheetProps = {
 export function ExercisePickerSheet({
   open,
   onClose,
-  title = 'Select Exercise',
+  title,
   onSelect,
   onSelectMultiple,
   excludeIds,
   createContext,
 }: ExercisePickerSheetProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('picker.selectExercise');
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [stats, setStats] = useState<Record<string, ExerciseStat>>({});
   const [isSupersetMode, setIsSupersetMode] = useState(false);
@@ -179,7 +182,7 @@ export function ExercisePickerSheet({
             borderBottomColor: '#32303d',
           }}>
             <DialogTitle style={{ color: '#fafafa', fontSize: 20, fontWeight: '700', flex: 1, letterSpacing: -0.3 }}>
-              {title}
+              {resolvedTitle}
             </DialogTitle>
             {onSelectMultiple && (
               <TouchableOpacity
@@ -194,7 +197,7 @@ export function ExercisePickerSheet({
                   borderColor: isSupersetMode ? '#ea580c' : '#3f3f46',
                 }}>
                 <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>
-                  {isSupersetMode ? 'Superset ON' : 'Superset'}
+                  {isSupersetMode ? t('picker.supersetOn') : t('picker.superset')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -237,7 +240,7 @@ export function ExercisePickerSheet({
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={{ paddingTop: 60, alignItems: 'center' }}>
-                <Text style={{ color: '#3f3f46', fontSize: 15 }}>No exercises found</Text>
+                <Text style={{ color: '#3f3f46', fontSize: 15 }}>{t('picker.noExercises')}</Text>
               </View>
             }
             renderItem={({ item }) => (
@@ -276,7 +279,7 @@ export function ExercisePickerSheet({
                 alignItems: 'center',
               }}>
               <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
-                Add Superset ({staged.length} exercises)
+                {t('picker.addSuperset', { count: staged.length })}
               </Text>
             </TouchableOpacity>
           )}
